@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { CreateUserDto } from '../user/dto/create-user.dto';
 import { UserService } from '../user/user.service';
 
@@ -10,7 +10,7 @@ export class AuthService {
       createUserDto.email,
     );
     if (existingUser) {
-      throw new BadRequestException('User is already exists');
+      throw new ConflictException('User is already exists');
     }
     return this.userService.create(createUserDto);
   }
