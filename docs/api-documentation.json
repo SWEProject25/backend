@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/auth/register": {
+    "/api/v1.0/auth/register": {
       "post": {
         "description": "Creates a new user account with the provided details",
         "operationId": "AuthController_register",
@@ -32,6 +32,39 @@
           "Auth"
         ]
       }
+    },
+    "/api/v1.0/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/test": {
+      "get": {
+        "operationId": "AuthController_test",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "tags": [
+          "Auth"
+        ]
+      }
     }
   },
   "info": {
@@ -43,15 +76,15 @@
   "tags": [],
   "servers": [
     {
-      "url": "http://localhost:3000"
+      "url": "http://localhost:5000"
     }
   ],
   "components": {
     "securitySchemes": {
-      "bearer": {
-        "scheme": "bearer",
-        "bearerFormat": "JWT",
-        "type": "http"
+      "cookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "access_token"
       }
     },
     "schemas": {
@@ -61,7 +94,9 @@
           "name": {
             "type": "string",
             "description": "The name for the user",
-            "example": "johndoe"
+            "example": "johndoe",
+            "minLength": 3,
+            "maxLength": 30
           },
           "email": {
             "type": "string",
@@ -71,8 +106,10 @@
           },
           "password": {
             "type": "string",
-            "description": "The password for the user account",
+            "description": "The password for the user account (must include uppercase, lowercase, number, and special character)",
             "example": "Password123!",
+            "minLength": 8,
+            "maxLength": 50,
             "format": "password"
           }
         },
