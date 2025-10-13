@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { writeFileSync } from 'fs';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const { PORT } = process.env;
@@ -14,13 +15,23 @@ async function bootstrap() {
     }),
   );
 
+  app.use(cookieParser());
+  app.setGlobalPrefix(`api/${process.env.APP_VERSION}`);
+  app.enableCors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  });
+
   const swagger = new DocumentBuilder()
     .setTitle('Hankers')
-    .addServer(`http://localhost:${PORT}`)
     .setVersion('1.0')
-    .addSecurity('bearer', { type: 'http', scheme: 'bearer' })
-    .addBearerAuth()
+    .addServer(`http://localhost:${PORT}`)
+    .addCookieAuth('access_token', {
+      type: 'apiKey',
+      in: 'cookie',
+    })
     .build();
+
   const documentation = SwaggerModule.createDocument(app, swagger);
   // http://localhost:PORT/swagger
   SwaggerModule.setup('swagger', app, documentation);
