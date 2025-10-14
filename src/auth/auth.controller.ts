@@ -24,11 +24,14 @@ import { RequestWithUser } from 'src/common/interfaces/request-with-user.interfa
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
+import { Public } from './decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
   @Post('register')
+  @Public()
   @ApiOperation({
     summary: 'Register a new user',
     description: 'Creates a new user account with the provided details',
@@ -62,6 +65,9 @@ export class AuthController {
   }
 
   @Post('login')
+  @Public()
+  @UseGuards(LocalAuthGuard)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Login using email and password',
     description: 'Login with the provided details (JWT set as HTTPOnly cookie)',
@@ -80,8 +86,6 @@ export class AuthController {
     status: 401,
     description: 'Unauthorized - Invalid credentials',
   })
-  @UseGuards(LocalAuthGuard)
-  @HttpCode(HttpStatus.OK)
   public async login(
     @Request() req: RequestWithUser,
     @Res({ passthrough: true }) res: Response,
@@ -91,7 +95,6 @@ export class AuthController {
       req.user.name,
     );
     this.authService.setAuthCookies(res, accessToken);
-    console.log(result);
     return {
       status: 'success',
       message: 'Logged in successfully',
