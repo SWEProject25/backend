@@ -15,8 +15,19 @@ datasource db {
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  email    String @unique
-  name     String
-  password String
+  id          String    @id @default(uuid()) @map("id")
+  email       String    @unique @map("email")
+  username    String    @map("username") @db.VarChar(50) // should be uniquely identifer
+  password    String    @map("password") @db.VarChar(255)
+  is_verified Boolean   @default(false) @map("is_verifed")
+  provider_id String?   @map("provider_id")
+  role        Role      @default(USER) @map("role")
+  created_at  DateTime  @default(now()) @map("created_at")
+  updated_at  DateTime  @updatedAt() @map("updated_at")
+  deleted_at  DateTime? @map("deleted_at")
+}
+
+enum Role {
+  USER
+  ADMIN
 }
