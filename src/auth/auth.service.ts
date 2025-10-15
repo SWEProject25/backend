@@ -32,6 +32,13 @@ export class AuthService {
     return this.userService.create(createUserDto);
   }
 
+  public async checkEmailExistence(email: string): Promise<void> {
+    const existingUser = await this.userService.findByEmail(email);
+    if (existingUser) {
+      throw new ConflictException('User already exists with this email');
+    }
+  }
+
   public async login(userId: number, name: string) {
     const accessToken = await this.generateTokens(userId, name);
     return {

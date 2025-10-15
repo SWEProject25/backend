@@ -25,6 +25,7 @@ import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 import { Public } from './decorators/public.decorator';
+import { CheckEmailDto } from './dto/check-email.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -103,6 +104,42 @@ export class AuthController {
         name: result.user.name,
       },
     };
+  }
+
+  @Post('check-email')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Check if an email already exists',
+    description:
+      'Verifies whether the given email is already registered in the system.',
+  })
+  @ApiBody({
+    description: 'Email to be checked',
+    type: CheckEmailDto,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Email is available for registration',
+    schema: {
+      example: { message: 'Email is available' },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Email already exists in the system',
+    schema: {
+      example: {
+        statusCode: 409,
+        message: 'Email already in use',
+        error: 'Conflict',
+      },
+    },
+  })
+  public async checkEmail(@Body() { email }: CheckEmailDto) {
+    console.log(email);
+    await this.authService.checkEmailExistence(email);
+    return { message: 'Email is available' };
   }
 
   @ApiCookieAuth()
