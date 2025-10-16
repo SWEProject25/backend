@@ -15,17 +15,18 @@ datasource db {
 }
 
 model User {
-  id          String    @id @default(uuid()) @map("id") @db.Uuid()
-  email       String    @unique @map("email")
-  username    String    @map("username") @db.VarChar(50) // should be uniquely identifer
-  password    String    @map("password") @db.VarChar(255)
-  is_verified Boolean   @default(false) @map("is_verifed")
-  provider_id String?   @map("provider_id")
-  role        Role      @default(USER) @map("role")
-  created_at  DateTime  @default(now()) @map("created_at")
-  updated_at  DateTime  @updatedAt() @map("updated_at")
-  deleted_at  DateTime? @map("deleted_at")
-  Profile     Profile?
+  id           String              @id @default(uuid()) @map("id") @db.Uuid()
+  email        String              @unique @map("email")
+  username     String              @map("username") @db.VarChar(50) // should be uniquely identifer
+  password     String              @map("password") @db.VarChar(255)
+  is_verified  Boolean             @default(false) @map("is_verifed")
+  provider_id  String?             @map("provider_id")
+  role         Role                @default(USER) @map("role")
+  created_at   DateTime            @default(now()) @map("created_at")
+  updated_at   DateTime            @updatedAt() @map("updated_at")
+  deleted_at   DateTime?           @map("deleted_at")
+  Profile      Profile?
+  Verification EmailVerification[]
 }
 
 model Profile {
@@ -45,6 +46,18 @@ model Profile {
 
   @@id([user_id, profile_id])
   @@map("Profile")
+}
+
+model EmailVerification {
+  id         Int      @id @default(autoincrement())
+  userId     String   @map("userId") @db.Uuid
+  token      String
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification")
 }
 
 enum Role {
