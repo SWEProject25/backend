@@ -5,6 +5,7 @@ import { PrismaService } from './prisma/prisma.service';
 import { UserModule } from './user/user.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth/jwt-auth.guard';
+import { EmailModule } from './email/email.module';
 
 const envFilePath = '.env';
 
@@ -13,6 +14,7 @@ const envFilePath = '.env';
     ConfigModule.forRoot({ envFilePath, isGlobal: true }),
     AuthModule,
     UserModule,
+    EmailModule,
   ],
   controllers: [],
   providers: [
