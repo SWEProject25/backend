@@ -26,6 +26,7 @@ import { LoginResponseDto } from './dto/login-response.dto';
 import { RegisterResponseDto } from './dto/register-response.dto';
 import { Public } from './decorators/public.decorator';
 import { CheckEmailDto } from './dto/check-email.dto';
+import { CurrentUser } from './decorators/current-user.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -52,15 +53,28 @@ export class AuthController {
   })
   public async register(@Body() createUserDto: CreateUserDto) {
     const result = await this.authService.registerUser(createUserDto);
+
+    const userProfile = result.userProfile;
+    const newUser = result.newUser;
+
     return {
       status: 'success',
       message:
         'Account created successfully. Please check your email for verification',
-      user: {
-        id: result.id,
-        name: result.name,
-        email: result.email,
-        // created_at: result.createdAt,
+      data: {
+        user: {
+          username: newUser.username,
+          role: newUser.role,
+          email: newUser.email,
+          name: userProfile.name,
+          birth_date: userProfile.birth_date,
+          profile_image_url: userProfile.profile_image_url,
+          banner_image_url: userProfile.banner_image_url,
+          bio: userProfile.bio,
+          location: userProfile.location,
+          website: userProfile.website,
+          created_at: newUser.created_at,
+        },
       },
     };
   }
@@ -93,16 +107,35 @@ export class AuthController {
   ) {
     const { accessToken, ...result } = await this.authService.login(
       req.user.sub,
-      req.user.name,
+      req.user.username,
     );
     this.authService.setAuthCookies(res, accessToken);
     return {
       status: 'success',
       message: 'Logged in successfully',
-      user: {
-        id: result.user.id,
-        name: result.user.name,
+      date: {
+        user: {
+          id: result.user.id,
+          name: result.user.username,
+        },
       },
+    };
+  }
+
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  getMe(@CurrentUser() user: any) {
+    // @TODO add user interface
+    return { user };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  logout(@Res({ passthrough: true }) response: Response) {
+    response.clearCookie('access_token');
+    response.clearCookie('refresh_token');
+    return {
+      message: 'Logout successful',
     };
   }
 
@@ -140,6 +173,30 @@ export class AuthController {
     console.log(email);
     await this.authService.checkEmailExistence(email);
     return { message: 'Email is available' };
+  }
+
+  @Post('verification-otp')
+  @Public()
+  public async generateVerificationEmail(@Body('userId') userId: string) {
+    await this.authService.generateVerificationEmail(userId);
+    return {
+      status: 'success',
+      message: 'Check your email for verification code',
+    };
+  }
+
+  @Post('verify-otp')
+  @Public()
+  public async verifyEmailOtp(
+    @Body('otp') otp: string,
+    @Body('userId') userId: string,
+  ) {
+    const result = await this.authService.verifyEmailOtp(userId, otp);
+
+    return {
+      status: result ? 'success' : 'fail',
+      message: result ? 'email verified' : 'fail',
+    };
   }
 
   @ApiCookieAuth()

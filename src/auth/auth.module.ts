@@ -9,15 +9,24 @@ import jwtConfig from './config/jwt.config';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { ConfigModule } from '@nestjs/config';
+import mailerConfig from 'src/common/config/mailer.config';
+import { EmailService } from 'src/email/email.service';
 
 @Module({
   controllers: [AuthController],
-  providers: [AuthService, PrismaService, LocalStrategy, JwtStrategy],
+  providers: [
+    AuthService,
+    PrismaService,
+    LocalStrategy,
+    JwtStrategy,
+    EmailService,
+  ],
   imports: [
     UserModule,
     PassportModule,
     ConfigModule.forFeature(jwtConfig),
     JwtModule.registerAsync(jwtConfig.asProvider()),
+    ConfigModule.forFeature(mailerConfig),
   ],
   exports: [AuthService],
 })

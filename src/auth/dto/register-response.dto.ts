@@ -1,6 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserResponse } from './user-response.dto';
 
+class RegisterDataResponseDto {
+  @ApiProperty({ type: UserResponse })
+  user: UserResponse;
+}
+
 export class RegisterResponseDto {
   @ApiProperty({ example: 'success' })
   status: string;
@@ -11,6 +16,6 @@ export class RegisterResponseDto {
   })
   message: string;
 
-  @ApiProperty({ type: UserResponse })
-  user: UserResponse;
+  @ApiProperty({ type: RegisterDataResponseDto })
+  data: RegisterDataResponseDto;
 }

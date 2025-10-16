@@ -9,5 +9,5 @@ export class LoginResponseDto {
   message: string;
 
   @ApiProperty({ type: UserResponse })
-  user: UserResponse;
+  data: { user: { UserResponse } };
 }

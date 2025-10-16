@@ -7,15 +7,30 @@ import { hash } from 'argon2';
 export class UserService {
   constructor(private readonly prismaService: PrismaService) {}
   public async create(createUserDto: CreateUserDto) {
-    const { password, ...user } = createUserDto;
+    const { password, name, birth_date, ...user } = createUserDto;
     const hashedPassword = await hash(password);
-    return await this.prismaService.user.create({
+    const username = 'temp'; // @TODO changed to unique identifer for each user
+    const newUser = await this.prismaService.user.create({
       data: {
-        password: hashedPassword,
         ...user,
+        password: hashedPassword,
+        username,
       },
     });
+    const userProfile = await this.prismaService.profile.create({
+      data: {
+        user_id: newUser.id,
+        birth_date,
+        name,
+      },
+    });
+
+    return {
+      newUser,
+      userProfile,
+    };
   }
+
   public async findByEmail(email: string) {
     return await this.prismaService.user.findUnique({
       where: {
@@ -24,7 +39,7 @@ export class UserService {
     });
   }
 
-  public async findOne(userId: number) {
+  public async findOne(userId: string) {
     return await this.prismaService.user.findUnique({ where: { id: userId } });
   }
 }

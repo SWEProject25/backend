@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsEmail,
   IsNotEmpty,
@@ -6,6 +7,7 @@ import {
   MinLength,
   MaxLength,
   Matches,
+  IsDate,
 } from 'class-validator';
 
 export class CreateUserDto {
@@ -50,4 +52,15 @@ export class CreateUserDto {
     format: 'password',
   })
   password: string;
+
+  @IsDate()
+  @Type(() => Date)
+  @IsNotEmpty()
+  @ApiProperty({
+    description: 'The birth date of the user',
+    example: '2004-01-01',
+    type: String,
+    format: 'date',
+  })
+  birth_date: Date;
 }
