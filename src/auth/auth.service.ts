@@ -18,7 +18,6 @@ import { hash } from 'argon2';
 import { EmailService } from 'src/email/email.service';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { UpdateUserDto } from 'src/user/dto/update-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -147,10 +146,8 @@ export class AuthService {
 
   public async generateVerificationEmail(email: string) {
     const user = await this.userService.findByEmail(email);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    if (user.is_verified) {
+    if (user && user.is_verified) {
+      // must not reach this if
       throw new UnprocessableEntityException('Account already verified');
     }
     const otp = await this.generateOtp(email);
@@ -166,7 +163,7 @@ export class AuthService {
 
     await this.emailService.sendEmail({
       subject: 'Account Verification',
-      recipients: [user.email],
+      recipients: [email],
       html: template,
     });
   }
@@ -181,24 +178,13 @@ export class AuthService {
 
   public async verifyEmailOtp(email: string, otp: string): Promise<boolean> {
     const user = await this.userService.findByEmail(email);
-    if (!user) {
-      throw new UnprocessableEntityException('failed');
-    }
-
-    if (user.is_verified) {
+    if (user && user.is_verified) {
       throw new UnprocessableEntityException('Account already verified');
     }
     const isValid = await this.validateOtp(email, otp);
     if (!isValid) {
       throw new UnprocessableEntityException('failed');
     }
-
-    const updateUserDto: UpdateUserDto = {
-      email: user.email,
-      is_verified: true,
-    };
-    await this.userService.updateEmailVerification(updateUserDto);
-
     return true;
   }
 
