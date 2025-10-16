@@ -1,0 +1,611 @@
+openapi: 3.0.0
+info:
+  title: X Clone Posts API
+  description: API documentation for managing posts, their interactions (likes, reposts), replies, and media in the X Clone application.
+  version: 1.0.0
+servers:
+  - url: https://api.xclone.com/v1
+    description: Production server
+  - url: http://localhost:3000/v1 # Example development server
+    description: Development server
+
+tags:
+  - name: Posts
+    description: Operations related to creating, retrieving, and deleting posts (including replies and quotes).
+  - name: Post Interactions
+    description: Endpoints for liking, reposting, and summarizing posts.
+
+paths:
+  /posts:
+    post:
+      tags:
+        - Posts
+      summary: Create a new post, reply, or quote with optional media
+      description: Allows a user to create a new original post, reply to an existing post, or quote an existing post, optionally including media files.
+      requestBody: # THIS SECTION IS UPDATED FOR MULTIPART AND INTEGER IDs
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - userId
+                - content
+                - type
+                - visibility
+              properties:
+                userId:
+                  type: integer
+                  format: int64
+                  description: The ID of the user creating the post.
+                  example: 1
+                content:
+                  type: string
+                  description: The main text content of the post.
+                  minLength: 1
+                  maxLength: 280
+                  example: "this is super duper post content"
+                type:
+                  type: string
+                  enum: [ "POST", "REPLY", "QUOTE" ]
+                  description: The type of post (e.g., original post, reply, quote).
+                  example: "POST"
+                parentId:
+                  type: integer 
+                  format: int64
+                  nullable: true
+                  description: The ID of the parent post if this is a reply or quote. Required if type is REPLY or QUOTE.
+                  example: null
+                visibility:
+                  type: string
+                  enum: [ "EVERY_ONE", "FOLLOWERS", "MENTIONED" ]
+                  description: Who can see the post.
+                  example: "EVERY_ONE"
+                mediaFiles: # Property for files
+                  type: array
+                  items:
+                    type: string
+                    format: binary # Indicates a file upload
+                  description: One or more media files (images, videos) to attach to the post.
+                  minItems: 0
+                  maxItems: 4 # Common limit for social media posts (e.g., 4 images)
+      responses:
+        '200':
+          description: Post (or reply/quote) created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "200"
+                  data:
+                    allOf: # Combines the Post schema with media info in response
+                      - $ref: '#/components/schemas/Post'
+                      - type: object
+                        properties:
+                          media:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Media'
+                            description: Details of the media files uploaded with the post.
+        '400':
+          description: Invalid request payload (e.g., reply missing parentId, invalid type, unsupported media format)
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+    get:
+      tags:
+        - Posts
+      summary: Get all posts
+      description: Retrieve a list of posts, with optional filtering by user ID, hashtag, and pagination.
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: integer 
+            format: int64
+          description: Filter posts by the ID of the user who created them.
+          example: 123
+        - in: query
+          name: hashtag
+          schema:
+            type: string
+          description: Filter posts by a specific hashtag (e.g., swagger).
+          example: 'swagger'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of posts to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: The number of posts to skip before starting to return results.
+      responses:
+        '200':
+          description: A list of posts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostsResponse' # Changed to use paginated response
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+
+  /posts/{postId}:
+    parameters:
+      - in: path
+        name: postId
+        schema:
+          type: integer
+          format: int64
+        required: true
+        description: The unique identifier of the post.
+        example: 123
+    get:
+      tags:
+        - Posts
+      summary: Get a post by ID
+      description: Retrieve details for a single post using its unique ID.
+      responses:
+        '200':
+          description: Post details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostResponse'
+        '404':
+          description: Post not found
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+    delete:
+      tags:
+        - Posts
+      summary: Delete a post by ID
+      description: Deletes a specific post. User must be the owner of the post.
+      responses:
+        '204':
+          description: Post deleted successfully (No Content)
+        '401':
+          description: Unauthorized - User not authenticated
+        '403':
+          description: Forbidden - User does not own the post
+        '404':
+          description: Post not found
+        '500':
+          description: Internal server error
+
+  /posts/{postId}/replies:
+    get:
+      tags:
+        - Posts
+      summary: Get replies to a specific post
+      description: Retrieve a list of posts that are replies to the specified parent post.
+      parameters:
+        - in: path
+          name: postId
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: The ID of the parent post for which to retrieve replies.
+          example: 123
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of replies to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: The number of replies to skip before starting to return results.
+      responses:
+        '200':
+          description: A list of reply posts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostsResponse' # Changed to use paginated response
+        '404':
+          description: Parent post not found
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+
+  /posts/{postId}/likes:
+    post:
+      tags:
+        - Post Interactions
+      summary: Toggle like on a post
+      description: Toggles a like for the specified post by the authenticated user. If liked, it unlikes; if unliked, it likes.
+      parameters:
+        - in: path
+          name: postId
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: The unique identifier of the post to like/unlike.
+          example: 123
+      responses:
+        '200':
+          description: Post like status toggled successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "200"
+                  message:
+                    type: string
+                    example: "Post liked"
+        '401':
+          description: Unauthorized - User not authenticated
+        '404':
+          description: Post not found
+        '500':
+          description: Internal server error
+    get:
+      tags:
+        - Post Interactions
+      summary: Get list of users who liked a post
+      description: Retrieves a list of user IDs who have liked the specified post.
+      parameters:
+        - in: path
+          name: postId
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: The ID of the post to get likers for.
+          example: 123
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of likers to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: The number of likers to skip before starting to return results.
+      responses:
+        '200':
+          description: A list of user IDs who liked the post.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "200"
+                  data:
+                    type: array
+                    items:
+                      type: integer
+                      format: int64
+                      description: The ID of a user who liked the post.
+                  metadata:
+                    $ref: '#/components/schemas/PaginationMetadata'
+                example:
+                  status: "200"
+                  data: [1, 2, 3] # Example user IDs
+                  metadata:
+                    total: 3
+                    page: 1
+                    per_page: 20
+                    total_pages: 1
+        '404':
+          description: Post not found
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+
+  /posts/{postId}/reposts:
+    post:
+      tags:
+        - Post Interactions
+      summary: Toggle repost on a post
+      description: Toggles a repost entry for the specified post by the authenticated user. If already reposted, it removes the repost; otherwise, it creates one.
+      parameters:
+        - in: path
+          name: postId
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: The ID of the post to repost/un-repost.
+          example: 123
+      responses:
+        '200':
+          description: Post repost status toggled successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "200"
+                  message:
+                    type: string
+                    example: "Post reposted"
+        '401':
+          description: Unauthorized - User not authenticated
+        '404':
+          description: Post not found
+        '500':
+          description: Internal server error
+    get:
+      tags:
+        - Post Interactions
+      summary: Get list of users who reposted a post
+      description: Retrieves a list of user IDs who have reposted the specified post.
+      parameters:
+        - in: path
+          name: postId
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: The ID of the post to get reposters for.
+          example: 123
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of reposters to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: The number of reposters to skip before starting to return results.
+      responses:
+        '200':
+          description: A list of user IDs who reposted the post.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "200"
+                  data:
+                    type: array
+                    items:
+                      type: integer
+                      format: int64
+                      description: The ID of a user who reposted the post.
+                  metadata:
+                    $ref: '#/components/schemas/PaginationMetadata'
+                example:
+                  status: "200"
+                  data: [4, 5, 6] # Example user IDs
+                  metadata:
+                    total: 3
+                    page: 1
+                    per_page: 20
+                    total_pages: 1
+        '404':
+          description: Post not found
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+  /posts/{postId}/summary:
+    get:
+      tags:
+        - Post Interactions
+      summary: Get AI summary of a post
+      description: Retrieves an AI-generated concise summary of the specified post's content.
+      parameters:
+        - in: path
+          name: postId
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: The unique identifier of the post to summarize.
+          example: 123
+      responses:
+        '200':
+          description: Successfully retrieved post summary.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "200"
+                  data:
+                    type: object
+                    properties:
+                      postId:
+                        type: integer
+                        format: int64
+                        description: The ID of the summarized post.
+                      summary:
+                        type: string
+                        description: The AI-generated summary of the post content.
+                        example: "User discussed a super duper post content, focusing on its visibility to everyone."
+        '404':
+          description: Post not found
+        '401':
+          description: Unauthorized - User not authenticated (if summary is not public)
+        '500':
+          description: Internal server error
+components:
+  schemas:
+    # CreatePostRequest is now directly embedded in the /posts POST request body
+
+    Post:
+      type: object
+      required:
+        - id
+        - userId
+        - content
+        - type
+        - visibility
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        userId:
+          type: integer
+          format: int64
+          example: 1
+        content:
+          type: string
+        type:
+          type: string
+          enum: [ "POST", "REPLY", "QUOTE" ]
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+          example: null
+        visibility:
+          type: string
+          enum: [ "EVERY_ONE", "FOLLOWERS", "MENTIONED" ]
+        media: # Added media array directly into the Post schema
+          type: array
+          items:
+            $ref: '#/components/schemas/Media'
+          description: A list of media files associated with this post.
+          minItems: 0
+          example: []
+        createdAt:
+          type: string
+          format: date-time
+          example: "2023-10-27T10:00:00Z"
+
+    PostResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          example: "200"
+        data:
+          $ref: '#/components/schemas/Post' # Use the Post schema for the data part
+
+    Media:
+      type: object
+      required:
+        - mediaUrl
+        - type
+        - createdAt
+      properties:
+        mediaUrl:
+          type: string
+          format: uri
+          description: URL to the hosted media file.
+          example: "https://your-cdn.com/posts/123/media/456.jpg"
+        type:
+          type: string
+          enum: [ "IMAGE", "VIDEO", "GIF", "AUDIO" ]
+          description: The type of media content.
+          example: "IMAGE"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2023-10-27T10:01:00Z"
+
+    PaginationMetadata:
+      type: object
+      properties:
+        totalItems:
+          type: integer
+          description: Total number of items available.
+          example: 1
+        page:
+          type: integer
+          description: The current page number.
+          example: 1
+        perPage:
+          type: integer
+          description: Number of items per page.
+          example: 10
+        totalPages:
+          type: integer
+          description: Total number of pages.
+          example: 1
+
+    PaginatedPostsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "200"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Post'
+        metadata:
+          $ref: '#/components/schemas/PaginationMetadata'
+      example:
+        status: "200"
+        data:
+          - id: 1
+            userId: 1
+            content: "this is super duper post content"
+            type: "POST"
+            parentId: null
+            visibility: "EVERY_ONE"
+            media: []
+            createdAt: "2023-10-27T10:00:00Z"
+        metadata:
+          total: 1
+          page: 1
+          per_page: 10
+          total_pages: 1
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Authorization header using the Bearer scheme.
+
+security:
+  - bearerAuth: []
