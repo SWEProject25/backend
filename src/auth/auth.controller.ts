@@ -177,8 +177,8 @@ export class AuthController {
 
   @Post('verification-otp')
   @Public()
-  public async generateVerificationEmail(@Body('userId') userId: string) {
-    await this.authService.generateVerificationEmail(userId);
+  public async generateVerificationEmail(@Body('email') email: string) {
+    await this.authService.generateVerificationEmail(email);
     return {
       status: 'success',
       message: 'Check your email for verification code',
@@ -189,9 +189,9 @@ export class AuthController {
   @Public()
   public async verifyEmailOtp(
     @Body('otp') otp: string,
-    @Body('userId') userId: string,
+    @Body('email') email: string,
   ) {
-    const result = await this.authService.verifyEmailOtp(userId, otp);
+    const result = await this.authService.verifyEmailOtp(email, otp);
 
     return {
       status: result ? 'success' : 'fail',

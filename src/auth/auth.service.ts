@@ -18,6 +18,7 @@ import { hash } from 'argon2';
 import { EmailService } from 'src/email/email.service';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { UpdateUserDto } from 'src/user/dto/update-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -98,10 +99,10 @@ export class AuthService {
     res.cookie('access_token', accessToken, cookieOptions);
   }
 
-  public async generateOtp(userId: string, size = 6): Promise<string> {
+  public async generateOtp(email: string, size = 6): Promise<string> {
     const recentToken = await this.prismaService.emailVerification.findFirst({
       where: {
-        userId,
+        user_email: email,
         created_at: {
           gt: new Date(Date.now() - this.minRequestIntervalMinutes * 60 * 1000),
         },
@@ -116,7 +117,7 @@ export class AuthService {
     const hashedToken = await hash(otp);
     const token = await this.prismaService.emailVerification.create({
       data: {
-        userId,
+        user_email: email,
         token: hashedToken,
         expires_at: new Date(
           Date.now() + this.tokenExpirationMinutes * 60 * 1000,
@@ -128,9 +129,12 @@ export class AuthService {
     return otp;
   }
 
-  public async validateOtp(userId: string, token: string): Promise<boolean> {
+  public async validateOtp(email: string, token: string): Promise<boolean> {
     const validToken = await this.prismaService.emailVerification.findFirst({
-      where: { userId, expires_at: { gt: new Date(Date.now()) } },
+      where: {
+        user_email: email,
+        expires_at: { gt: new Date(Date.now()) },
+      },
     });
     if (validToken && (await argon2.verify(validToken.token, token))) {
       await this.prismaService.emailVerification.delete({
@@ -141,15 +145,15 @@ export class AuthService {
     return false;
   }
 
-  public async generateVerificationEmail(userId: string) {
-    const user = await this.userService.findOne(userId);
+  public async generateVerificationEmail(email: string) {
+    const user = await this.userService.findByEmail(email);
     if (!user) {
       throw new NotFoundException('User not found');
     }
     if (user.is_verified) {
       throw new UnprocessableEntityException('Account already verified');
     }
-    const otp = await this.generateOtp(userId);
+    const otp = await this.generateOtp(email);
     const templatePath = join(
       process.cwd(), // always points to your project root
       'src', // or 'dist' after build, see below
@@ -175,8 +179,8 @@ export class AuthService {
     return accessToken;
   }
 
-  public async verifyEmailOtp(userId: string, otp: string): Promise<boolean> {
-    const user = await this.userService.findOne(userId);
+  public async verifyEmailOtp(email: string, otp: string): Promise<boolean> {
+    const user = await this.userService.findByEmail(email);
     if (!user) {
       throw new UnprocessableEntityException('failed');
     }
@@ -184,11 +188,17 @@ export class AuthService {
     if (user.is_verified) {
       throw new UnprocessableEntityException('Account already verified');
     }
-    const isValid = await this.validateOtp(userId, otp);
+    const isValid = await this.validateOtp(email, otp);
     if (!isValid) {
       throw new UnprocessableEntityException('failed');
     }
-    user.is_verified = true;
+
+    const updateUserDto: UpdateUserDto = {
+      email: user.email,
+      is_verified: true,
+    };
+    await this.userService.updateEmailVerification(updateUserDto);
+
     return true;
   }
 
