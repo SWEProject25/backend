@@ -50,12 +50,12 @@ model Profile {
 
 model EmailVerification {
   id         Int      @id @default(autoincrement())
-  userId     String   @map("userId") @db.Uuid
+  user_email String   @unique @map("user_email")
   token      String
   expires_at DateTime
   created_at DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_email], references: [email], onDelete: Cascade)
 
   @@map("email_verification")
 }
