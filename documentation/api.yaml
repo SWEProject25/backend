@@ -14,6 +14,8 @@ tags:
     description: Operations related to creating, retrieving, and deleting posts (including replies and quotes).
   - name: Post Interactions
     description: Endpoints for liking, reposting, and summarizing posts.
+  - name: Hashtags & Trends
+    description: Endpoints for searching posts, hashtags, and retrieving trending topics.
 
 paths:
   /posts:
@@ -51,7 +53,7 @@ paths:
                   description: The type of post (e.g., original post, reply, quote).
                   example: "POST"
                 parentId:
-                  type: integer 
+                  type: integer
                   format: int64
                   nullable: true
                   description: The ID of the parent post if this is a reply or quote. Required if type is REPLY or QUOTE.
@@ -105,7 +107,7 @@ paths:
         - in: query
           name: userId
           schema:
-            type: integer 
+            type: integer
             format: int64
           description: Filter posts by the ID of the user who created them.
           example: 123
@@ -139,6 +141,327 @@ paths:
                 $ref: '#/components/schemas/PaginatedPostsResponse' # Changed to use paginated response
         '401':
           description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+
+  /posts/search: # UPDATED ENDPOINT PATH
+    get:
+      tags:
+        - Posts
+      summary: Search posts matching a string
+      description: Searches posts for content, usernames, or other metadata matching the provided string.
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          required: true
+          description: The search string to match against post content, usernames, etc.
+          example: 'api design'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of posts to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: The number of posts to skip before starting to return results.
+      responses:
+        '200':
+          description: A list of posts matching the search query.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostsResponse'
+        '400':
+          description: Missing search query parameter 'q'
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+
+  /posts/timeline/home:
+    get:
+      tags:
+        - Posts
+      summary: Get posts for home feed (timeline)
+      description: Retrieve a list of posts for the authenticated user's home timeline, typically from users they follow and suggested content.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of posts to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: The number of posts to skip before starting to return results.
+      responses:
+        '200':
+          description: A list of posts for the home timeline.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostsResponse'
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+
+  /posts/profile/{userId}:
+    get:
+      tags:
+        - Posts
+      summary: Get posts for a user's profile
+      description: Retrieve a list of posts created by a specific user, excluding replies or reposts by default.
+      parameters:
+        - in: path
+          name: userId
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: The ID of the user whose profile posts to retrieve.
+          example: 123
+        - in: query
+          name: include_replies
+          schema:
+            type: boolean
+            default: false
+          description: If true, include replies made by the user in the results.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of posts to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: The number of posts to skip before starting to return results.
+      responses:
+        '200':
+          description: A list of profile posts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostsResponse'
+        '404':
+          description: User not found
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+
+  /posts/mentions:
+    get:
+      tags:
+        - Posts
+      summary: Get posts mentioning the authenticated user
+      description: Retrieve a list of posts that mention the authenticated user's username.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of posts to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: The number of posts to skip before starting to return results.
+      responses:
+        '200':
+          description: A list of posts mentioning the user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostsResponse'
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+
+  /posts/liked/{userId}:
+    get:
+      tags:
+        - Posts
+      summary: Get posts liked by a user
+      description: Retrieve a list of posts that the specified user has liked.
+      parameters:
+        - in: path
+          name: userId
+          schema:
+            type: integer
+            format: int64
+          required: true
+          description: The ID of the user whose liked posts to retrieve.
+          example: 123
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of posts to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: The number of posts to skip before starting to return results.
+      responses:
+        '200':
+          description: A list of posts liked by the user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostsResponse'
+        '404':
+          description: User not found
+        '401':
+          description: Unauthorized - User not authenticated
+        '500':
+          description: Internal server error
+
+  /hashtags/trends: # UPDATED ENDPOINT PATH
+    get:
+      tags:
+        - Hashtags & Trends
+      summary: Get available global trends (hashtags)
+      description: Retrieves a list of current global trending topics and their associated volume.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: The maximum number of trends to return.
+      responses:
+        '200':
+          description: A list of current trends.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "200"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trend'
+        '500':
+          description: Internal server error
+
+  /hashtags/{hashtag}/posts: # UPDATED ENDPOINT PATH
+    get:
+      tags:
+        - Hashtags & Trends
+      summary: Get posts within a specific trend/hashtag
+      description: Retrieves posts associated with a specific hashtag.
+      parameters:
+        - in: path
+          name: hashtag
+          schema:
+            type: string
+          required: true
+          description: The hashtag (trend name) to retrieve posts for (e.g., #AI). Note: The '#' symbol is usually omitted in the path parameter and added internally.
+          example: 'OpenAPI'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of posts to return.
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: The number of posts to skip before starting to return results.
+      responses:
+        '200':
+          description: A list of posts associated with the trend.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostsResponse'
+        '404':
+          description: Trend not found
+        '500':
+          description: Internal server error
+
+  /hashtags/search: # UPDATED ENDPOINT PATH (Using query style for search)
+    get:
+      tags:
+        - Hashtags & Trends
+      summary: Search for hashtags
+      description: Search for trending or common hashtags that match a query string.
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          required: true
+          description: The search string to match against hashtags.
+          example: 'dev'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: The maximum number of hashtags to return.
+      responses:
+        '200':
+          description: A list of matching hashtags.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "200"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Hashtag'
+        '400':
+          description: Missing search query parameter 'q'
         '500':
           description: Internal server error
 
@@ -321,7 +644,7 @@ paths:
                     total: 3
                     page: 1
                     per_page: 20
-                    total_pages: 1
+                    totalPages: 1
         '404':
           description: Post not found
         '401':
@@ -419,7 +742,7 @@ paths:
                     total: 3
                     page: 1
                     per_page: 20
-                    total_pages: 1
+                    totalPages: 1
         '404':
           description: Post not found
         '401':
@@ -471,8 +794,7 @@ paths:
           description: Internal server error
 components:
   schemas:
-    # CreatePostRequest is now directly embedded in the /posts POST request body
-
+    # Existing Schemas
     Post:
       type: object
       required:
@@ -513,6 +835,10 @@ components:
           minItems: 0
           example: []
         createdAt:
+          type: string
+          format: date-time
+          example: "2023-10-27T10:00:00Z"
+        updatedAt:
           type: string
           format: date-time
           example: "2023-10-27T10:00:00Z"
@@ -594,11 +920,55 @@ components:
             visibility: "EVERY_ONE"
             media: []
             createdAt: "2023-10-27T10:00:00Z"
+            updatedAt: "2023-10-27T10:00:00Z"
         metadata:
-          total: 1
+          totalItems: 1
           page: 1
-          per_page: 10
-          total_pages: 1
+          perPage: 10
+          totalPages: 1
+
+    # New Schemas
+    Trend: # Schema for a single trend item
+      type: object
+      required:
+        - hashtag
+        - volume
+      properties:
+        hashtag:
+          type: string
+          description: The trending topic/hashtag text (without the #).
+          example: "AIRevolution"
+        volume:
+          type: integer
+          description: The number of posts associated with this trend in the last hour/day.
+          example: 15400
+        country:
+          type: string
+          nullable: true
+          description: Optional country scope for the trend.
+          example: "Global"
+      example:
+        hashtag: "OpenAPI"
+        volume: 2500
+        country: "Global"
+
+    Hashtag: # Schema for a single hashtag in search results
+      type: object
+      required:
+        - hashtag
+        - postCount
+      properties:
+        hashtag:
+          type: string
+          description: The hashtag text (including the # symbol).
+          example: "#TechTalk"
+        postCount:
+          type: integer
+          description: The total number of posts associated with this hashtag.
+          example: 12345
+      example:
+        hashtag: "#developer"
+        postCount: 98765
 
   securitySchemes:
     bearerAuth:
