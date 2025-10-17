@@ -39,6 +39,10 @@ async function bootstrap() {
     './docs/api-documentation.json',
     JSON.stringify(documentation, null, 2),
   );
+  writeFileSync(
+    './docs/api-documentation.yaml',
+    JSON.stringify(documentation, null, 2),
+  );
 
   try {
     await app.listen(PORT ?? 3001, () =>
