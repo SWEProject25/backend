@@ -1,7 +1,6 @@
 import {
   ConflictException,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -166,6 +165,14 @@ export class AuthService {
       recipients: [email],
       html: template,
     });
+  }
+
+  public async resendVerificationEmail(email: string) {
+    const existingUser = await this.userService.checkExistingOtp(email);
+    if (existingUser) {
+      await this.userService.deleteExistingOtp(email);
+    }
+    return await this.generateVerificationEmail(email);
   }
 
   private async generateTokens(userId: string, username: string) {

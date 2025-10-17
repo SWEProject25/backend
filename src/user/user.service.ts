@@ -16,6 +16,7 @@ export class UserService {
         ...user,
         password: hashedPassword,
         username,
+        is_verified: true,
       },
     });
     const userProfile = await this.prismaService.profile.create({
@@ -51,6 +52,20 @@ export class UserService {
       },
       data: {
         is_verified: updateUserDto.is_verified,
+      },
+    });
+  }
+
+  public async checkExistingOtp(email: string) {
+    return await this.prismaService.emailVerification.findFirst({
+      where: { user_email: email },
+    });
+  }
+
+  public async deleteExistingOtp(email: string) {
+    return await this.prismaService.emailVerification.delete({
+      where: {
+        user_email: email,
       },
     });
   }

@@ -185,6 +185,16 @@ export class AuthController {
     };
   }
 
+  @Post('resend-otp')
+  @Public()
+  public async resendVerificationEmail(@Body('email') email: string) {
+    await this.authService.resendVerificationEmail(email);
+    return {
+      status: 'success',
+      message: 'Check your email for verification code',
+    };
+  }
+
   @Post('verify-otp')
   @Public()
   public async verifyEmailOtp(
