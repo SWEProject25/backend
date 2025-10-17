@@ -1,17 +1,24 @@
-openapi: 3.0.0
+openapi: 3.0.3
 info:
-  title: X Clone Posts API
-  description: API documentation for managing posts, their interactions (likes, reposts), replies, and media in the X Clone application.
-  version: 1.0.0
+  title: X Clone API
+  description: |-
+    Unified API documentation for the X Clone application, covering Posts, User Interactions, User Profiles, Notifications, and more.
+    This API follows the JSend specification for newer endpoints, with a custom `metadata` field for additional response information.
+  version: 1.1.0
+
 servers:
   - url: https://api.xclone.com/v1
     description: Production server
-  - url: http://localhost:3000/v1 # Example development server
+  - url: http://localhost:3000/v1
     description: Development server
 
 tags:
+  - name: User Profile
+    description: Endpoints for managing user profiles, including images and banners.
   - name: Users
     description: Endpoints related to following, blocking, and muting users.
+  - name: Notifications
+    description: Endpoints for retrieving user notifications.
   - name: Posts
     description: Operations related to creating, retrieving, and deleting posts (including replies and quotes).
   - name: Post Interactions
@@ -24,6 +31,382 @@ tags:
     description: Endpoints related to user conversations.
 
 paths:
+  /users/search:
+    get:
+      tags:
+        - User Profile
+      summary: Search for users
+      description: Searches for users by their username or display name with a partial match.
+      parameters:
+        - name: q
+          in: query
+          description: The search query string.
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: The page number for pagination.
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: The number of results to return per page.
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: A successful response with a list of users.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserProfile'
+                      metadata:
+                        $ref: '#/components/schemas/PaginationMetadata'
+              example:
+                status: success
+                data:
+                  - userId: 1
+                    username: "gamal_dev"
+                    profile:
+                      displayName: "Gamal Developer"
+                      profileImageURL: "https://example.com/image.jpg"
+                      bio: "Backend Developer"
+                metadata:
+                  page: 1
+                  limit: 20
+                  totalItems: 1
+                  totalPages: 1
+
+  /users/{userId}/profile:
+    get:
+      tags:
+        - User Profile
+      summary: Get user profile details
+      description: Retrieves the detailed profile information for a specific user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The unique integer identifier of the user.
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful retrieval of a user's profile.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+        '404':
+          description: User not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+              example:
+                status: fail
+                data:
+                  message: "User profile not found."
+
+    patch:
+      tags:
+        - User Profile
+      summary: Update user profile
+      description: Updates text-based details for the authenticated user's profile.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The unique identifier of the user to update. Must be the authenticated user.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                bio:
+                  type: string
+                location:
+                  type: string
+                website:
+                  type: string
+            example:
+              displayName: "Gamal El-Din"
+              bio: "Senior Backend Engineer"
+              location: "Cairo, Egypt"
+              website: "https://gamal.dev"
+      responses:
+        '200':
+          description: Profile updated successfully.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+        '403':
+          description: Forbidden. User cannot update another user's profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+
+  /users/{userId}/profile/image:
+    post:
+      tags:
+        - User Profile
+      summary: Update profile picture
+      description: Uploads a new profile picture for the authenticated user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The unique identifier of the user.
+          schema:
+            type: integer
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Profile image updated successfully.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          profileImageURL:
+                            type: string
+                            format: uri
+              example:
+                status: success
+                data:
+                  profileImageURL: "https://cdn.example.com/new-profile.jpg"
+
+    delete:
+      tags:
+        - User Profile
+      summary: Delete profile picture
+      description: Deletes the current profile picture and restores the default.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The unique identifier of the user.
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Profile image deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                status: success
+                data: null
+
+  /users/{userId}/profile/banner:
+    post:
+      tags:
+        - User Profile
+      summary: Update profile banner
+      description: Uploads a new profile banner for the authenticated user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The unique identifier of the user.
+          schema:
+            type: integer
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                banner:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Profile banner updated successfully.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          bannerImageURL:
+                            type: string
+                            format: uri
+              example:
+                status: success
+                data:
+                  bannerImageURL: "https://cdn.example.com/new-banner.jpg"
+
+    delete:
+      tags:
+        - User Profile
+      summary: Delete profile banner
+      description: Deletes the current profile banner and restores the default.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The unique identifier of the user.
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Profile banner deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                status: success
+                data: null
+
+  /users/{userId}/notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get user notifications
+      description: Retrieves a list of notifications for the authenticated user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The ID of the user requesting notifications.
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: The number of notifications to return.
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: A list of notifications.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Notification'
+                      metadata:
+                        $ref: '#/components/schemas/PaginationMetadata'
+              example:
+                status: success
+                data:
+                  - notificationId: 101
+                    type: "like"
+                    isRead: false
+                    createdAt: "2025-10-26T10:00:00Z"
+                    actor:
+                      userId: 2
+                      username: "some_user"
+                      profile:
+                        displayName: "Some User"
+                        profileImageURL: "..."
+                metadata:
+                  limit: 30
+                  totalItems: 1
+
+  /users/{userId}/notifications/unseen-count:
+    get:
+      tags:
+        - Notifications
+      summary: Get unseen notifications count
+      description: Retrieves the count of notifications the user has not read yet.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: The ID of the user.
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The count of unseen notifications.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+              example:
+                status: success
+                data:
+                  count: 15
+  
   /users/{id}/follow:
     post:
       tags: [Users]
@@ -1404,6 +1787,105 @@ paths:
 
 components:
   schemas:
+    # JSend Base Schemas
+    SuccessResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          nullable: true
+          description: "Response payload. Can be an object, array, or null."
+    FailResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          enum: [fail]
+        data:
+          type: object
+    ErrorResponse:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        code:
+          type: integer
+        data:
+          type: object
+
+    # Data Models
+    UserProfile:
+      type: object
+      properties:
+        userId:
+          type: integer
+        username:
+          type: string
+        profile:
+          type: object
+          properties:
+            displayName:
+              type: string
+            profileImageURL:
+              type: string
+              format: uri
+            bannerImageURL:
+              type: string
+              format: uri
+            bio:
+              type: string
+            location:
+              type: string
+            website:
+              type: string
+              format: uri
+            birthDate:
+              type: string
+              format: date
+            createdAt:
+              type: string
+              format: date-time
+
+    Notification:
+      type: object
+      properties:
+        notificationId:
+          type: integer
+        type:
+          type: string
+          enum: [like, repost, follow, mention, reply]
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        actor:
+          description: The user who triggered the notification.
+          $ref: '#/components/schemas/UserProfile'
+        post:
+          description: The post related to the notification (if applicable).
+          nullable: true
+          type: object
+          properties:
+            postId:
+              type: integer
+            content:
+              type: string
+
     # Existing Schemas
     Post:
       type: object
@@ -1537,7 +2019,6 @@ components:
           perPage: 10
           totalPages: 1
 
-    # New Schemas
     Trend: # Schema for a single trend item
       type: object
       required:
