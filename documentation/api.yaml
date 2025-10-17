@@ -95,8 +95,6 @@ paths:
         - User Profile
       summary: Get user profile details
       description: Retrieves the detailed profile information for a specific user.
-      security:
-        - bearerAuth: []
       parameters:
         - name: userId
           in: path
@@ -132,8 +130,6 @@ paths:
         - User Profile
       summary: Update user profile
       description: Updates text-based details for the authenticated user's profile.
-      security:
-        - bearerAuth: []
       parameters:
         - name: userId
           in: path
@@ -186,8 +182,6 @@ paths:
         - User Profile
       summary: Update profile picture
       description: Uploads a new profile picture for the authenticated user.
-      security:
-        - bearerAuth: []
       parameters:
         - name: userId
           in: path
@@ -230,8 +224,6 @@ paths:
         - User Profile
       summary: Delete profile picture
       description: Deletes the current profile picture and restores the default.
-      security:
-        - bearerAuth: []
       parameters:
         - name: userId
           in: path
@@ -256,8 +248,6 @@ paths:
         - User Profile
       summary: Update profile banner
       description: Uploads a new profile banner for the authenticated user.
-      security:
-        - bearerAuth: []
       parameters:
         - name: userId
           in: path
@@ -300,8 +290,6 @@ paths:
         - User Profile
       summary: Delete profile banner
       description: Deletes the current profile banner and restores the default.
-      security:
-        - bearerAuth: []
       parameters:
         - name: userId
           in: path
@@ -326,8 +314,6 @@ paths:
         - Notifications
       summary: Get user notifications
       description: Retrieves a list of notifications for the authenticated user.
-      security:
-        - bearerAuth: []
       parameters:
         - name: userId
           in: path
@@ -380,8 +366,6 @@ paths:
         - Notifications
       summary: Get unseen notifications count
       description: Retrieves the count of notifications the user has not read yet.
-      security:
-        - bearerAuth: []
       parameters:
         - name: userId
           in: path
@@ -414,16 +398,7 @@ paths:
       tags: [Users]
       summary: Follow a user
       description: Follow a user by their ID.
-      security:
-        - bearerAuth: []
       parameters:
-        - name: Authorization
-          in: header
-          required: true
-          description: Bearer access token.
-          schema:
-            type: string
-            example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6...
         - name: id
           in: path
           required: true
@@ -459,15 +434,7 @@ paths:
       tags: [Users]
       summary: Unfollow a user
       description: Unfollow a user by their ID.
-      security:
-        - bearerAuth: []
       parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema:
-            type: string
-            example: Bearer eyJhbGciOi...
         - name: id
           in: path
           required: true
@@ -500,13 +467,7 @@ paths:
     get:
       tags: [Users]
       summary: Get followers list
-      security:
-        - bearerAuth: []
       parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema: { type: string }
         - name: id
           in: path
           required: true
@@ -553,13 +514,7 @@ paths:
     get:
       tags: [Users]
       summary: Get following list
-      security:
-        - bearerAuth: []
       parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema: { type: string }
         - name: id
           in: path
           required: true
@@ -670,13 +625,7 @@ paths:
     get:
       tags: [Users]
       summary: Get list of blocked users
-      security:
-        - bearerAuth: []
       parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema: { type: string }
         - name: limit
           in: query
           schema: { type: integer, example: 10 }
@@ -783,13 +732,7 @@ paths:
     get:
       tags: [Users]
       summary: Get list of muted users
-      security:
-        - bearerAuth: []
       parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema: { type: string }
         - name: limit
           in: query
           schema: { type: integer, example: 10 }
@@ -1606,13 +1549,7 @@ paths:
     get:
       tags: [Messages]
       summary: Get messages from a conversation
-      security:
-        - bearerAuth: []
       parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema: { type: string }
         - name: conversationId
           in: path
           required: true
@@ -1656,13 +1593,7 @@ paths:
     post:
       tags: [Messages]
       summary: Send a new message
-      security:
-        - bearerAuth: []
       parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema: { type: string }
         - name: conversationId
           in: path
           required: true
@@ -1704,13 +1635,7 @@ paths:
     get:
       tags: [Conversations]
       summary: Get list of conversations
-      security:
-        - bearerAuth: []
       parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema: { type: string }
         - name: limit
           in: query
           schema: { type: integer, example: 10 }
@@ -1757,13 +1682,6 @@ paths:
     get:
       tags: [Conversations]
       summary: Get number of unseen conversations
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: Authorization
-          in: header
-          required: true
-          schema: { type: string }
       responses:
         200:
           description: Number of unseen conversations
@@ -2062,13 +1980,3 @@ components:
       example:
         hashtag: "#developer"
         postCount: 98765
-
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT Authorization header using the Bearer scheme.
-
-security:
-  - bearerAuth: []
