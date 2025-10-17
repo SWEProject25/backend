@@ -2,9 +2,9 @@ openapi: 3.0.3
 info:
   title: X Clone API
   description: |-
-    Unified API documentation for the X Clone application, covering Posts, User Interactions, User Profiles, Notifications, and more.
+    Unified API documentation for the X Clone application, covering Authentication, Posts, User Interactions, User Profiles, Notifications, and more.
     This API follows the JSend specification for newer endpoints, with a custom `metadata` field for additional response information.
-  version: 1.1.0
+  version: 1.2.0
 
 servers:
   - url: https://api.xclone.com/v1
@@ -13,8 +13,10 @@ servers:
     description: Development server
 
 tags:
+  - name: Auth
+    description: Endpoints for user registration, login, and authentication management.
   - name: User Profile
-    description: Endpoints for managing user profiles, including images and banners.
+    description: Endpoints for managing user profiles, settings, images, and banners.
   - name: Users
     description: Endpoints related to following, blocking, and muting users.
   - name: Notifications
@@ -31,6 +33,445 @@ tags:
     description: Endpoints related to user conversations.
 
 paths:
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      description: Creates a new user account with the provided details.
+      operationId: AuthController_register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequestDto'
+      responses:
+        '201':
+          description: User successfully registered
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/AuthUserResponse'
+        '400':
+          description: Bad request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+        '409':
+          description: Conflict - User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+  
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login using email and password
+      description: Login with the provided details.
+      operationId: AuthController_login
+      requestBody:
+        required: true
+        description: User login credentials
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequestDto'
+      responses:
+        '200':
+          description: User successfully logged in
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthUserResponse'
+        '400':
+          description: Bad request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+        '401':
+          description: Unauthorized - Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get current user information
+      description: Returns profile details of the currently authenticated user.
+      operationId: AuthController_getMe
+      responses:
+        '200':
+          description: User profile successfully fetched
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthUserResponse'
+        '401':
+          description: Unauthorized - Token missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout user
+      description: Clears authentication state for the user.
+      operationId: AuthController_logout
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /auth/check-email:
+    post:
+      tags:
+        - Auth
+      summary: Check if an email already exists
+      description: Verifies whether the given email is already registered in the system.
+      operationId: AuthController_checkEmail
+      requestBody:
+        required: true
+        description: Email to be checked
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "test@example.com"
+      responses:
+        '200':
+          description: Email is available for registration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '409':
+          description: Email already exists in the system
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+
+  /auth/verification-otp:
+    post:
+      tags:
+        - Auth
+      summary: Generate and send a verification OTP
+      description: Generates a new OTP and sends it to the user's email for verification.
+      operationId: AuthController_generateVerificationEmail
+      responses:
+        '200':
+          description: Verification OTP sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /auth/resend-otp:
+    post:
+      tags:
+        - Auth
+      summary: Resend the verification OTP
+      description: Resends a new verification OTP to the user's email.
+      operationId: AuthController_resendVerificationEmail
+      responses:
+        '200':
+          description: Verification OTP resent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /auth/verify-otp:
+    post:
+      tags:
+        - Auth
+      summary: Verify the email OTP
+      description: Verifies the provided OTP for the given email address.
+      operationId: AuthController_verifyEmailOtp
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid or expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+  
+  /auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      description: >
+        Issues a new access token using a refresh token.
+        Follows the JSend format for all responses.
+      responses:
+        200:
+          description: New access token issued successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                        description: New JWT access token
+        401:
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+        500:
+          description: Server error while refreshing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request password reset email
+      description: Sends an email with reset instructions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        200:
+          description: Reset email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        404:
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+        500:
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password
+      description: Resets the user’s password using a token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token: { type: string }
+                newPassword: { type: string, format: password }
+      responses:
+        200:
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        400:
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+        500:
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/oauth/{provider}:
+    get:
+      tags: [Auth]
+      summary: OAuth login redirect
+      description: Redirects to an OAuth provider (Google, Facebook, or GitHub).
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, facebook, github]
+      responses:
+        302:
+          description: Redirect to OAuth consent page
+        400:
+          description: Invalid provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+
+  /users/me/username:
+    patch:
+      tags: [User Profile]
+      summary: Update username
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              properties:
+                username: { type: string }
+      responses:
+        200:
+          description: Username updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        400:
+          description: Invalid username
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+
+  /users/me/password:
+    patch:
+      tags: [User Profile]
+      summary: Update password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword: { type: string }
+                newPassword: { type: string, format: password }
+      responses:
+        200:
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        400:
+          description: Invalid old password or new password format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+
+  /users/me/email:
+    get:
+      tags: [User Profile]
+      summary: Get user email
+      responses:
+        200:
+          description: Returns user email
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          email: { type: string, format: email }
+        500:
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags: [User Profile]
+      summary: Update email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newEmail]
+              properties:
+                newEmail: { type: string, format: email }
+      responses:
+        200:
+          description: Email update requested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        400:
+          description: Invalid email format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailResponse'
+
   /users/search:
     get:
       tags:
@@ -1746,6 +2187,115 @@ components:
           type: integer
         data:
           type: object
+
+    # Auth Schemas
+    RegisterRequestDto:
+      type: object
+      required:
+        - name
+        - email
+        - password
+        - birthDate
+      properties:
+        name:
+          type: string
+          description: The name for the user.
+          example: Mohaned Albaz
+          minLength: 3
+          maxLength: 30
+        email:
+          type: string
+          description: The email address of the user.
+          example: mohmaedalbaz@gmail.com
+          format: email
+        password:
+          type: string
+          description: The password for the user account (must include uppercase, lowercase, number, and special character).
+          example: Password123!
+          minLength: 8
+          maxLength: 50
+          format: password
+        birthDate:
+          type: string
+          description: The birth date of the user.
+          example: '2004-01-01'
+          format: date
+          
+    LoginRequestDto:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          example: mohamedalbaz@example.com
+          description: User email address.
+        password:
+          type: string
+          example: Test1234!
+          description: User password (min 8 characters).
+
+    AuthUserResponse:
+      type: object
+      required:
+        - username
+        - createdAt
+      properties:
+        username:
+          type: string
+          example: albazMo90
+          description: The unique username of the user.
+        email:
+          type: string
+          example: mohamedalbaz@gmail.com
+          description: Email address of the user.
+        role:
+          type: string
+          example: User
+          description: Role assigned to the user.
+        name:
+          type: string
+          example: Mohamed Albaz
+          description: Full name of the user.
+        birthDate:
+          type: string
+          example: '2004-01-01'
+          description: Birth date of the user.
+          format: date
+        profileImageUrl:
+          type: string
+          nullable: true
+          format: uri
+          example: null
+          description: Profile image URL of the user.
+        bannerImageUrl:
+          type: string
+          nullable: true
+          format: uri
+          example: null
+          description: Banner image URL of the user.
+        bio:
+          type: string
+          nullable: true
+          example: "bio"
+          description: Short bio or description of the user.
+        location:
+          type: string
+          nullable: true
+          example: "Egypt"
+          description: User location.
+        website:
+          type: string
+          nullable: true
+          format: uri
+          example: null
+          description: User’s personal website URL.
+        createdAt:
+          format: date-time
+          type: string
+          example: '2025-10-15T21:10:02.000Z'
+          description: Account creation date.
 
     # Data Models
     UserProfile:
