@@ -11,6 +11,10 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { ConfigModule } from '@nestjs/config';
 import mailerConfig from 'src/common/config/mailer.config';
 import { EmailService } from 'src/email/email.service';
+import { PasswordService } from './services/password/password.service';
+import { EmailVerificationService } from './services/email-verification/email-verification.service';
+import { JwtTokenService } from './services/jwt-token/jwt-token.service';
+import { OtpService } from './services/otp/otp.service';
 
 @Module({
   controllers: [AuthController],
@@ -20,6 +24,10 @@ import { EmailService } from 'src/email/email.service';
     LocalStrategy,
     JwtStrategy,
     EmailService,
+    PasswordService,
+    EmailVerificationService,
+    JwtTokenService,
+    OtpService,
   ],
   imports: [
     UserModule,

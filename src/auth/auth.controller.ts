@@ -27,10 +27,16 @@ import { RegisterResponseDto } from './dto/register-response.dto';
 import { Public } from './decorators/public.decorator';
 import { CheckEmailDto } from './dto/check-email.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { EmailVerificationService } from './services/email-verification/email-verification.service';
+import { JwtTokenService } from './services/jwt-token/jwt-token.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly emailVerificationService: EmailVerificationService,
+    private readonly jwtTokenService: JwtTokenService,
+  ) {}
 
   @Post('register')
   @Public()
@@ -109,7 +115,7 @@ export class AuthController {
       req.user.sub,
       req.user.username,
     );
-    this.authService.setAuthCookies(res, accessToken);
+    this.jwtTokenService.setAuthCookies(res, accessToken);
     return {
       status: 'success',
       message: 'Logged in successfully',
@@ -178,7 +184,7 @@ export class AuthController {
   @Post('verification-otp')
   @Public()
   public async generateVerificationEmail(@Body('email') email: string) {
-    await this.authService.generateVerificationEmail(email);
+    await this.emailVerificationService.sendVerificationEmail(email);
     return {
       status: 'success',
       message: 'Check your email for verification code',
@@ -188,7 +194,7 @@ export class AuthController {
   @Post('resend-otp')
   @Public()
   public async resendVerificationEmail(@Body('email') email: string) {
-    await this.authService.resendVerificationEmail(email);
+    await this.emailVerificationService.resendVerificationEmail(email);
     return {
       status: 'success',
       message: 'Check your email for verification code',
@@ -201,7 +207,7 @@ export class AuthController {
     @Body('otp') otp: string,
     @Body('email') email: string,
   ) {
-    const result = await this.authService.verifyEmailOtp(email, otp);
+    const result = await this.emailVerificationService.verifyEmail(email, otp);
 
     return {
       status: result ? 'success' : 'fail',
