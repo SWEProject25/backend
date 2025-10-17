@@ -1,0 +1,16 @@
+export enum Routes {
+  AUTH = 'auth',
+  USER = 'user',
+  EMAIL = 'email',
+}
+
+export enum Services {
+  AUTH = 'AUTH_SERVICE',
+  USER = 'USER_SERVICE',
+  PRISMA = 'PRISMA_SERVICE',
+  EMAIL = 'EMAIL_SERVICE',
+  PASSWORD = 'PASSWORD_SERVICE',
+  EMAIL_VERIFICATION = 'EMAIL_VERIFICATION_SERVICE',
+  JWT_TOKEN = 'JWT_TOKEN_SERVICE',
+  OTP = 'OTP_SERVICE',
+}
