@@ -1,15 +1,23 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { EmailService } from 'src/email/email.service';
 import { UserService } from 'src/user/user.service';
 import { OtpService } from './../otp/otp.service';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { Services } from 'src/utils/constants';
 
 @Injectable()
 export class EmailVerificationService {
   constructor(
+    @Inject(Services.EMAIL)
     private readonly emailService: EmailService,
+    @Inject(Services.USER)
     private readonly userService: UserService,
+    @Inject(Services.OTP)
     private readonly otpService: OtpService,
   ) {}
 

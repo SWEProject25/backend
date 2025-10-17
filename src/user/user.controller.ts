@@ -1,7 +1,11 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Inject } from '@nestjs/common';
 import { UserService } from './user.service';
+import { Routes, Services } from 'src/utils/constants';
 
-@Controller('user')
+@Controller(Routes.USER)
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    @Inject(Services.USER)
+    private readonly userService: UserService,
+  ) {}
 }

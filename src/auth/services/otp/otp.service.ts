@@ -1,14 +1,22 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { generateOtp } from 'src/utils/otp.util';
 import { hash, verify } from 'argon2';
+import { Services } from 'src/utils/constants';
 
 @Injectable()
 export class OtpService {
   private readonly minRequestIntervalMinutes = 1;
   private readonly tokenExpirationMinutes = 15;
 
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    @Inject(Services.PRISMA)
+    private readonly prismaService: PrismaService,
+  ) {}
 
   async generate(email: string, size = 6): Promise<string> {
     await this.checkRateLimit(email);

@@ -15,19 +15,41 @@ import { PasswordService } from './services/password/password.service';
 import { EmailVerificationService } from './services/email-verification/email-verification.service';
 import { JwtTokenService } from './services/jwt-token/jwt-token.service';
 import { OtpService } from './services/otp/otp.service';
+import { Services } from 'src/utils/constants';
 
 @Module({
   controllers: [AuthController],
   providers: [
-    AuthService,
-    PrismaService,
+    {
+      provide: Services.AUTH,
+      useClass: AuthService,
+    },
+    {
+      provide: Services.PRISMA,
+      useClass: PrismaService,
+    },
+    {
+      provide: Services.EMAIL,
+      useClass: EmailService,
+    },
+    {
+      provide: Services.PASSWORD,
+      useClass: PasswordService,
+    },
+    {
+      provide: Services.EMAIL_VERIFICATION,
+      useClass: EmailVerificationService,
+    },
+    {
+      provide: Services.JWT_TOKEN,
+      useClass: JwtTokenService,
+    },
+    {
+      provide: Services.OTP,
+      useClass: OtpService,
+    },
     LocalStrategy,
     JwtStrategy,
-    EmailService,
-    PasswordService,
-    EmailVerificationService,
-    JwtTokenService,
-    OtpService,
   ],
   imports: [
     UserModule,
@@ -36,6 +58,11 @@ import { OtpService } from './services/otp/otp.service';
     JwtModule.registerAsync(jwtConfig.asProvider()),
     ConfigModule.forFeature(mailerConfig),
   ],
-  exports: [AuthService],
+  exports: [
+    {
+      provide: Services.AUTH,
+      useClass: AuthService,
+    },
+  ],
 })
 export class AuthModule {}

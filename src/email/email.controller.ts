@@ -1,11 +1,15 @@
-import { Controller, Post } from '@nestjs/common';
+import { Controller, Inject, Post } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { join } from 'path';
 import { readFileSync } from 'fs';
+import { Routes, Services } from 'src/utils/constants';
 
-@Controller('email')
+@Controller(Routes.EMAIL)
 export class EmailController {
-  constructor(private readonly emailService: EmailService) {}
+  constructor(
+    @Inject(Services.EMAIL)
+    private readonly emailService: EmailService,
+  ) {}
   @Post()
   public sendEmail() {
     const templatePath = join(

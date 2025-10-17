@@ -6,6 +6,7 @@ import { UserModule } from './user/user.module';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth/jwt-auth.guard';
 import { EmailModule } from './email/email.module';
+import { Services } from './utils/constants';
 
 const envFilePath = '.env';
 
@@ -18,7 +19,10 @@ const envFilePath = '.env';
   ],
   controllers: [],
   providers: [
-    PrismaService,
+    {
+      provide: Services.PRISMA,
+      useClass: PrismaService,
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

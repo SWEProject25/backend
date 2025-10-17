@@ -7,12 +7,14 @@ import { AuthService } from '../auth.service';
 import { Request } from 'express';
 import { AuthJwtPayload } from 'src/types/jwtPayload';
 import { cookieExtractor } from '../utils/cookie-extractor';
+import { Services } from 'src/utils/constants';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     @Inject(jwtConfig.KEY)
     private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
+    @Inject(Services.AUTH)
     private readonly authService: AuthService,
   ) {
     super({

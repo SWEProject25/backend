@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   Post,
   Request,
   Res,
@@ -29,12 +30,16 @@ import { CheckEmailDto } from './dto/check-email.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { EmailVerificationService } from './services/email-verification/email-verification.service';
 import { JwtTokenService } from './services/jwt-token/jwt-token.service';
+import { Routes, Services } from 'src/utils/constants';
 
-@Controller('auth')
+@Controller(Routes.AUTH)
 export class AuthController {
   constructor(
+    @Inject(Services.AUTH)
     private readonly authService: AuthService,
+    @Inject(Services.EMAIL_VERIFICATION)
     private readonly emailVerificationService: EmailVerificationService,
+    @Inject(Services.JWT_TOKEN)
     private readonly jwtTokenService: JwtTokenService,
   ) {}
 
