@@ -4,7 +4,7 @@ info:
   description: |-
     Unified API documentation for the X Clone application, covering Authentication, Posts, User Interactions, User Profiles, Notifications, and more.
     This API follows the JSend specification for newer endpoints, with a custom `metadata` field for additional response information.
-  version: 1.2.0
+  version: 1.3.0
 
 servers:
   - url: https://api.xclone.com/v1
@@ -15,6 +15,8 @@ servers:
 tags:
   - name: Auth
     description: Endpoints for user registration, login, and authentication management.
+  - name: Explore
+    description: Endpoints for discovering personalized and categorized content.
   - name: User Profile
     description: Endpoints for managing user profiles, settings, images, and banners.
   - name: Users
@@ -366,7 +368,153 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FailResponse'
+  
+  /explore/for-you/posts:
+    get:
+      tags:
+        - Explore
+      summary: Get personalized posts ("For You")
+      description: Retrieve a list of posts for the user's personalized "For You" feed, based on their interests and follows.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of posts to return.
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: The page number for pagination, starting from 1.
+      responses:
+        '200':
+          description: A list of personalized posts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostsResponse'
+        '500':
+          description: Internal server error
 
+  /explore/for-you/trends:
+    get:
+      tags:
+        - Explore
+      summary: Get personalized trends ("For You")
+      description: Retrieves a list of trends tailored to the user's interests.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: The maximum number of trends to return.
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: The page number for pagination, starting from 1.
+      responses:
+        '200':
+          description: A list of personalized trends.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTrendsResponse'
+        '500':
+          description: Internal server error
+
+  /explore/category/{categoryName}/posts:
+    get:
+      tags:
+        - Explore
+      summary: Get posts for a specific category
+      description: Retrieve a list of posts for a given category, such as sports, news, or entertainment.
+      parameters:
+        - in: path
+          name: categoryName
+          schema:
+            type: string
+            enum: [sports, news, entertainment]
+          required: true
+          description: The name of the category to fetch posts for.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: The maximum number of posts to return.
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: The page number for pagination, starting from 1.
+      responses:
+        '200':
+          description: A list of posts for the specified category.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPostsResponse'
+        '404':
+          description: Category not found
+        '500':
+          description: Internal server error
+
+  /explore/category/{categoryName}/trends:
+    get:
+      tags:
+        - Explore
+      summary: Get trends for a specific category
+      description: Retrieves a list of trending topics for a given category.
+      parameters:
+        - in: path
+          name: categoryName
+          schema:
+            type: string
+            enum: [sports, news, entertainment]
+          required: true
+          description: The name of the category to fetch trends for.
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: The maximum number of trends to return.
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: The page number for pagination, starting from 1.
+      responses:
+        '200':
+          description: A list of trends for the specified category.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTrendsResponse'
+        '404':
+          description: Category not found
+        '500':
+          description: Internal server error
+          
   /users/me/username:
     patch:
       tags: [User Profile]
@@ -1287,8 +1435,6 @@ paths:
                             description: Details of the media files uploaded with the post.
         '400':
           description: Invalid request payload (e.g., reply missing parentId, invalid type, unsupported media format)
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
     get:
@@ -1332,8 +1478,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedPostsResponse' # Changed to use paginated response
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
 
@@ -1375,8 +1519,6 @@ paths:
                 $ref: '#/components/schemas/PaginatedPostsResponse'
         '400':
           description: Missing search query parameter 'q'
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
 
@@ -1409,8 +1551,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedPostsResponse'
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
 
@@ -1459,8 +1599,6 @@ paths:
                 $ref: '#/components/schemas/PaginatedPostsResponse'
         '404':
           description: User not found
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
 
@@ -1493,8 +1631,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedPostsResponse'
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
 
@@ -1537,8 +1673,6 @@ paths:
                 $ref: '#/components/schemas/PaginatedPostsResponse'
         '404':
           description: User not found
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
 
@@ -1682,8 +1816,6 @@ paths:
                 $ref: '#/components/schemas/PostResponse'
         '404':
           description: Post not found
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
     delete:
@@ -1694,8 +1826,6 @@ paths:
       responses:
         '204':
           description: Post deleted successfully (No Content)
-        '401':
-          description: Unauthorized - User not authenticated
         '403':
           description: Forbidden - User does not own the post
         '404':
@@ -1742,8 +1872,6 @@ paths:
                 $ref: '#/components/schemas/PaginatedPostsResponse' # Changed to use paginated response
         '404':
           description: Parent post not found
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
 
@@ -1776,8 +1904,6 @@ paths:
                   message:
                     type: string
                     example: "Post liked"
-        '401':
-          description: Unauthorized - User not authenticated
         '404':
           description: Post not found
         '500':
@@ -1840,8 +1966,6 @@ paths:
                     totalPages: 1
         '404':
           description: Post not found
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
 
@@ -1874,8 +1998,6 @@ paths:
                   message:
                     type: string
                     example: "Post reposted"
-        '401':
-          description: Unauthorized - User not authenticated
         '404':
           description: Post not found
         '500':
@@ -1938,8 +2060,6 @@ paths:
                     totalPages: 1
         '404':
           description: Post not found
-        '401':
-          description: Unauthorized - User not authenticated
         '500':
           description: Internal server error
   /posts/{postId}/summary:
@@ -1981,8 +2101,6 @@ paths:
                         example: "User discussed a super duper post content, focusing on its visibility to everyone."
         '404':
           description: Post not found
-        '401':
-          description: Unauthorized - User not authenticated (if summary is not public)
         '500':
           description: Internal server error
 
@@ -2483,6 +2601,30 @@ components:
             media: []
             createdAt: "2023-10-27T10:00:00Z"
             updatedAt: "2023-10-27T10:00:00Z"
+        metadata:
+          totalItems: 1
+          page: 1
+          limit: 10
+          totalPages: 1
+
+    PaginatedTrendsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "200"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trend'
+        metadata:
+          $ref: '#/components/schemas/PaginationMetadata'
+      example:
+        status: "200"
+        data:
+          - hashtag: "OpenAPI"
+            volume: 2500
+            country: "Global"
         metadata:
           totalItems: 1
           page: 1
