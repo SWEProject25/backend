@@ -10,14 +10,438 @@ servers:
     description: Development server
 
 tags:
+  - name: Users
+    description: Endpoints related to following, blocking, and muting users.
   - name: Posts
     description: Operations related to creating, retrieving, and deleting posts (including replies and quotes).
   - name: Post Interactions
     description: Endpoints for liking, reposting, and summarizing posts.
   - name: Hashtags & Trends
     description: Endpoints for searching posts, hashtags, and retrieving trending topics.
+  - name: Messages
+    description: Endpoints for managing direct messages.
+  - name: Conversations
+    description: Endpoints related to user conversations.
 
 paths:
+  /users/{id}/follow:
+    post:
+      tags: [Users]
+      summary: Follow a user
+      description: Follow a user by their ID.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          description: Bearer access token.
+          schema:
+            type: string
+            example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6...
+        - name: id
+          in: path
+          required: true
+          description: ID of the user to follow
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successfully followed the user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      followingId: { type: string, example: "12345" }
+                      followerId: { type: string, example: "67890" }
+                      followedAt: { type: string, format: date-time }
+        400:
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Cannot follow yourself }
+
+    delete:
+      tags: [Users]
+      summary: Unfollow a user
+      description: Unfollow a user by their ID.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+            example: Bearer eyJhbGciOi...
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Successfully unfollowed user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      unfollowedId: { type: string, example: "12345" }
+        400:
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: User was not being followed }
+
+  /users/{id}/followers:
+    get:
+      tags: [Users]
+      summary: Get followers list
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, example: 10 }
+        - name: page
+          in: query
+          schema: { type: integer, example: 1 }
+      responses:
+        200:
+          description: List of followers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId: { type: string }
+                        username: { type: string }
+                        displayName: { type: string }
+                        profileImageURL: { type: string }
+                        bio: { type: string }
+                        followedAt: { type: string, format: date-time }
+                  metadata:
+                    $ref: '#/components/schemas/PaginationMetadata'
+        400:
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: User not found }
+
+  /users/{id}/following:
+    get:
+      tags: [Users]
+      summary: Get following list
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, example: 10 }
+        - name: page
+          in: query
+          schema: { type: integer, example: 1 }
+      responses:
+        200:
+          description: List of users the given user is following
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId: { type: string }
+                        username: { type: string }
+                        displayName: { type: string }
+                        profileImageURL: { type: string }
+                        bio: { type: string }
+                        followedAt: { type: string, format: date-time }
+                  metadata:
+                    $ref: '#/components/schemas/PaginationMetadata'
+        400:
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: User not found }
+
+  /users/{id}/block:
+    post:
+      tags: [Users]
+      summary: Block a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Successfully blocked the user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      blockedId: { type: string, example: "12345" }
+                      blockedAt: { type: string, format: date-time }
+        400:
+          description: Cannot block yourself
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Cannot block yourself }
+
+    delete:
+      tags: [Users]
+      summary: Unblock a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Successfully unblocked user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      unblockedId: { type: string, example: "12345" }
+        400:
+          description: User not blocked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: User was not blocked }
+
+  /users/blocks:
+    get:
+      tags: [Users]
+      summary: Get list of blocked users
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, example: 10 }
+        - name: page
+          in: query
+          schema: { type: integer, example: 1 }
+      responses:
+        200:
+          description: List of blocked users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId: { type: string }
+                        username: { type: string }
+                        displayName: { type: string }
+                        profileImageURL: { type: string }
+                        bio: { type: string }
+                        blockedAt: { type: string, format: date-time }
+                  metadata:
+                    $ref: '#/components/schemas/PaginationMetadata'
+        400:
+          description: Request error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Could not fetch blocked users }
+
+  /users/{id}/mute:
+    post:
+      tags: [Users]
+      summary: Mute a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: User muted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      mutedId: { type: string, example: "98765" }
+                      mutedAt: { type: string, format: date-time }
+        400:
+          description: Cannot mute yourself
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Cannot mute yourself }
+
+    delete:
+      tags: [Users]
+      summary: Unmute a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Successfully unmuted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      unmutedId: { type: string, example: "98765" }
+        400:
+          description: User not muted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: User was not muted }
+
+  /users/muted:
+    get:
+      tags: [Users]
+      summary: Get list of muted users
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, example: 10 }
+        - name: page
+          in: query
+          schema: { type: integer, example: 1 }
+      responses:
+        200:
+          description: Muted users list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId: { type: string }
+                        username: { type: string }
+                        profileImageURL: { type: string }
+                        bio: { type: string }
+                        mutedAt: { type: string, format: date-time }
+                  metadata:
+                    $ref: '#/components/schemas/PaginationMetadata'
+        400:
+          description: Request error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Could not fetch muted users }
+
   /posts:
     post:
       tags:
@@ -792,6 +1216,192 @@ paths:
           description: Unauthorized - User not authenticated (if summary is not public)
         '500':
           description: Internal server error
+
+  /messages/{conversationId}:
+    get:
+      tags: [Messages]
+      summary: Get messages from a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string }
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, example: 20 }
+        - name: page
+          in: query
+          schema: { type: integer, example: 1 }
+      responses:
+        200:
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        messageId: { type: string }
+                        senderId: { type: string }
+                        text: { type: string }
+                        sentAt: { type: string, format: date-time }
+                  metadata:
+                    $ref: '#/components/schemas/PaginationMetadata'
+        400:
+          description: Invalid conversation ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Conversation not found }
+
+    post:
+      tags: [Messages]
+      summary: Send a new message
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string }
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string, example: "Hey, how’s it going?" }
+      responses:
+        201:
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      messageId: { type: string }
+                      senderId: { type: string }
+                      text: { type: string }
+                      sentAt: { type: string, format: date-time }
+        400:
+          description: Failed to send message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Message could not be sent }
+  /conversations:
+    get:
+      tags: [Conversations]
+      summary: Get list of conversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, example: 10 }
+        - name: page
+          in: query
+          schema: { type: integer, example: 1 }
+      responses:
+        200:
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        conversationId: { type: string }
+                        user:
+                          type: object
+                          properties:
+                            id: { type: string }
+                            username: { type: string }
+                            displayName: { type: string }
+                            profileImageURL: { type: string }
+                        lastMessage: { type: string }
+                        updatedAt: { type: string, format: date-time }
+                  metadata:
+                    $ref: '#/components/schemas/PaginationMetadata'
+        400:
+          description: Failed to fetch conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Could not retrieve conversations }
+
+  /conversations/unseen:
+    get:
+      tags: [Conversations]
+      summary: Get number of unseen conversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Number of unseen conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      unseenCount: { type: integer, example: 3 }
+        400:
+          description: Request error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Could not fetch unseen count }
+
 components:
   schemas:
     # Existing Schemas
