@@ -7,6 +7,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth/jwt-auth.guard';
 import { EmailModule } from './email/email.module';
 import { Services } from './utils/constants';
+import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
+import { Request } from 'express';
 
 const envFilePath = '.env';
 
@@ -16,6 +18,14 @@ const envFilePath = '.env';
     AuthModule,
     UserModule,
     EmailModule,
+    GoogleRecaptchaModule.forRoot({
+      secretKey: process.env.GOOGLE_RECAPTCHA_SECRET_KEY_V2,
+      response: (req: Request) => req?.body.recaptcha, // Extract token from the request body
+      // for v3
+      // score: 0.8, // The minimum score to pass
+      // for v2
+      // skipIf: process.env.NODE_ENV !== 'production',
+    }),
   ],
   controllers: [],
   providers: [

@@ -31,6 +31,8 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { EmailVerificationService } from './services/email-verification/email-verification.service';
 import { JwtTokenService } from './services/jwt-token/jwt-token.service';
 import { Routes, Services } from 'src/utils/constants';
+import { Recaptcha } from '@nestlab/google-recaptcha';
+import { RecaptchaDto } from './dto/recaptcha.dto';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -217,6 +219,26 @@ export class AuthController {
     return {
       status: result ? 'success' : 'fail',
       message: result ? 'email verified' : 'fail',
+    };
+  }
+
+  @Post('verify-recaptcha')
+  @Recaptcha() // The guard does all the work!
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verifies a Google reCAPTCHA token',
+    description:
+      'Endpoint to verify a user is human before allowing other actions.',
+  })
+  @ApiResponse({ status: 200, description: 'Human verification successful.' })
+  @ApiResponse({ status: 400, description: 'reCAPTCHA verification failed.' })
+  public verifyRecaptcha(@Body() recaptchaDto: RecaptchaDto) {
+    // The @Recaptcha() guard runs before this method.
+    // If the guard fails, it will throw an exception and this code will not be reached.
+    // If the guard succeeds, we just need to return a success message.
+    return {
+      status: 'success',
+      message: 'Human verification successful.',
     };
   }
 
