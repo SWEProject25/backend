@@ -31,6 +31,8 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { EmailVerificationService } from './services/email-verification/email-verification.service';
 import { JwtTokenService } from './services/jwt-token/jwt-token.service';
 import { Routes, Services } from 'src/utils/constants';
+import { Recaptcha } from '@nestlab/google-recaptcha';
+import { RecaptchaDto } from './dto/recaptcha.dto';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -62,16 +64,22 @@ export class AuthController {
     status: 409,
     description: 'Conflict - User already exists',
   })
-  public async register(@Body() createUserDto: CreateUserDto) {
+  public async register(
+    @Body() createUserDto: CreateUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.authService.registerUser(createUserDto);
 
     const userProfile = result.userProfile;
     const newUser = result.newUser;
-
+    const accessToken = await this.jwtTokenService.generateAccessToken(
+      newUser.id,
+      newUser.username,
+    );
+    this.jwtTokenService.setAuthCookies(res, accessToken);
     return {
       status: 'success',
-      message:
-        'Account created successfully. Please check your email for verification',
+      message: 'Account created successfully.',
       data: {
         user: {
           username: newUser.username,
@@ -217,6 +225,27 @@ export class AuthController {
     return {
       status: result ? 'success' : 'fail',
       message: result ? 'email verified' : 'fail',
+    };
+  }
+
+  @Post('verify-recaptcha')
+  @Public()
+  @Recaptcha() // The guard does all the work!
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verifies a Google reCAPTCHA token',
+    description:
+      'Endpoint to verify a user is human before allowing other actions.',
+  })
+  @ApiResponse({ status: 200, description: 'Human verification successful.' })
+  @ApiResponse({ status: 400, description: 'reCAPTCHA verification failed.' })
+  public verifyRecaptcha(@Body() recaptchaDto: RecaptchaDto) {
+    // The @Recaptcha() guard runs before this method.
+    // If the guard fails, it will throw an exception and this code will not be reached.
+    // If the guard succeeds, we just need to return a success message.
+    return {
+      status: 'success',
+      message: 'Human verification successful.',
     };
   }
 
