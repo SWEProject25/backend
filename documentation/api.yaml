@@ -2190,6 +2190,115 @@ paths:
                 properties:
                   status: { type: string, example: fail }
                   message: { type: string, example: Message could not be sent }
+
+  /messages/{messageId}:
+    patch:
+      tags: [Messages]
+      summary: Edit a message
+      description: Updates the text content of an existing message
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+          description: The ID of the message to edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, example: "Updated message text" }
+      responses:
+        200:
+          description: Message updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      messageId: { type: string }
+                      senderId: { type: string }
+                      text: { type: string }
+                      sentAt: { type: string, format: date-time }
+                      editedAt: { type: string, format: date-time }
+        400:
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Invalid message data }
+        403:
+          description: Forbidden - User does not own the message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: You can only edit your own messages }
+        404:
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Message not found }
+
+    delete:
+      tags: [Messages]
+      summary: Delete a message
+      description: Removes a message from a conversation
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+          description: The ID of the message to delete
+      responses:
+        200:
+          description: Message deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      messageId: { type: string }
+                      deletedAt: { type: string, format: date-time }
+        403:
+          description: Forbidden - User does not own the message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: You can only delete your own messages }
+        404:
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: fail }
+                  message: { type: string, example: Message not found }
+
   /conversations:
     get:
       tags: [Conversations]
