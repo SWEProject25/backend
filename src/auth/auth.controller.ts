@@ -64,16 +64,22 @@ export class AuthController {
     status: 409,
     description: 'Conflict - User already exists',
   })
-  public async register(@Body() createUserDto: CreateUserDto) {
+  public async register(
+    @Body() createUserDto: CreateUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.authService.registerUser(createUserDto);
 
     const userProfile = result.userProfile;
     const newUser = result.newUser;
-
+    const accessToken = await this.jwtTokenService.generateAccessToken(
+      newUser.id,
+      newUser.username,
+    );
+    this.jwtTokenService.setAuthCookies(res, accessToken);
     return {
       status: 'success',
-      message:
-        'Account created successfully. Please check your email for verification',
+      message: 'Account created successfully.',
       data: {
         user: {
           username: newUser.username,
@@ -223,6 +229,7 @@ export class AuthController {
   }
 
   @Post('verify-recaptcha')
+  @Public()
   @Recaptcha() // The guard does all the work!
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
