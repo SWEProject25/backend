@@ -33,6 +33,7 @@ import { JwtTokenService } from './services/jwt-token/jwt-token.service';
 import { Routes, Services } from 'src/utils/constants';
 import { Recaptcha } from '@nestlab/google-recaptcha';
 import { RecaptchaDto } from './dto/recaptcha.dto';
+import { GoogleAuthGuard } from './guards/google-auth/google-auth.guard';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -247,6 +248,28 @@ export class AuthController {
       status: 'success',
       message: 'Human verification successful.',
     };
+  }
+
+  @Get('google/login')
+  @Public()
+  @UseGuards(GoogleAuthGuard)
+  public googleLogin() {
+    console.log('authenticated');
+    return { status: 'success', message: 'Google Authenticated successfuly' };
+  }
+
+  @Get('google/redirect')
+  @Public()
+  @UseGuards(GoogleAuthGuard)
+  public async googleRedirect(@Req() req, @Res() res: Response) {
+    console.log(req.user, 'user in controller', req.user.id);
+    const { accessToken, ...response } = await this.authService.login(
+      req.user.id,
+      req.user.username,
+    );
+    console.log(response);
+    this.jwtTokenService.setAuthCookies(res, accessToken);
+    res.redirect(`${process.env.FRONTEND_URL}/home`);
   }
 
   @ApiCookieAuth()

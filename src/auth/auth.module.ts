@@ -16,6 +16,8 @@ import { EmailVerificationService } from './services/email-verification/email-ve
 import { JwtTokenService } from './services/jwt-token/jwt-token.service';
 import { OtpService } from './services/otp/otp.service';
 import { Services } from 'src/utils/constants';
+import { GoogleStrategy } from './strategies/google.strategy';
+import googleOauthConfig from './config/google-oauth.config';
 
 @Module({
   controllers: [AuthController],
@@ -50,6 +52,7 @@ import { Services } from 'src/utils/constants';
     },
     LocalStrategy,
     JwtStrategy,
+    GoogleStrategy,
   ],
   imports: [
     UserModule,
@@ -57,6 +60,7 @@ import { Services } from 'src/utils/constants';
     ConfigModule.forFeature(jwtConfig),
     JwtModule.registerAsync(jwtConfig.asProvider()),
     ConfigModule.forFeature(mailerConfig),
+    ConfigModule.forFeature(googleOauthConfig),
   ],
   exports: [
     {
