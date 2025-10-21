@@ -22,7 +22,6 @@ RUN npm ci --only=production && npx prisma generate
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/generated ./generated
-COPY --from=builder /app/docs ./docs
 
 EXPOSE 3000
 
