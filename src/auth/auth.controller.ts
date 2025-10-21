@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Inject,
   Post,
+  Req,
   Request,
   Res,
   UseGuards,
@@ -31,6 +32,8 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { EmailVerificationService } from './services/email-verification/email-verification.service';
 import { JwtTokenService } from './services/jwt-token/jwt-token.service';
 import { Routes, Services } from 'src/utils/constants';
+import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
+import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { Recaptcha } from '@nestlab/google-recaptcha';
 import { RecaptchaDto } from './dto/recaptcha.dto';
 import { GoogleAuthGuard } from './guards/google-auth/google-auth.guard';
@@ -60,10 +63,12 @@ export class AuthController {
   @ApiResponse({
     status: 400,
     description: 'Bad request - Invalid input data',
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 409,
     description: 'Conflict - User already exists',
+    type: ErrorResponseDto,
   })
   public async register(
     @Body() createUserDto: CreateUserDto,
@@ -116,10 +121,12 @@ export class AuthController {
   @ApiResponse({
     status: 400,
     description: 'Bad request - Invalid input data',
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 401,
     description: 'Unauthorized - Invalid credentials',
+    type: ErrorResponseDto,
   })
   public async login(
     @Request() req: RequestWithUser,
@@ -144,6 +151,23 @@ export class AuthController {
 
   @Get('me')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get current user information',
+    description:
+      'Returns profile details of the currently authenticated user from the JWT token.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile successfully fetched',
+    type: ApiResponseDto, // Example schema is part of the DTO now
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
   getMe(@CurrentUser() user: any) {
     // @TODO add user interface
     return { user };
@@ -151,12 +175,21 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Logout user',
+    description:
+      'Clears authentication cookies (access_token and refresh_token).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Logout successful',
+    type: ApiResponseDto,
+  })
   logout(@Res({ passthrough: true }) response: Response) {
     response.clearCookie('access_token');
     response.clearCookie('refresh_token');
-    return {
-      message: 'Logout successful',
-    };
+    return { message: 'Logout successful' };
   }
 
   @Post('check-email')
@@ -174,20 +207,12 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Email is available for registration',
-    schema: {
-      example: { message: 'Email is available' },
-    },
+    type: ApiResponseDto,
   })
   @ApiResponse({
     status: 409,
     description: 'Email already exists in the system',
-    schema: {
-      example: {
-        statusCode: 409,
-        message: 'Email already in use',
-        error: 'Conflict',
-      },
-    },
+    type: ErrorResponseDto,
   })
   public async checkEmail(@Body() { email }: CheckEmailDto) {
     console.log(email);
@@ -197,6 +222,16 @@ export class AuthController {
 
   @Post('verification-otp')
   @Public()
+  @ApiOperation({
+    summary: 'Generate and send a verification OTP',
+    description:
+      "Generates a new OTP and sends it to the user's email for verification.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification OTP sent successfully',
+    type: ApiResponseDto,
+  })
   public async generateVerificationEmail(@Body('email') email: string) {
     await this.emailVerificationService.sendVerificationEmail(email);
     return {
@@ -207,6 +242,15 @@ export class AuthController {
 
   @Post('resend-otp')
   @Public()
+  @ApiOperation({
+    summary: 'Resend the verification OTP',
+    description: "Resends a new verification OTP to the user's email.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification OTP resent successfully',
+    type: ApiResponseDto,
+  })
   public async resendVerificationEmail(@Body('email') email: string) {
     await this.emailVerificationService.resendVerificationEmail(email);
     return {
@@ -217,6 +261,20 @@ export class AuthController {
 
   @Post('verify-otp')
   @Public()
+  @ApiOperation({
+    summary: 'Verify the email OTP',
+    description: 'Verifies the provided OTP for the given email address.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verified successfully',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired OTP',
+    type: ErrorResponseDto,
+  })
   public async verifyEmailOtp(
     @Body('otp') otp: string,
     @Body('email') email: string,
@@ -274,6 +332,16 @@ export class AuthController {
 
   @ApiCookieAuth()
   @Get('test')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Test endpoint',
+    description: 'A protected test endpoint to verify JWT authentication.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successful test',
+    type: ApiResponseDto,
+  })
   @UseGuards(JwtAuthGuard)
   public test() {
     return 'hello';
