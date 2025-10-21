@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - dev
+  workflow_dispatch:
 jobs:
   # Trigger the public workflow
   trigger-public-workflow:
