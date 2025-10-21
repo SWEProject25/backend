@@ -2,13 +2,14 @@ name: Trigger Docker Build
 on:
   push:
     branches:
-      - main
+      - main # Adjust branch as needed
 jobs:
+  # Trigger the public workflow
   trigger-public-workflow:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger public repo workflow
-        run: |
+        run: | 
           curl -X POST \
             -H "Accept: application/vnd.github.v3+json" \
             -H "Authorization: token ${{ secrets.PAT_GITHUB }}" \
