@@ -2,7 +2,8 @@ name: Trigger Docker Build
 on:
   push:
     branches:
-      - main # Adjust branch as needed
+      - main
+      - dev
 jobs:
   # Trigger the public workflow
   trigger-public-workflow:
