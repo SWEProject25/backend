@@ -91,4 +91,30 @@ export class AuthService {
 
     return user;
   }
+
+  public async validateGoogleUser(googleUser: CreateUserDto) {
+    const email = googleUser.email;
+    const existingUser = await this.userService.findByEmail(email);
+    // console.log('existing user from google', user);
+    if (existingUser) {
+      return existingUser;
+    }
+    const newUser = await this.userService.create(googleUser);
+    const user = {
+      username: newUser.newUser.username,
+      role: newUser.newUser.role,
+      email: newUser.newUser.email,
+      name: newUser.userProfile.name,
+      birth_date: newUser.userProfile.birth_date,
+      profile_image_url: newUser.userProfile.profile_image_url,
+      banner_image_url: newUser.userProfile.banner_image_url,
+      bio: newUser.userProfile.bio,
+      location: newUser.userProfile.location,
+      website: newUser.userProfile.website,
+      created_at: newUser.newUser.created_at,
+    };
+    console.log('validate google user');
+    console.log(user);
+    return user;
+  }
 }
