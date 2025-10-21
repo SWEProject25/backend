@@ -11,7 +11,7 @@ jobs:
         run: |
           curl -X POST \
             -H "Accept: application/vnd.github.v3+json" \
-            -H "Authorization: token ${{ secrets.PUBLIC_REPO_PAT }}" \
+            -H "Authorization: token ${{ secrets.PAT_GITHUB }}" \
             https://api.github.com/repos/karimzakzouk/runner/dispatches \
             -d '{
               "event_type": "trigger-build",
