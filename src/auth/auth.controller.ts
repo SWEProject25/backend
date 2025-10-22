@@ -37,6 +37,7 @@ import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { Recaptcha } from '@nestlab/google-recaptcha';
 import { RecaptchaDto } from './dto/recaptcha.dto';
 import { GoogleAuthGuard } from './guards/google-auth/google-auth.guard';
+import { GithubAuthGuard } from './guards/github-auth/github-auth.guard';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -320,6 +321,44 @@ export class AuthController {
   @Public()
   @UseGuards(GoogleAuthGuard)
   public async googleRedirect(@Req() req, @Res() res: Response) {
+    const { accessToken, ...user } = await this.authService.login(
+      req.user.id,
+      req.user.username,
+    );
+    this.jwtTokenService.setAuthCookies(res, accessToken);
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+        <body>
+          <script>
+            window.opener.postMessage(
+              {
+                status: 'success',
+                data: {
+                  url: '${process.env.FRONTEND_URL}/home',
+                  user: ${JSON.stringify(user)}
+                }
+              },
+              '${process.env.FRONTEND_URL}'
+            );
+            window.close();
+          </script>
+        </body>
+      </html>
+    `;
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  }
+
+  @Get('github/login')
+  @Public()
+  @UseGuards(GithubAuthGuard)
+  public githubLogin() {}
+
+  @Get('github/redirect')
+  @Public()
+  @UseGuards(GithubAuthGuard)
+  public async githubRedirect(@Req() req, @Res() res: Response) {
     const { accessToken, ...user } = await this.authService.login(
       req.user.id,
       req.user.username,

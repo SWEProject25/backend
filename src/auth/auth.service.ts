@@ -10,6 +10,7 @@ import { AuthJwtPayload } from 'src/types/jwtPayload';
 import { PasswordService } from './services/password/password.service';
 import { JwtTokenService } from './services/jwt-token/jwt-token.service';
 import { Services } from 'src/utils/constants';
+import { OAuthProfileDto } from './dto/oauth-profile.dto';
 
 @Injectable()
 export class AuthService {
@@ -116,5 +117,17 @@ export class AuthService {
     console.log('validate google user');
     console.log(user);
     return user;
+  }
+
+  public async validateGithubUser(githubUserData: OAuthProfileDto) {
+    const existingUsername = await this.userService.findByUsername(
+      githubUserData.username!,
+    );
+    if (existingUsername) {
+      // @TODO check for provider
+      return existingUsername;
+    }
+    const newUser = await this.userService.createOAuthUser(githubUserData);
+    return newUser;
   }
 }

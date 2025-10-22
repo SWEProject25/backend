@@ -4,6 +4,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { hash } from 'argon2';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Services } from 'src/utils/constants';
+import { OAuthProfileDto } from 'src/auth/dto/oauth-profile.dto';
 
 @Injectable()
 export class UserService {
@@ -72,5 +73,33 @@ export class UserService {
         user_email: email,
       },
     });
+  }
+
+  public async findByUsername(username: string) {
+    return await this.prismaService.user.findUnique({ where: { username } });
+  }
+
+  public async createOAuthUser(oauthProfileDto: OAuthProfileDto) {
+    const newUser = await this.prismaService.user.create({
+      data: {
+        email:
+          oauthProfileDto.provider === 'google' ? oauthProfileDto.email : '',
+        password: '',
+        username: oauthProfileDto.username!,
+        is_verified: true,
+        provider_id: oauthProfileDto.providerId,
+      },
+    });
+    const proflie = await this.prismaService.profile.create({
+      data: {
+        user_id: newUser.id,
+        name: oauthProfileDto.displayName,
+        profile_image_url: oauthProfileDto.profileImageUrl,
+      },
+    });
+    return {
+      newUser,
+      proflie,
+    };
   }
 }
