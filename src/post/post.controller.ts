@@ -6,13 +6,12 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { CreatePostResponseDto } from './dto/post-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
-import { RequestWithUser } from 'src/common/interfaces/request-with-user.interface';
-import { User } from 'generated/prisma';
+
 import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @ApiTags('Posts')
-@Controller('post')
+@Controller('posts')
 export class PostController {
   constructor(
     @Inject(Services.POST)

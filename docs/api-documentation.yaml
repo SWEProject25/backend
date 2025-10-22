@@ -396,7 +396,7 @@
         ]
       }
     },
-    "/api/v1.0/post": {
+    "/api/v1.0/posts": {
       "post": {
         "description": "Creates a new post with the provided content and settings",
         "operationId": "PostController_createPost",

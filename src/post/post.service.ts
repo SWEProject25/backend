@@ -19,9 +19,9 @@ export class PostService {
       data: {
         content,
         type,
-        parentId,
+        parent_id: parentId,
         visibility,
-        userId,
+        user_id: userId,
       },
     });
   }
