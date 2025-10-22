@@ -79,6 +79,7 @@ model Post {
   parent_id    Int? 
   visibility  PostVisibility
   created_at   DateTime      @default(now())
+  is_deleted   Boolean        @default(false)
 
   User        User         @relation(fields: [user_id], references: [id])
   ParentPost  Post?         @relation("PostToReplies", fields: [parent_id], references: [id])
@@ -86,7 +87,7 @@ model Post {
   repostedBy Repost[]
   likes    Like[]
   mentions   Mention[]
-   hashtags  Hashtag[] @relation("PostHashtags")
+  hashtags  Hashtag[] @relation("PostHashtags")
   @@map("posts")
 }
 

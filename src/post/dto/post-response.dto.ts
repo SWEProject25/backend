@@ -67,3 +67,38 @@ export class CreatePostResponseDto {
   })
   data: PostResponseDto;
 }
+
+export class GetPostsResponseDto {
+  @ApiProperty({
+    description: 'Status of the response',
+    example: 'success',
+  })
+  status: string;
+
+  @ApiProperty({
+    description: 'Response message',
+    example: 'Posts retrieved successfully',
+  })
+  message: string;
+
+  @ApiProperty({
+    description: 'Array of posts',
+    type: [PostResponseDto],
+  })
+  data: PostResponseDto[];
+}
+
+
+export class DeletePostResponseDto {
+  @ApiProperty({
+    description: 'Status of the response',
+    example: 'success',
+  })
+  status: string;
+
+  @ApiProperty({
+    description: 'Response message',
+    example: 'Post deleted successfully',
+  })
+  message: string;
+}

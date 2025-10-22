@@ -14,4 +14,6 @@ export enum Services {
   JWT_TOKEN = 'JWT_TOKEN_SERVICE',
   OTP = 'OTP_SERVICE',
   POST = 'POST_SERVICE',
+  LIKE = 'LIKE_SERVICE',
+  REPOST = 'REPOST_SERVICE',
 }

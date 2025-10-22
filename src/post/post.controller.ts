@@ -1,14 +1,19 @@
-import { Body, Controller, HttpStatus, Inject, Post, UseGuards } from '@nestjs/common';
-import { PostService } from './post.service';
+import { Body, Controller, Delete, Get, HttpStatus, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { PostService } from './services/post.service';
+import { LikeService } from './services/like.service';
+import { RepostService } from './services/repost.service';
 import { Services } from 'src/utils/constants';
-import { ApiBody, ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiCookieAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CreatePostDto } from './dto/create-post.dto';
-import { CreatePostResponseDto } from './dto/post-response.dto';
+import { CreatePostResponseDto, GetPostsResponseDto, DeletePostResponseDto } from './dto/post-response.dto';
+import { ToggleLikeResponseDto, GetLikersResponseDto, GetLikedPostsResponseDto } from './dto/like-response.dto';
+import { ToggleRepostResponseDto, GetRepostersResponseDto } from './dto/repost-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
 
 import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { PostFiltersDto } from './dto/post-filter.dto';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -16,6 +21,10 @@ export class PostController {
   constructor(
     @Inject(Services.POST)
     private readonly postService: PostService,
+    @Inject(Services.LIKE)
+    private readonly likeService: LikeService,
+    @Inject(Services.REPOST)
+    private readonly repostService: RepostService,
   ) { }
 
   @Post()
@@ -57,4 +66,422 @@ export class PostController {
       data: post,
     };
   }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get posts with optional filters',
+    description: 'Retrieves posts with optional filtering by user ID, hashtag, and pagination',
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    type: Number,
+    description: 'Filter posts by user ID',
+    example: 42,
+  })
+  @ApiQuery({
+    name: 'hashtag',
+    required: false,
+    type: String,
+    description: 'Filter posts by hashtag',
+    example: '#nestjs',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Posts retrieved successfully',
+    type: GetPostsResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid query parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getPosts(
+    @Query() filters: PostFiltersDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const posts = await this.postService.getPostsWithFilters(filters);
+    
+    return {
+      status: 'success',
+      message: 'Posts retrieved successfully',
+      data: posts,
+    };
+  }
+
+  @Post(':postId/like')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Toggle like on a post',
+    description: 'Likes a post if not already liked, or unlikes it if already liked',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to toggle like',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Like toggled successfully',
+    type: ToggleLikeResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid post ID',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async togglePostLike(
+    @Param('postId') postId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const result = await this.likeService.togglePostLike(+postId, user.id);
+    
+    return {
+      status: 'success',
+      message: result.message,
+      data: result,
+    };
+  }
+
+  @Get(':postId/likers')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get list of users who liked a post',
+    description: 'Retrieves a paginated list of users who liked the specified post',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to get likers for',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of likers per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Likers retrieved successfully',
+    type: GetLikersResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getPostLikers(
+    @Param('postId') postId: number,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    const likers = await this.likeService.getListOfLikers(+postId, +page, +limit);
+    
+    return {
+      status: 'success',
+      message: 'Likers retrieved successfully',
+      data: likers,
+    };
+  }
+
+  @Get(':postId/replies')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get replies to a post',
+    description: 'Retrieves a paginated list of replies to the specified post',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to get replies for',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of replies per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Replies retrieved successfully',
+    type: GetPostsResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getPostReplies(
+    @Param('postId') postId: number,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    const replies = await this.postService.getRepliesOfPost(+postId, +page, +limit);
+    
+    return {
+      status: 'success',
+      message: 'Replies retrieved successfully',
+      data: replies,
+    };
+  }
+
+  @Post(':postId/repost')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Toggle repost on a post',
+    description: 'Reposts a post if not already reposted, or removes repost if already reposted',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to toggle repost',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Repost toggled successfully',
+    type: ToggleRepostResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid post ID',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async toggleRepost(
+    @Param('postId') postId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const result = await this.repostService.toggleRepost(+postId, user.id);
+    
+    return {
+      status: 'success',
+      message: result.message,
+      data: result,
+    };
+  }
+
+  @Get(':postId/reposters')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get list of users who reposted a post',
+    description: 'Retrieves a paginated list of users who reposted the specified post',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to get reposters for',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of reposters per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Reposters retrieved successfully',
+    type: GetRepostersResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getPostReposters(
+    @Param('postId') postId: number,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const reposters = await this.repostService.getReposters(+postId, +page, +limit);
+    
+    const users = reposters.map(repost => repost.user);
+    
+    return {
+      status: 'success',
+      message: 'Reposters retrieved successfully',
+      data: users,
+    };
+  }
+
+  @Get('liked/:userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get posts liked by a user',
+    description: 'Retrieves a paginated list of posts that the specified user has liked',
+  })
+  @ApiParam({
+    name: 'userId',
+    type: Number,
+    description: 'The ID of the user to get liked posts for',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of liked posts per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Liked posts retrieved successfully',
+    type: GetLikedPostsResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getUserLikedPosts(
+    @Param('userId') userId: number,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    const likedPosts = await this.likeService.getLikedPostsByUser(+userId, +page, +limit);
+    
+    return {
+      status: 'success',
+      message: 'Liked posts retrieved successfully',
+      data: likedPosts,
+    };
+  }
+
+  @Delete(':postId')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Delete a post',
+    description: 'Soft deletes a post and all its replies and quotes',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to delete',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Post deleted successfully',
+    type: DeletePostResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid post ID',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Post not found',
+    type: ErrorResponseDto,
+  })
+  async deletePost(
+    @Param('postId') postId: number,
+  ) {
+    await this.postService.deletePost(+postId);
+    
+    return {
+      status: 'success',
+      message: 'Post deleted successfully',
+    };
+  }
+
+
 }
