@@ -15,34 +15,34 @@ datasource db {
 }
 
 model User {
-  id           String              @id @default(uuid()) @map("id") @db.Uuid()
-  email        String              @unique @map("email")
-  username     String              @map("username") @db.VarChar(50) // should be uniquely identifer
-  password     String              @map("password") @db.VarChar(255)
-  is_verified  Boolean             @default(false) @map("is_verifed")
-  provider_id  String?             @map("provider_id")
-  role         Role                @default(USER) @map("role")
-  created_at   DateTime            @default(now()) @map("created_at")
-  updated_at   DateTime            @updatedAt() @map("updated_at")
-  deleted_at   DateTime?           @map("deleted_at")
-  Profile      Profile?
+  id          String    @id @default(uuid()) @map("id") @db.Uuid()
+  email       String?   @unique @map("email")
+  username    String    @unique() @map("username") @db.VarChar(50) // should be uniquely identifer
+  password    String    @map("password") @db.VarChar(255)
+  is_verified Boolean   @default(false) @map("is_verifed")
+  provider_id String?   @map("provider_id")
+  role        Role      @default(USER) @map("role")
+  created_at  DateTime  @default(now()) @map("created_at")
+  updated_at  DateTime  @updatedAt() @map("updated_at")
+  deleted_at  DateTime? @map("deleted_at")
+  Profile     Profile?
   // Verification EmailVerification[]
 }
 
 model Profile {
-  profile_id        String   @default(uuid()) @map("profile_id") @db.Uuid
-  user_id           String   @unique() @db.Uuid()
-  name              String   @map("name") @db.VarChar(100)
-  birth_date        DateTime @map("birth_date")
-  profile_image_url String?  @map("profile_image_url") @db.VarChar(255)
-  banner_image_url  String?  @map("banner_image_url") @db.VarChar(255)
-  bio               String?  @map("bio") @db.VarChar(160)
-  location          String?  @map("location") @db.VarChar(100)
-  website           String?  @map("website") @db.VarChar(100)
-  is_deactivated    Boolean? @default(false) @map("is_deactivated")
-  created_at        DateTime @default(now()) @map("created_at")
-  updated_at        DateTime @updatedAt() @map("updated_at")
-  User              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  profile_id        String    @default(uuid()) @map("profile_id") @db.Uuid
+  user_id           String    @unique() @db.Uuid()
+  name              String    @map("name") @db.VarChar(100)
+  birth_date        DateTime? @map("birth_date")
+  profile_image_url String?   @map("profile_image_url") @db.VarChar(255)
+  banner_image_url  String?   @map("banner_image_url") @db.VarChar(255)
+  bio               String?   @map("bio") @db.VarChar(160)
+  location          String?   @map("location") @db.VarChar(100)
+  website           String?   @map("website") @db.VarChar(100)
+  is_deactivated    Boolean?  @default(false) @map("is_deactivated")
+  created_at        DateTime  @default(now()) @map("created_at")
+  updated_at        DateTime  @updatedAt() @map("updated_at")
+  User              User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@id([user_id, profile_id])
   @@map("Profile")
