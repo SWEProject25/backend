@@ -338,6 +338,7 @@ export class AuthController {
                   user: ${JSON.stringify(user)}
                 }
               },
+              '${process.env.FRONTEND_URL}'
             );
             window.close();
           </script>
