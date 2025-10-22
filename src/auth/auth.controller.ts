@@ -320,14 +320,32 @@ export class AuthController {
   @Public()
   @UseGuards(GoogleAuthGuard)
   public async googleRedirect(@Req() req, @Res() res: Response) {
-    console.log(req.user, 'user in controller', req.user.id);
-    const { accessToken, ...response } = await this.authService.login(
+    const { accessToken, ...user } = await this.authService.login(
       req.user.id,
       req.user.username,
     );
-    console.log(response);
     this.jwtTokenService.setAuthCookies(res, accessToken);
-    res.redirect(`${process.env.FRONTEND_URL}/home`);
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+        <body>
+          <script>
+            window.opener.postMessage(
+              {
+                status: 'success',
+                data: {
+                  url: '${process.env.FRONTEND_URL}/home',
+                  user: ${JSON.stringify(user)}
+                }
+              },
+            );
+            window.close();
+          </script>
+        </body>
+      </html>
+    `;
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
   }
 
   @ApiCookieAuth()
