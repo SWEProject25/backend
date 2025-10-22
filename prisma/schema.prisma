@@ -15,7 +15,7 @@ datasource db {
 }
 
 model User {
-  id           String              @id @default(uuid()) @map("id") @db.Uuid()
+  id           Int                 @id @default(autoincrement())
   email        String              @unique @map("email")
   username     String              @map("username") @db.VarChar(50) // should be uniquely identifer
   password     String              @map("password") @db.VarChar(255)
@@ -27,26 +27,28 @@ model User {
   deleted_at   DateTime?           @map("deleted_at")
   Profile      Profile?
   // Verification EmailVerification[]
+  Posts        Post[]
 }
 
 model Profile {
-  profile_id        String   @default(uuid()) @map("profile_id") @db.Uuid
-  user_id           String   @unique() @db.Uuid()
-  name              String   @map("name") @db.VarChar(100)
-  birth_date        DateTime @map("birth_date")
-  profile_image_url String?  @map("profile_image_url") @db.VarChar(255)
-  banner_image_url  String?  @map("banner_image_url") @db.VarChar(255)
-  bio               String?  @map("bio") @db.VarChar(160)
-  location          String?  @map("location") @db.VarChar(100)
-  website           String?  @map("website") @db.VarChar(100)
-  is_deactivated    Boolean? @default(false) @map("is_deactivated")
-  created_at        DateTime @default(now()) @map("created_at")
-  updated_at        DateTime @updatedAt() @map("updated_at")
-  User              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id               Int       @id @default(autoincrement())
+  user_id          Int       @unique
+  name             String    @db.VarChar(100)
+  birth_date       DateTime
+  profile_image_url String?  @db.VarChar(255)
+  banner_image_url  String?  @db.VarChar(255)
+  bio               String?  @db.VarChar(160)
+  location          String?  @db.VarChar(100)
+  website           String?  @db.VarChar(100)
+  is_deactivated    Boolean? @default(false)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
 
-  @@id([user_id, profile_id])
-  @@map("Profile")
+  User              User     @relation(fields: [user_id], references: [id])
+
+  @@map("profiles")
 }
+
 
 model EmailVerification {
   id         Int      @id @default(autoincrement())
@@ -65,4 +67,32 @@ model EmailVerification {
 enum Role {
   USER
   ADMIN
+}
+
+model Post {
+  id          Int          @id @default(autoincrement())
+  userId      Int
+  content     String
+  type        PostType
+  parentId    Int? 
+  visibility  PostVisibility
+  createdAt   DateTime      @default(now())
+
+  User        User?         @relation(fields: [userId], references: [id])
+  ParentPost  Post?         @relation("PostToReplies", fields: [parentId], references: [id])
+  Replies     Post[]        @relation("PostToReplies")
+
+  @@map("posts")
+}
+
+enum PostType {
+  POST
+  REPLY
+  QUOTE
+}
+
+enum PostVisibility {
+  EVERY_ONE
+  FOLLOWERS
+  MENTIONED
 }

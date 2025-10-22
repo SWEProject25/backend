@@ -40,7 +40,7 @@ export class AuthService {
     }
   }
 
-  public async login(userId: string, username: string) {
+  public async login(userId: number, username: string) {
     const accessToken = await this.jwtTokenService.generateAccessToken(
       userId,
       username,
@@ -82,7 +82,7 @@ export class AuthService {
     };
   }
 
-  public async validateUserJwt(userId: string) {
+  public async validateUserJwt(userId: number) {
     const user = await this.userService.findOne(userId);
 
     if (!user) {

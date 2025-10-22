@@ -1,0 +1,51 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { PostType, PostVisibility } from 'generated/prisma';
+
+
+export class CreatePostDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Content is required' })
+  @MaxLength(500, { message: 'Content must not exceed 500 characters' })
+  @ApiProperty({
+    description: 'The textual content of the post',
+    example: 'Excited to share my new project today!',
+    maxLength: 500,
+  })
+  content: string;
+
+  @IsEnum(PostType, {
+    message: `Type must be one of: ${Object.values(PostType).join(', ')}`,
+  })
+  @ApiProperty({
+    description: 'The type of post (POST, REPLY, or QUOTE)',
+    enum: PostType,
+    example: PostType.POST,
+  })
+  type: PostType;
+
+  @IsOptional()
+  @ApiPropertyOptional({
+    description:
+      'The ID of the parent post (used when this post is a reply or quote)',
+    example: 42,
+    type: Number,
+    nullable: true,
+  })
+  parentId?: number;
+
+  @IsEnum(PostVisibility, {
+    message: `Visibility must be one of: ${Object.values(PostVisibility).join(', ')}`,
+  })
+  @IsNotEmpty({ message: 'Visibility is required' })
+  @ApiProperty({
+    description:
+      'The visibility level of the post (EVERY_ONE, FOLLOWERS, or MENTIONED)',
+    enum: PostVisibility,
+    example: PostVisibility.EVERY_ONE,
+  })
+  visibility: PostVisibility;
+
+  // assigned in the controller
+  userId: number;
+}

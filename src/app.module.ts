@@ -9,6 +9,7 @@ import { EmailModule } from './email/email.module';
 import { Services } from './utils/constants';
 import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
 import { Request } from 'express';
+import { PostModule } from './post/post.module';
 
 const envFilePath = '.env';
 
@@ -26,6 +27,7 @@ const envFilePath = '.env';
       // for v2
       // skipIf: process.env.NODE_ENV !== 'production',
     }),
+    PostModule,
   ],
   controllers: [],
   providers: [

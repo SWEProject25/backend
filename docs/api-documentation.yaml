@@ -28,10 +28,24 @@
             }
           },
           "400": {
-            "description": "Bad request - Invalid input data"
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           },
           "409": {
-            "description": "Conflict - User already exists"
+            "description": "Conflict - User already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Register a new user",
@@ -68,10 +82,24 @@
             }
           },
           "400": {
-            "description": "Bad request - Invalid input data"
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Unauthorized - Invalid credentials"
+            "description": "Unauthorized - Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Login using email and password",
@@ -82,13 +110,37 @@
     },
     "/api/v1.0/auth/me": {
       "get": {
+        "description": "Returns profile details of the currently authenticated user from the JWT token.",
         "operationId": "AuthController_getMe",
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "User profile successfully fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get current user information",
         "tags": [
           "Auth"
         ]
@@ -96,13 +148,27 @@
     },
     "/api/v1.0/auth/logout": {
       "post": {
+        "description": "Clears authentication cookies (access_token and refresh_token).",
         "operationId": "AuthController_logout",
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
           }
         },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Logout user",
         "tags": [
           "Auth"
         ]
@@ -130,9 +196,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "example": {
-                    "message": "Email is available"
-                  }
+                  "$ref": "#/components/schemas/ApiResponseDto"
                 }
               }
             }
@@ -142,11 +206,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "example": {
-                    "statusCode": 409,
-                    "message": "Email already in use",
-                    "error": "Conflict"
-                  }
+                  "$ref": "#/components/schemas/ErrorResponseDto"
                 }
               }
             }
@@ -160,13 +220,22 @@
     },
     "/api/v1.0/auth/verification-otp": {
       "post": {
+        "description": "Generates a new OTP and sends it to the user's email for verification.",
         "operationId": "AuthController_generateVerificationEmail",
         "parameters": [],
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "Verification OTP sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
           }
         },
+        "summary": "Generate and send a verification OTP",
         "tags": [
           "Auth"
         ]
@@ -174,10 +243,95 @@
     },
     "/api/v1.0/auth/resend-otp": {
       "post": {
+        "description": "Resends a new verification OTP to the user's email.",
         "operationId": "AuthController_resendVerificationEmail",
         "parameters": [],
         "responses": {
-          "201": {
+          "200": {
+            "description": "Verification OTP resent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resend the verification OTP",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/verify-otp": {
+      "post": {
+        "description": "Verifies the provided OTP for the given email address.",
+        "operationId": "AuthController_verifyEmailOtp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Email verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired OTP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verify the email OTP",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/verify-recaptcha": {
+      "post": {
+        "description": "Endpoint to verify a user is human before allowing other actions.",
+        "operationId": "AuthController_verifyRecaptcha",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecaptchaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Human verification successful."
+          },
+          "400": {
+            "description": "reCAPTCHA verification failed."
+          }
+        },
+        "summary": "Verifies a Google reCAPTCHA token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/google/login": {
+      "get": {
+        "operationId": "AuthController_googleLogin",
+        "parameters": [],
+        "responses": {
+          "200": {
             "description": ""
           }
         },
@@ -186,12 +340,12 @@
         ]
       }
     },
-    "/api/v1.0/auth/verify-otp": {
-      "post": {
-        "operationId": "AuthController_verifyEmailOtp",
+    "/api/v1.0/auth/google/redirect": {
+      "get": {
+        "operationId": "AuthController_googleRedirect",
         "parameters": [],
         "responses": {
-          "201": {
+          "200": {
             "description": ""
           }
         },
@@ -202,11 +356,19 @@
     },
     "/api/v1.0/auth/test": {
       "get": {
+        "description": "A protected test endpoint to verify JWT authentication.",
         "operationId": "AuthController_test",
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Successful test",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -214,6 +376,7 @@
             "cookie": []
           }
         ],
+        "summary": "Test endpoint",
         "tags": [
           "Auth"
         ]
@@ -230,6 +393,65 @@
         },
         "tags": [
           "Email"
+        ]
+      }
+    },
+    "/api/v1.0/post": {
+      "post": {
+        "description": "Creates a new post with the provided content and settings",
+        "operationId": "PostController_createPost",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "Post creation data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePostDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Post successfully created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatePostResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Create a new post",
+        "tags": [
+          "Posts"
         ]
       }
     }
@@ -391,6 +613,34 @@
           "data"
         ]
       },
+      "ErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "error",
+              "fail"
+            ],
+            "example": "error"
+          },
+          "message": {
+            "type": "string",
+            "example": "Invalid input data"
+          },
+          "error": {
+            "type": "object",
+            "nullable": true,
+            "example": "Bad Request",
+            "description": "Optional error details or the type of error"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "error"
+        ]
+      },
       "LoginDto": {
         "type": "object",
         "properties": {
@@ -431,6 +681,36 @@
           "data"
         ]
       },
+      "ApiResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error",
+              "fail"
+            ],
+            "example": "success",
+            "description": "The status of the response"
+          },
+          "message": {
+            "type": "string",
+            "example": "Operation successful",
+            "description": "A descriptive message about the response"
+          },
+          "data": {
+            "type": "object",
+            "nullable": true,
+            "description": "The data payload of the response"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "data"
+        ]
+      },
       "CheckEmailDto": {
         "type": "object",
         "properties": {
@@ -442,6 +722,150 @@
         },
         "required": [
           "email"
+        ]
+      },
+      "RecaptchaDto": {
+        "type": "object",
+        "properties": {
+          "recaptcha": {
+            "type": "string",
+            "description": "The Google reCAPTCHA response token from the client.",
+            "example": "03AGdBq24_...-4bE"
+          }
+        },
+        "required": [
+          "recaptcha"
+        ]
+      },
+      "CreatePostDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "The textual content of the post",
+            "example": "Excited to share my new project today!",
+            "maxLength": 500
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of post (POST, REPLY, or QUOTE)",
+            "enum": [
+              "POST",
+              "REPLY",
+              "QUOTE"
+            ],
+            "example": "POST"
+          },
+          "parentId": {
+            "type": "number",
+            "description": "The ID of the parent post (used when this post is a reply or quote)",
+            "example": 42,
+            "nullable": true
+          },
+          "visibility": {
+            "type": "string",
+            "description": "The visibility level of the post (EVERY_ONE, FOLLOWERS, or MENTIONED)",
+            "enum": [
+              "EVERY_ONE",
+              "FOLLOWERS",
+              "MENTIONED"
+            ],
+            "example": "EVERY_ONE"
+          }
+        },
+        "required": [
+          "content",
+          "type",
+          "visibility"
+        ]
+      },
+      "PostResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "The unique identifier of the post",
+            "example": 1
+          },
+          "userId": {
+            "type": "number",
+            "description": "The ID of the user who created the post",
+            "example": 123
+          },
+          "content": {
+            "type": "string",
+            "description": "The textual content of the post",
+            "example": "Excited to share my new project today!"
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of post",
+            "enum": [
+              "POST",
+              "REPLY",
+              "QUOTE"
+            ],
+            "example": "POST"
+          },
+          "parentId": {
+            "type": "object",
+            "description": "The ID of the parent post (if this is a reply or quote)",
+            "example": 42,
+            "nullable": true
+          },
+          "visibility": {
+            "type": "string",
+            "description": "The visibility level of the post",
+            "enum": [
+              "EVERY_ONE",
+              "FOLLOWERS",
+              "MENTIONED"
+            ],
+            "example": "EVERY_ONE"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "The date and time when the post was created",
+            "example": "2023-10-22T10:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "content",
+          "type",
+          "parentId",
+          "visibility",
+          "createdAt"
+        ]
+      },
+      "CreatePostResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Status of the response",
+            "example": "success"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Post created successfully"
+          },
+          "data": {
+            "description": "The created post data",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PostResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "data"
         ]
       }
     }

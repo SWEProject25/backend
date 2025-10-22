@@ -9,7 +9,7 @@ export class JwtTokenService {
   constructor(private readonly jwtService: JwtService) {}
 
   public async generateAccessToken(
-    userId: string,
+    userId: number,
     username: string,
   ): Promise<string> {
     const payload: AuthJwtPayload = { sub: userId, username };
