@@ -30,6 +30,9 @@ model User {
   Posts        Post[]
   Followers    Follow[]            @relation("Following")
   Following    Follow[]            @relation("Follower")
+  reposts  Repost[]
+  likes    Like[]
+  mentions   Mention[]
   Blockers     Block[]             @relation("Blocked")
   Blocked Block[]             @relation("Blocker")
 }
@@ -49,7 +52,6 @@ model Profile {
   updated_at        DateTime @updatedAt
 
   User              User     @relation(fields: [user_id], references: [id])
-
   @@map("profiles")
 }
 
@@ -75,17 +77,21 @@ enum Role {
 
 model Post {
   id          Int          @id @default(autoincrement())
-  userId      Int
+  user_id      Int
   content     String
   type        PostType
-  parentId    Int? 
+  parent_id    Int? 
   visibility  PostVisibility
-  createdAt   DateTime      @default(now())
+  created_at   DateTime      @default(now())
+  is_deleted   Boolean        @default(false)
 
-  User        User?         @relation(fields: [userId], references: [id])
-  ParentPost  Post?         @relation("PostToReplies", fields: [parentId], references: [id])
+  User        User         @relation(fields: [user_id], references: [id])
+  ParentPost  Post?         @relation("PostToReplies", fields: [parent_id], references: [id])
   Replies     Post[]        @relation("PostToReplies")
-
+  repostedBy Repost[]
+  likes    Like[]
+  mentions   Mention[]
+  hashtags  Hashtag[] @relation("PostHashtags")
   @@map("posts")
 }
 
@@ -123,4 +129,44 @@ enum PostVisibility {
   EVERY_ONE
   FOLLOWERS
   MENTIONED
+}
+
+model Repost {
+  post_id     Int
+  user_id     Int
+  created_at   DateTime      @default(now())
+
+  post        Post    @relation(fields: [post_id], references: [id])
+  user        User    @relation(fields: [user_id], references: [id])
+
+  @@id([post_id, user_id])
+}
+
+model Hashtag {
+  id      Int          @id @default(autoincrement())
+  tag     String       @unique
+  created_at   DateTime      @default(now())
+
+  posts   Post[]       @relation("PostHashtags")
+}
+
+model Like {
+  post_id     Int
+  user_id     Int
+  created_at   DateTime      @default(now())
+
+  post        Post    @relation(fields: [post_id], references: [id])
+  user        User    @relation(fields: [user_id], references: [id])
+
+  @@id([post_id, user_id])
+}
+
+model Mention {
+  id      Int          @id @default(autoincrement())
+  post_id     Int
+  user_id     Int
+  created_at   DateTime      @default(now())
+
+  post        Post    @relation(fields: [post_id], references: [id])
+  user        User    @relation(fields: [user_id], references: [id])
 }
