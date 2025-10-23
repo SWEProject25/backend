@@ -15,7 +15,7 @@ export class UsersService {
     }
 
     // Check user existence and follow status in parallel
-    const [userToFollow, existingFollow] = await Promise.all([
+    const [userToFollow, existingFollow, existingBlock] = await Promise.all([
       this.prismaService.user.findUnique({
         where: { id: followingId },
         select: { id: true },
@@ -28,6 +28,14 @@ export class UsersService {
           },
         },
       }),
+      this.prismaService.block.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: followerId,
+            blockedId: followingId,
+          },
+        },
+      }),
     ]);
 
     if (!userToFollow) {
@@ -36,6 +44,10 @@ export class UsersService {
 
     if (existingFollow) {
       throw new ConflictException('You are already following this user');
+    }
+
+    if (existingBlock) {
+      throw new ConflictException('You cannot follow a user you have blocked');
     }
 
     return this.prismaService.follow.create({
