@@ -148,32 +148,37 @@ export class PostService {
   }
 
   async deletePost(postId: number) {
-    const post = await this.prismaService.post.findUnique({
+  return this.prismaService.$transaction(async (tx) => {
+    const post = await tx.post.findUnique({
       where: { id: postId },
     });
 
     if (!post) {
       throw new NotFoundException('Post not found');
     }
-    const repliesAndQuotes = await this.prismaService.post.findMany({
-      where: {
-        parent_id: postId,
-        is_deleted: false
-      },
-      select: {
-        id: true,
-      },
+
+    const repliesAndQuotes = await tx.post.findMany({
+      where: { parent_id: postId, is_deleted: false },
+      select: { id: true },
     });
-    // TODO: Complete the deletion process
-    return this.prismaService.post.updateMany({
-      where: {
-        id: {
-          in: [postId, ...repliesAndQuotes.map((reply) => reply.id)],
-        },
-      },
-      data: {
-        is_deleted: true,
-      },
+
+    const postIds = [postId, ...repliesAndQuotes.map((r) => r.id)];
+
+    await tx.mention.deleteMany({
+      where: { post_id: { in: postIds } },
     });
-  }
+    await tx.like.deleteMany({
+      where: { post_id: { in: postIds } },
+    });
+    await tx.repost.deleteMany({
+      where: { post_id: { in: postIds } },
+    });
+
+    return tx.post.updateMany({
+      where: { id: { in: postIds } },
+      data: { is_deleted: true },
+    });
+  });
+}
+
 }
