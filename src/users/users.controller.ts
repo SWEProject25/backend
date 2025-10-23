@@ -26,7 +26,7 @@ import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
 import { FollowResponseDto } from './dto/follow-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { FollowerDto } from './dto/follower.dto';
+import { UserInteractionDto } from './dto/UserInteraction.dto';
 import { BlockResponseDto } from './dto/block-response.dto';
 
 @ApiTags('Users')
@@ -180,7 +180,7 @@ export class UsersController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully retrieved followers',
-    type: FollowerDto,
+    type: UserInteractionDto,
     isArray: true,
   })
   @ApiResponse({
@@ -249,7 +249,7 @@ export class UsersController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully retrieved following users',
-    type: FollowerDto,
+    type: UserInteractionDto,
     isArray: true,
   })
   @ApiResponse({
@@ -391,6 +391,67 @@ export class UsersController {
     return {
       status: 'success',
       message: 'User unblocked successfully',
+    };
+  }
+
+  @Get('blocks/me')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get blocked users',
+    description: 'Retrieves a paginated list of users blocked by the authenticated user',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10, max: 100)',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully retrieved blocked users',
+    type: UserInteractionDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid pagination parameters', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
+  })
+  async getBlockedUsers(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() paginationQuery: PaginationDto,
+  ) {
+    const { data, metadata } = await this.usersService.getBlockedUsers(
+      user.id,
+      paginationQuery.page,
+      paginationQuery.limit,
+    );
+    return {
+      status: 'success',
+      message: 'Blocked users retrieved successfully',
+      data,
+      metadata,
     };
   }
 }

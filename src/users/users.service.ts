@@ -250,4 +250,45 @@ export class UsersService {
       },
     });
   }
+
+  async getBlockedUsers(userId: number, page: number = 1, limit: number = 10) {
+    const [totalItems, blockedUsers] = await this.prismaService.$transaction([
+      this.prismaService.block.count({
+        where: { blockerId: userId },
+      }),
+      this.prismaService.block.findMany({
+        where: { blockerId: userId },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          Blocked: {
+            select: {
+              id: true,
+              username: true,
+              Profile: { select: { name: true, bio: true, profile_image_url: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const data = blockedUsers.map((block) => ({
+      id: block.Blocked.id,
+      username: block.Blocked.username,
+      displayName: block.Blocked.Profile?.name || null,
+      bio: block.Blocked.Profile?.bio || null,
+      profileImageUrl: block.Blocked.Profile?.profile_image_url || null,
+      blockedAt: block.createdAt,
+    }));
+
+    const metadata = {
+      totalItems,
+      page,
+      limit,
+      totalPages: Math.ceil(totalItems / limit),
+    };
+
+    return { data, metadata };
+  }
 }
