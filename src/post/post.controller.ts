@@ -16,7 +16,7 @@ import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { PostFiltersDto } from './dto/post-filter.dto';
 import { MentionService } from './services/mention.service';
 import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
-import { Mention, Post as PostModel, User } from 'generated/prisma';
+import { Mention, Post as PostModel, PostVisibility, User } from 'generated/prisma';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -62,9 +62,9 @@ export class PostController {
     @Body() createPostDto: CreatePostDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    createPostDto.userId = user.id;    
+    createPostDto.userId = user.id;
     const post = await this.postService.createPost(createPostDto);
-    
+
     return {
       status: 'success',
       message: 'Post created successfully',
@@ -127,7 +127,7 @@ export class PostController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const posts = await this.postService.getPostsWithFilters(filters);
-    
+
     return {
       status: 'success',
       message: 'Posts retrieved successfully',
@@ -168,7 +168,7 @@ export class PostController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const result = await this.likeService.togglePostLike(+postId, user.id);
-    
+
     return {
       status: 'success',
       message: result.message,
@@ -224,7 +224,7 @@ export class PostController {
     @Query('limit') limit: number = 10,
   ) {
     const likers = await this.likeService.getListOfLikers(+postId, +page, +limit);
-    
+
     return {
       status: 'success',
       message: 'Likers retrieved successfully',
@@ -280,7 +280,7 @@ export class PostController {
     @Query('limit') limit: number = 10,
   ) {
     const replies = await this.postService.getRepliesOfPost(+postId, +page, +limit);
-    
+
     return {
       status: 'success',
       message: 'Replies retrieved successfully',
@@ -321,7 +321,7 @@ export class PostController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const result = await this.repostService.toggleRepost(+postId, user.id);
-    
+
     return {
       status: 'success',
       message: result.message,
@@ -378,9 +378,9 @@ export class PostController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const reposters = await this.repostService.getReposters(+postId, +page, +limit);
-    
+
     const users = reposters.map(repost => repost.user);
-    
+
     return {
       status: 'success',
       message: 'Reposters retrieved successfully',
@@ -436,7 +436,7 @@ export class PostController {
     @Query('limit') limit: number = 10,
   ) {
     const likedPosts = await this.likeService.getLikedPostsByUser(+userId, +page, +limit);
-    
+
     return {
       status: 'success',
       message: 'Liked posts retrieved successfully',
@@ -481,7 +481,7 @@ export class PostController {
     @Param('postId') postId: number,
   ) {
     await this.postService.deletePost(+postId);
-    
+
     return {
       status: 'success',
       message: 'Post deleted successfully',
@@ -529,7 +529,7 @@ export class PostController {
     };
   }
 
-@Get('mentioned/:userId')
+  @Get('mentioned/:userId')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
@@ -584,7 +584,8 @@ export class PostController {
       data: mentionedPosts,
     };
   }
-@Get(':postId/mentions')
+
+  @Get(':postId/mentions')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
@@ -639,4 +640,197 @@ export class PostController {
       data: mentions,
     };
   }
+
+  @Get('profile/me')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get user profile posts',
+    description: 'Retrieves a paginated list of posts created by the authenticated user',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Posts retrieved successfully',
+    type: ApiResponseDto<PostModel[]>,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getProfilePosts(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const posts = await this.postService.getUserPosts(user.id, +page, +limit);
+
+    return {
+      status: 'success',
+      message: 'Posts retrieved successfully',
+      data: posts,
+    };
+  }
+
+  @Get('profile/me/replies')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get user profile replies',
+    description: 'Retrieves a paginated list of replies created by the authenticated user',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of replies per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Replies retrieved successfully',
+    type: ApiResponseDto<PostModel[]>,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getProfileReplies(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const replies = await this.postService.getUserReplies(user.id, +page, +limit);
+
+    return {
+      status: 'success',
+      message: 'Replies retrieved successfully',
+      data: replies,
+    };
+  }
+
+  @Get('profile/:userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiParam({
+    name: 'userId',
+    type: Number,
+    description: 'The ID of the user to get his/her posts for',
+    example: 1,
+  })
+  @ApiOperation({
+    summary: 'Get user profile posts',
+    description: 'Retrieves a paginated list of posts created by the specified user',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Posts retrieved successfully',
+    type: ApiResponseDto<PostModel[]>,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getUserPosts(
+    @Param('userId') userId: number,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    const posts = await this.postService.getUserPosts(userId, +page, +limit, PostVisibility.EVERY_ONE);
+
+    return {
+      status: 'success',
+      message: 'Posts retrieved successfully',
+      data: posts,
+    };
+  }
+
+  @Get('profile/:userId/replies')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get user profile replies',
+    description: 'Retrieves a paginated list of replies created by the specified user',
+  })
+  @ApiParam({
+    name: 'userId',
+    type: Number,
+    description: 'The ID of the user to get his/her replies for',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of replies per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Replies retrieved successfully',
+    type: ApiResponseDto<PostModel[]>,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getUserReplies(
+    @Param('userId') userId: number,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    const replies = await this.postService.getUserReplies(userId, +page, +limit, PostVisibility.EVERY_ONE);
+
+    return {
+      status: 'success',
+      message: 'Replies retrieved successfully',
+      data: replies,
+    };
+  }
+
 }

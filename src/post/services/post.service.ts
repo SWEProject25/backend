@@ -55,12 +55,13 @@ export class PostService {
     return posts;
   }
 
-  private async getPosts(userId: number, page: number, limit: number, types: PostType[]) {
+  private async getPosts(userId: number, page: number, limit: number, types: PostType[], visibility?: PostVisibility) {
     return this.prismaService.post.findMany({
       where: {
         user_id: userId,
         is_deleted: false,
         type: { in: types },
+        ...(visibility && { visibility }),
       },
       skip: (page - 1) * limit,
       take: limit,
@@ -70,15 +71,20 @@ export class PostService {
     });
   }
 
-  private async getReposts(userId: number, page: number, limit: number) {
+  private async getReposts(userId: number, page: number, limit: number, visibility?: PostVisibility) {
     return this.prismaService.repost.findMany({
       where: {
         user_id: userId,
+        post: {
+          is_deleted: false,
+          ...(visibility && { visibility }),
+        },
       },
       select: {
         post: true,
         created_at: true,
       },
+
       skip: (page - 1) * limit,
       take: limit,
       orderBy: {
@@ -113,17 +119,17 @@ export class PostService {
     return paginated;
   }
 
-  async getUserPosts(userId: number, page: number, limit: number) { // includes reposts, posts, and quotes
+  async getUserPosts(userId: number, page: number, limit: number, visibility?: PostVisibility) { // includes reposts, posts, and quotes
     const [posts, reposts] = await Promise.all([
-      this.getPosts(userId, page, limit, [PostType.POST, PostType.QUOTE]),
-      this.getReposts(userId, page, limit),
+      this.getPosts(userId, page, limit, [PostType.POST, PostType.QUOTE], visibility),
+      this.getReposts(userId, page, limit, visibility),
     ]);
     // TODO: Remove in memory sorting and pagination
     return this.getTopPaginatedPosts(posts, reposts, page, limit);
   }
 
-  async getUserReplies(userId: number, page: number, limit: number) {
-    return this.getPosts(userId, page, limit, [PostType.REPLY]);
+  async getUserReplies(userId: number, page: number, limit: number, visibility?: PostVisibility) {
+    return this.getPosts(userId, page, limit, [PostType.REPLY], visibility);
   }
 
   async getRepliesOfPost(postId: number, page: number, limit: number) {
