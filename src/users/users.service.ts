@@ -15,7 +15,7 @@ export class UsersService {
     }
 
     // Check user existence and follow status in parallel
-    const [userToFollow, existingFollow, existingBlock] = await Promise.all([
+    const [userToFollow, existingFollow, existingBlock, existingBlockRev] = await Promise.all([
       this.prismaService.user.findUnique({
         where: { id: followingId },
         select: { id: true },
@@ -36,6 +36,14 @@ export class UsersService {
           },
         },
       }),
+      this.prismaService.block.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: followingId,
+            blockedId: followerId,
+          },
+        },
+      }),
     ]);
 
     if (!userToFollow) {
@@ -48,6 +56,10 @@ export class UsersService {
 
     if (existingBlock) {
       throw new ConflictException('You cannot follow a user you have blocked');
+    }
+
+    if (existingBlockRev) {
+      throw new ConflictException('You cannot follow a user who has blocked you');
     }
 
     return this.prismaService.follow.create({
@@ -174,7 +186,7 @@ export class UsersService {
     }
 
     // Check user existence, block status, and follow status in parallel
-    const [userToBlock, existingBlock, existingFollow] = await Promise.all([
+    const [userToBlock, existingBlock, existingFollow, existingFollowRev] = await Promise.all([
       this.prismaService.user.findUnique({
         where: { id: blockedId },
         select: { id: true },
@@ -195,6 +207,14 @@ export class UsersService {
           },
         },
       }),
+      this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: blockedId,
+            followingId: blockerId,
+          },
+        },
+      }),
     ]);
 
     if (!userToBlock) {
@@ -206,7 +226,7 @@ export class UsersService {
     }
 
     // If following, unfollow and block in a transaction
-    if (existingFollow) {
+    if (existingFollow && existingFollowRev) {
       const [, block] = await this.prismaService.$transaction([
         this.prismaService.follow.delete({
           where: {
@@ -222,8 +242,51 @@ export class UsersService {
             blockedId,
           },
         }),
+        this.prismaService.follow.delete({
+          where: {
+            followerId_followingId: {
+              followerId: blockedId,
+              followingId: blockerId,
+            },
+          },
+        }),
       ]);
       return block;
+    } else if (existingFollow) {
+      await this.prismaService.$transaction([
+        this.prismaService.follow.delete({
+          where: {
+            followerId_followingId: {
+              followerId: blockerId,
+              followingId: blockedId,
+            },
+          },
+        }),
+        this.prismaService.block.create({
+          data: {
+            blockerId,
+            blockedId,
+          },
+        }),
+      ]);
+      return;
+    } else if (existingFollowRev) {
+      await this.prismaService.$transaction([
+        this.prismaService.follow.delete({
+          where: {
+            followerId_followingId: {
+              followerId: blockedId,
+              followingId: blockerId,
+            },
+          },
+        }),
+        this.prismaService.block.create({
+          data: {
+            blockerId,
+            blockedId,
+          },
+        }),
+      ]);
     }
 
     // Otherwise, just block
