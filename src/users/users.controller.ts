@@ -1,4 +1,11 @@
-import { ApiCookieAuth, ApiOperation, ApiResponse, ApiTags, ApiParam, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiCookieAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiParam,
+  ApiQuery,
+} from '@nestjs/swagger';
 import {
   Controller,
   HttpStatus,
@@ -182,6 +189,67 @@ export class UsersController {
     return {
       status: 'success',
       message: 'Followers retrieved successfully',
+      data,
+      metadata,
+    };
+  }
+
+  @Get(':id/following')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get users followed by a user',
+    description: 'Retrieves a paginated list of users that the specified user is following',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The ID of the user',
+    example: 123,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10, max: 100)',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully retrieved following users',
+    type: FollowerDto,
+    isArray: true,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getFollowing(
+    @Param('id', ParseIntPipe) userId: number,
+    @Query() paginationQuery: PaginationDto,
+  ) {
+    const { data, metadata } = await this.usersService.getFollowing(
+      userId,
+      paginationQuery.page,
+      paginationQuery.limit,
+    );
+
+    return {
+      status: 'success',
+      message: 'Following users retrieved successfully',
       data,
       metadata,
     };

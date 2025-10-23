@@ -112,4 +112,45 @@ export class UsersService {
 
     return { data, metadata };
   }
+
+  async getFollowing(userId: number, page: number = 1, limit: number = 10) {
+    const [totalItems, following] = await this.prismaService.$transaction([
+      this.prismaService.follow.count({
+        where: { followerId: userId },
+      }),
+      this.prismaService.follow.findMany({
+        where: { followerId: userId },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          Following: {
+            select: {
+              id: true,
+              username: true,
+              Profile: { select: { name: true, bio: true, profile_image_url: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const data = following.map((follow) => ({
+      id: follow.Following.id,
+      username: follow.Following.username,
+      displayName: follow.Following.Profile?.name || null,
+      bio: follow.Following.Profile?.bio || null,
+      profileImageUrl: follow.Following.Profile?.profile_image_url || null,
+      followedAt: follow.createdAt,
+    }));
+
+    const metadata = {
+      totalItems,
+      page,
+      limit,
+      totalPages: Math.ceil(totalItems / limit),
+    };
+
+    return { data, metadata };
+  }
 }
