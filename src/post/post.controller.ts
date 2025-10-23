@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpStatus, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, FileTypeValidator, Get, HttpStatus, Inject, MaxFileSizeValidator, Param, ParseFilePipe, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
 import { PostService } from './services/post.service';
 import { LikeService } from './services/like.service';
 import { RepostService } from './services/repost.service';
@@ -17,6 +17,8 @@ import { PostFiltersDto } from './dto/post-filter.dto';
 import { MentionService } from './services/mention.service';
 import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
 import { Mention, Post as PostModel, PostVisibility, User } from 'generated/prisma';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { ImageVideoUploadPipe } from 'src/storage/pipes/file-upload.pipe';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -58,12 +60,14 @@ export class PostController {
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
   })
+  @UseInterceptors(FilesInterceptor('media'))
   async createPost(
     @Body() createPostDto: CreatePostDto,
     @CurrentUser() user: AuthenticatedUser,
+    @UploadedFiles( ImageVideoUploadPipe ) media: Express.Multer.File[]
   ) {
     createPostDto.userId = user.id;
-    const post = await this.postService.createPost(createPostDto);
+    const post = await this.postService.createPost(createPostDto, media);
 
     return {
       status: 'success',

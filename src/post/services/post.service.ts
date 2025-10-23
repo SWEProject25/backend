@@ -3,7 +3,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
 import { CreatePostDto } from '../dto/create-post.dto';
 import { PostFiltersDto } from '../dto/post-filter.dto';
-import { Post, PostType, PostVisibility } from 'generated/prisma';
+import { MediaType, Post, PostType, PostVisibility } from 'generated/prisma';
+import { StorageService } from 'src/storage/storage.service';
 
 @Injectable()
 export class PostService {
@@ -11,6 +12,8 @@ export class PostService {
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
+    @Inject(Services.STORAGE)
+    private readonly storageService: StorageService
   ) { }
 
   private extractHashtags(content: string): string[] {
@@ -23,37 +26,82 @@ export class PostService {
     return [...new Set(matches.map(tag => tag.slice(1).toLowerCase()))];
   }
 
-  async createPost(createPostDto: CreatePostDto) {
-    const { content, type, parentId, visibility, userId } = createPostDto;
+  private getMediaWithType(urls: string[], media: Express.Multer.File[]) {
+    return urls.map((url, index) => ({
+      url, type: media[index].mimetype.startsWith('video')
+        ? MediaType.VIDEO
+        : MediaType.IMAGE
+    }))
+  }
 
-    const hashtags = this.extractHashtags(content)
-
+  private async createPostTransaction(
+    postData: CreatePostDto,
+    hashtags: string[],
+    mediaWithType: { url: string; type: MediaType }[],
+  ) {
     return this.prismaService.$transaction(async (tx) => {
+      // Upsert hashtags
       const hashtagRecords = await Promise.all(
-        hashtags.map(tag => {
-          return tx.hashtag.upsert({
+        hashtags.map(tag =>
+          tx.hashtag.upsert({
             where: { tag },
             update: {},
-            create: { tag }
-          })
-        })
-      )
+            create: { tag },
+          }),
+        ),
+      );
 
-      return await tx.post.create({
+      // Create post
+      const post = await tx.post.create({
         data: {
-          content,
-          type,
-          parent_id: parentId,
-          visibility,
-          user_id: userId,
+          content: postData.content,
+          type: postData.type,
+          parent_id: postData.parentId,
+          visibility: postData.visibility,
+          user_id: postData.userId,
           hashtags: {
-            connect: hashtagRecords.map(record => ({ id: record.id }))
-          }
+            connect: hashtagRecords.map(record => ({ id: record.id })),
+          },
         },
         include: { hashtags: true },
       });
-    })
 
+      // Create media entries
+      await tx.media.createMany({
+        data: mediaWithType.map(m => ({
+          post_id: post.id,
+          media_url: m.url,
+          type: m.type,
+        })),
+      });
+
+      return { ...post, mediaUrls: mediaWithType.map(m => m.url) };
+    });
+  }
+
+
+  async createPost(createPostDto: CreatePostDto, media: Express.Multer.File[]) {
+    let urls: string[] = [];
+    try {
+      const { content } = createPostDto;
+      urls = await this.storageService.uploadFiles(media)
+
+      const hashtags = this.extractHashtags(content)
+
+      const mediaWithType = this.getMediaWithType(urls, media)
+
+      const post = await this.createPostTransaction(
+        createPostDto,
+        hashtags,
+        mediaWithType,
+      );
+      return post;
+
+    } catch (error) {
+      // deleting uploaded files in case of any error
+      await this.storageService.deleteFiles(urls);
+      throw error;
+    }
   }
 
   async getPostsWithFilters(filter: PostFiltersDto) {
@@ -202,7 +250,7 @@ export class PostService {
       await tx.repost.deleteMany({
         where: { post_id: { in: postIds } },
       });
-      
+
       return tx.post.updateMany({
         where: { id: { in: postIds } },
         data: { is_deleted: true },

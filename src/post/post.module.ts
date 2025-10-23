@@ -6,6 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { LikeService } from './services/like.service';
 import { RepostService } from './services/repost.service';
 import { MentionService } from './services/mention.service';
+import { StorageService } from 'src/storage/storage.service';
 
 @Module({
   controllers: [PostController],
@@ -30,6 +31,10 @@ import { MentionService } from './services/mention.service';
     {
       provide: Services.MENTION,
       useClass: MentionService,
+    },
+    {
+      provide: Services.STORAGE,
+      useClass: StorageService,
     },
   ],
 })

@@ -12,6 +12,7 @@ import { Request } from 'express';
 import { PostModule } from './post/post.module';
 import { UsersModule } from './users/users.module';
 import { ProfileModule } from './profile/profile.module';
+import { StorageModule } from './storage/storage.module';
 
 const envFilePath = '.env';
 
@@ -32,6 +33,7 @@ const envFilePath = '.env';
     }),
     PostModule,
     ProfileModule,
+    StorageModule,
   ],
   controllers: [],
   providers: [
