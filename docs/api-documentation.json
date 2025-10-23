@@ -570,6 +570,198 @@
           "Posts"
         ]
       }
+    },
+    "/api/v1.0/profile/me": {
+      "get": {
+        "description": "Returns the profile of the currently authenticated user.",
+        "operationId": "ProfileController_getMyProfile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get current user profile",
+        "tags": [
+          "Profile"
+        ]
+      },
+      "patch": {
+        "description": "Updates the profile of the currently authenticated user.",
+        "operationId": "ProfileController_updateMyProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Update current user profile",
+        "tags": [
+          "Profile"
+        ]
+      }
+    },
+    "/api/v1.0/profile/user/{userId}": {
+      "get": {
+        "description": "Returns the profile of a specific user by their user ID.",
+        "operationId": "ProfileController_getProfileByUserId",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get user profile by user ID",
+        "tags": [
+          "Profile"
+        ]
+      }
+    },
+    "/api/v1.0/profile/username/{username}": {
+      "get": {
+        "description": "Returns the profile of a specific user by their username.",
+        "operationId": "ProfileController_getProfileByUsername",
+        "parameters": [
+          {
+            "name": "username",
+            "required": true,
+            "in": "path",
+            "description": "The username of the user",
+            "schema": {
+              "example": "john_doe",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get user profile by username",
+        "tags": [
+          "Profile"
+        ]
+      }
     }
   },
   "info": {
@@ -1012,6 +1204,129 @@
           "message",
           "data"
         ]
+      },
+      "ProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "Profile ID",
+            "example": 1
+          },
+          "user_id": {
+            "type": "number",
+            "description": "User ID associated with this profile",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "description": "User name",
+            "example": "John Doe"
+          },
+          "birth_date": {
+            "format": "date-time",
+            "type": "string",
+            "description": "User birth date",
+            "example": "1990-01-01T00:00:00.000Z"
+          },
+          "profile_image_url": {
+            "type": "string",
+            "description": "Profile image URL",
+            "example": "https://example.com/profile.jpg"
+          },
+          "banner_image_url": {
+            "type": "string",
+            "description": "Banner image URL",
+            "example": "https://example.com/banner.jpg"
+          },
+          "bio": {
+            "type": "string",
+            "description": "User bio",
+            "example": "Software developer"
+          },
+          "location": {
+            "type": "string",
+            "description": "User location",
+            "example": "San Francisco, CA"
+          },
+          "website": {
+            "type": "string",
+            "description": "User website",
+            "example": "https://johndoe.com"
+          },
+          "is_deactivated": {
+            "type": "boolean",
+            "description": "Whether the profile is deactivated",
+            "example": false
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Profile creation timestamp",
+            "example": "2025-01-01T00:00:00.000Z"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Profile last update timestamp",
+            "example": "2025-01-01T00:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "birth_date",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the user",
+            "example": "John Doe",
+            "maxLength": 30
+          },
+          "birth_date": {
+            "type": "string",
+            "description": "The birth date of the user",
+            "example": "1990-01-01",
+            "format": "date"
+          },
+          "profile_image_url": {
+            "type": "string",
+            "description": "URL of the user profile image",
+            "example": "https://example.com/profile.jpg",
+            "maxLength": 255
+          },
+          "banner_image_url": {
+            "type": "string",
+            "description": "URL of the user banner image",
+            "example": "https://example.com/banner.jpg",
+            "maxLength": 255
+          },
+          "bio": {
+            "type": "string",
+            "description": "User biography",
+            "example": "Software developer passionate about clean code",
+            "maxLength": 160
+          },
+          "location": {
+            "type": "string",
+            "description": "User location",
+            "example": "San Francisco, CA",
+            "maxLength": 100
+          },
+          "website": {
+            "type": "string",
+            "description": "User website URL",
+            "example": "https://johndoe.com",
+            "maxLength": 100
+          }
+        }
       }
     }
   }
