@@ -528,6 +528,88 @@
         ]
       }
     },
+    "/api/v1.0/users/{id}/followers": {
+      "get": {
+        "description": "Retrieves a paginated list of users who follow the specified user",
+        "operationId": "UsersController_getFollowers",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user",
+            "schema": {
+              "example": 123,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 10, max: 100)",
+            "schema": {
+              "example": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved followers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FollowerDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get user followers",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
     "/api/v1.0/email": {
       "post": {
         "operationId": "EmailController_sendEmail",
@@ -907,6 +989,53 @@
           "followerId",
           "followingId",
           "createdAt"
+        ]
+      },
+      "FollowerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "User ID",
+            "example": 123
+          },
+          "username": {
+            "type": "string",
+            "description": "Username",
+            "example": "johndoe"
+          },
+          "displayName": {
+            "type": "object",
+            "description": "Display name",
+            "example": "John Doe",
+            "nullable": true
+          },
+          "bio": {
+            "type": "object",
+            "description": "User bio",
+            "example": "Software developer",
+            "nullable": true
+          },
+          "profileImageUrl": {
+            "type": "object",
+            "description": "Profile image URL",
+            "example": "https://example.com/profile.jpg",
+            "nullable": true
+          },
+          "followedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Date when the follow relationship was created",
+            "example": "2025-10-23T10:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "bio",
+          "profileImageUrl",
+          "followedAt"
         ]
       },
       "CreatePostDto": {
