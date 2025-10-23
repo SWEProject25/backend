@@ -13,18 +13,47 @@ export class PostService {
     private readonly prismaService: PrismaService,
   ) { }
 
+  private extractHashtags(content: string): string[] {
+    if (!content) return [];
+
+    const matches = content.match(/#(\w+)/g);
+
+    if (!matches) return [];
+
+    return [...new Set(matches.map(tag => tag.slice(1).toLowerCase()))];
+  }
+
   async createPost(createPostDto: CreatePostDto) {
     const { content, type, parentId, visibility, userId } = createPostDto;
 
-    return this.prismaService.post.create({
-      data: {
-        content,
-        type,
-        parent_id: parentId,
-        visibility,
-        user_id: userId,
-      },
-    });
+    const hashtags = this.extractHashtags(content)
+
+    return this.prismaService.$transaction(async (tx) => {
+      const hashtagRecords = await Promise.all(
+        hashtags.map(tag => {
+          return tx.hashtag.upsert({
+            where: { tag },
+            update: {},
+            create: { tag }
+          })
+        })
+      )
+
+      return await tx.post.create({
+        data: {
+          content,
+          type,
+          parent_id: parentId,
+          visibility,
+          user_id: userId,
+          hashtags: {
+            connect: hashtagRecords.map(record => ({ id: record.id }))
+          }
+        },
+        include: { hashtags: true },
+      });
+    })
+
   }
 
   async getPostsWithFilters(filter: PostFiltersDto) {
@@ -148,37 +177,37 @@ export class PostService {
   }
 
   async deletePost(postId: number) {
-  return this.prismaService.$transaction(async (tx) => {
-    const post = await tx.post.findUnique({
-      where: { id: postId },
-    });
+    return this.prismaService.$transaction(async (tx) => {
+      const post = await tx.post.findUnique({
+        where: { id: postId, is_deleted: false },
+      });
 
-    if (!post) {
-      throw new NotFoundException('Post not found');
-    }
+      if (!post) {
+        throw new NotFoundException('Post not found');
+      }
 
-    const repliesAndQuotes = await tx.post.findMany({
-      where: { parent_id: postId, is_deleted: false },
-      select: { id: true },
-    });
+      const repliesAndQuotes = await tx.post.findMany({
+        where: { parent_id: postId, is_deleted: false },
+        select: { id: true },
+      });
 
-    const postIds = [postId, ...repliesAndQuotes.map((r) => r.id)];
+      const postIds = [postId, ...repliesAndQuotes.map((r) => r.id)];
 
-    await tx.mention.deleteMany({
-      where: { post_id: { in: postIds } },
+      await tx.mention.deleteMany({
+        where: { post_id: { in: postIds } },
+      });
+      await tx.like.deleteMany({
+        where: { post_id: { in: postIds } },
+      });
+      await tx.repost.deleteMany({
+        where: { post_id: { in: postIds } },
+      });
+      
+      return tx.post.updateMany({
+        where: { id: { in: postIds } },
+        data: { is_deleted: true },
+      });
     });
-    await tx.like.deleteMany({
-      where: { post_id: { in: postIds } },
-    });
-    await tx.repost.deleteMany({
-      where: { post_id: { in: postIds } },
-    });
-
-    return tx.post.updateMany({
-      where: { id: { in: postIds } },
-      data: { is_deleted: true },
-    });
-  });
-}
+  }
 
 }
