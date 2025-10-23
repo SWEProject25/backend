@@ -108,4 +108,89 @@ export class ProfileService {
 
     return !!profile;
   }
+
+  public async searchProfiles(
+    query: string,
+    page: number = 1,
+    limit: number = 10,
+  ) {
+    const skip = (page - 1) * limit;
+
+    const total = await this.prismaService.profile.count({
+      where: {
+        is_deactivated: false,
+        OR: [
+          {
+            User: {
+              username: {
+                contains: query,
+                mode: 'insensitive',
+              },
+            },
+          },
+          {
+            name: {
+              contains: query,
+              mode: 'insensitive',
+            },
+          },
+        ],
+      },
+    });
+
+    const profiles = await this.prismaService.profile.findMany({
+      where: {
+        is_deactivated: false,
+        OR: [
+          {
+            User: {
+              username: {
+                contains: query,
+                mode: 'insensitive',
+              },
+            },
+          },
+          {
+            name: {
+              contains: query,
+              mode: 'insensitive',
+            },
+          },
+        ],
+      },
+      include: {
+        User: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+            created_at: true,
+          },
+        },
+      },
+      skip,
+      take: limit,
+      orderBy: [
+        {
+          User: {
+            username: 'asc',
+          },
+        },
+        {
+          name: 'asc',
+        },
+      ],
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      profiles,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
 }
