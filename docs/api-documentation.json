@@ -382,6 +382,85 @@
         ]
       }
     },
+    "/api/v1.0/users/{id}/follow": {
+      "post": {
+        "description": "Creates a follow relationship between the authenticated user and target user",
+        "operationId": "UsersController_followUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user to follow",
+            "schema": {
+              "example": 123,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successfully followed the user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User to follow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Already following this user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Follow a user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
     "/api/v1.0/email": {
       "post": {
         "operationId": "EmailController_sendEmail",
@@ -735,6 +814,32 @@
         },
         "required": [
           "recaptcha"
+        ]
+      },
+      "FollowResponseDto": {
+        "type": "object",
+        "properties": {
+          "followerId": {
+            "type": "number",
+            "description": "The ID of the user who is following",
+            "example": 456
+          },
+          "followingId": {
+            "type": "number",
+            "description": "The ID of the user being followed",
+            "example": 123
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "The date and time when the follow was created",
+            "example": "2025-10-22T10:30:00.000Z"
+          }
+        },
+        "required": [
+          "followerId",
+          "followingId",
+          "createdAt"
         ]
       },
       "CreatePostDto": {
