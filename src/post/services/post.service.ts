@@ -7,11 +7,10 @@ import { Post, PostType, PostVisibility } from 'generated/prisma';
 
 @Injectable()
 export class PostService {
-
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
-  ) { }
+  ) {}
 
   private extractHashtags(content: string): string[] {
     if (!content) return [];
@@ -20,24 +19,24 @@ export class PostService {
 
     if (!matches) return [];
 
-    return [...new Set(matches.map(tag => tag.slice(1).toLowerCase()))];
+    return [...new Set(matches.map((tag) => tag.slice(1).toLowerCase()))];
   }
 
   async createPost(createPostDto: CreatePostDto) {
     const { content, type, parentId, visibility, userId } = createPostDto;
 
-    const hashtags = this.extractHashtags(content)
+    const hashtags = this.extractHashtags(content);
 
     return this.prismaService.$transaction(async (tx) => {
       const hashtagRecords = await Promise.all(
-        hashtags.map(tag => {
+        hashtags.map((tag) => {
           return tx.hashtag.upsert({
             where: { tag },
             update: {},
-            create: { tag }
-          })
-        })
-      )
+            create: { tag },
+          });
+        }),
+      );
 
       return await tx.post.create({
         data: {
@@ -47,13 +46,12 @@ export class PostService {
           visibility,
           user_id: userId,
           hashtags: {
-            connect: hashtagRecords.map(record => ({ id: record.id }))
-          }
+            connect: hashtagRecords.map((record) => ({ id: record.id })),
+          },
         },
         include: { hashtags: true },
       });
-    })
-
+    });
   }
 
   async getPostsWithFilters(filter: PostFiltersDto) {
@@ -63,17 +61,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-        ...(userId && { user_id: userId }),
-        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-        ...(type && { type }),
-        is_deleted: false,
-      }
+          ...(userId && { user_id: userId }),
+          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+          ...(type && { type }),
+          is_deleted: false,
+        }
       : {
-        // TODO: improve this fallback
-        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-        is_deleted: false,
-      };
-
+          // TODO: improve this fallback
+          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+          is_deleted: false,
+        };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -84,7 +81,13 @@ export class PostService {
     return posts;
   }
 
-  private async getPosts(userId: number, page: number, limit: number, types: PostType[], visibility?: PostVisibility) {
+  private async getPosts(
+    userId: number,
+    page: number,
+    limit: number,
+    types: PostType[],
+    visibility?: PostVisibility,
+  ) {
     return this.prismaService.post.findMany({
       where: {
         user_id: userId,
@@ -100,7 +103,12 @@ export class PostService {
     });
   }
 
-  private async getReposts(userId: number, page: number, limit: number, visibility?: PostVisibility) {
+  private async getReposts(
+    userId: number,
+    page: number,
+    limit: number,
+    visibility?: PostVisibility,
+  ) {
     return this.prismaService.repost.findMany({
       where: {
         user_id: userId,
@@ -122,7 +130,12 @@ export class PostService {
     });
   }
 
-  private getTopPaginatedPosts(posts: Post[], reposts: { post: Post, created_at: Date }[], page: number, limit: number) {
+  private getTopPaginatedPosts(
+    posts: Post[],
+    reposts: { post: Post; created_at: Date }[],
+    page: number,
+    limit: number,
+  ) {
     const combined = [
       ...posts.map((p) => ({
         ...p,
@@ -136,10 +149,7 @@ export class PostService {
       })),
     ];
 
-    combined.sort(
-      (a, b) =>
-        new Date(b.reposted_at).getTime() - new Date(a.reposted_at).getTime(),
-    );
+    combined.sort((a, b) => new Date(b.reposted_at).getTime() - new Date(a.reposted_at).getTime());
 
     const start = (page - 1) * limit;
     const end = start + limit;
@@ -148,7 +158,8 @@ export class PostService {
     return paginated;
   }
 
-  async getUserPosts(userId: number, page: number, limit: number, visibility?: PostVisibility) { // includes reposts, posts, and quotes
+  async getUserPosts(userId: number, page: number, limit: number, visibility?: PostVisibility) {
+    // includes reposts, posts, and quotes
     const [posts, reposts] = await Promise.all([
       this.getPosts(userId, page, limit, [PostType.POST, PostType.QUOTE], visibility),
       this.getReposts(userId, page, limit, visibility),
@@ -202,7 +213,7 @@ export class PostService {
       await tx.repost.deleteMany({
         where: { post_id: { in: postIds } },
       });
-      
+
       return tx.post.updateMany({
         where: { id: { in: postIds } },
         data: { is_deleted: true },
@@ -210,4 +221,81 @@ export class PostService {
     });
   }
 
+  async getUserTimeline(userId: number, page = 1, limit = 20) {
+    const offset = (page - 1) * limit;
+
+    // Tunable weights — can be adjusted dynamically later
+    const wIsFollowing = 1.2;
+    const wIsMine = 1.5;
+    const wLikes = 0.35;
+    const wReposts = 0.25;
+    const wReplies = 0.15;
+    const wMentions = 0.1;
+    const wQuotes = 0.05;
+    const wFreshness = 0.1;
+    const T = 2.0; // decay time (hours)
+
+    const posts = await this.prismaService.$queryRawUnsafe(`
+    WITH following AS (
+      SELECT "followingId" AS id FROM "follows" WHERE "followerId" = ${userId}
+    ),
+    agg AS (
+      SELECT
+        p."id",
+        p."user_id",
+        p."content",
+        p."type",
+        p."parent_id",
+        p."visibility",
+        p."created_at",
+        p."is_deleted",
+        u."username",
+        pr."name" AS profile_name,
+        pr."profile_image_url",
+
+        -- Relationship flags
+        (p."user_id" = ${userId}) AS is_mine,
+        EXISTS(SELECT 1 FROM following f WHERE f.id = p."user_id") AS is_following,
+
+        -- Engagement counts
+        COUNT(DISTINCT l."user_id") AS likes_count,
+        COUNT(DISTINCT r."user_id") AS reposts_count,
+        COUNT(DISTINCT m."id") AS mentions_count,
+        COUNT(DISTINCT reply."id") FILTER (WHERE reply."type" = 'REPLY') AS replies_count,
+        COUNT(DISTINCT quote."id") FILTER (WHERE quote."type" = 'QUOTE') AS quotes_count,
+
+        EXTRACT(EPOCH FROM (NOW() - p."created_at")) / 3600.0 AS hours_since
+      FROM "posts" p
+      LEFT JOIN "users" u ON u."id" = p."user_id"
+      LEFT JOIN "profiles" pr ON pr."user_id" = u."id"
+      LEFT JOIN "likes" l ON l."post_id" = p."id"
+      LEFT JOIN "reposts" r ON r."post_id" = p."id"
+      LEFT JOIN "mentions" m ON m."post_id" = p."id"
+      LEFT JOIN "posts" reply ON reply."parent_id" = p."id"
+      LEFT JOIN "posts" quote ON quote."parent_id" = p."id"
+
+      WHERE p."is_deleted" = FALSE
+      GROUP BY p."id", p."user_id", p."content", p."type", p."parent_id", 
+               p."visibility", p."created_at", p."is_deleted",
+               u."username", pr."name", pr."profile_image_url"
+    )
+    SELECT 
+      *,
+      (
+        ${wIsMine} * (CASE WHEN is_mine THEN 1 ELSE 0 END) +
+        ${wIsFollowing} * (CASE WHEN is_following THEN 1 ELSE 0 END) +
+        ${wLikes} * LN(1 + likes_count) +
+        ${wReposts} * LN(1 + reposts_count) +
+        ${wReplies} * LN(1 + COALESCE(replies_count, 0)) +
+        ${wMentions} * LN(1 + COALESCE(mentions_count, 0)) +
+        ${wQuotes} * LN(1 + COALESCE(quotes_count, 0)) +
+        ${wFreshness} * (1.0 / (1.0 + (hours_since / ${T})))
+      )::double precision AS score
+    FROM agg
+    ORDER BY score DESC
+    LIMIT ${limit} OFFSET ${offset};
+  `);
+
+    return posts;
+  }
 }
