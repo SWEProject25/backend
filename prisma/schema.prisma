@@ -30,6 +30,8 @@ model User {
   Posts        Post[]
   Followers    Follow[]            @relation("Following")
   Following    Follow[]            @relation("Follower")
+  Blockers     Block[]             @relation("Blocked")
+  Blocked Block[]             @relation("Blocker")
 }
 
 model Profile {
@@ -97,6 +99,18 @@ model Follow {
 
   @@id([followerId, followingId])
   @@map("follows")
+}
+
+model Block {
+  blockerId   Int
+  blockedId   Int
+  createdAt   DateTime @default(now())
+
+  Blocker     User     @relation("Blocker", fields: [blockerId], references: [id])
+  Blocked     User     @relation("Blocked", fields: [blockedId], references: [id])
+
+  @@id([blockerId, blockedId])
+  @@map("blocks")
 }
 
 enum PostType {

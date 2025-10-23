@@ -27,6 +27,7 @@ import { FollowResponseDto } from './dto/follow-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { FollowerDto } from './dto/follower.dto';
+import { BlockResponseDto } from './dto/block-response.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -284,6 +285,112 @@ export class UsersController {
       message: 'Following users retrieved successfully',
       data,
       metadata,
+    };
+  }
+
+  @Post(':id/block')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Block a user',
+    description: 'Blocks the specified user for the authenticated user',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The ID of the user to block',
+    example: 123,
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Successfully blocked the user',
+    type: BlockResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - Cannot block yourself',
+    schema: ErrorResponseDto.schemaExample('You cannot block yourself', 'Conflict'),
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User to block not found',
+    schema: ErrorResponseDto.schemaExample('User to block not found', 'Not Found'),
+  })
+  async blockUser(
+    @Param('id', ParseIntPipe) blockedId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.usersService.blockUser(user.id, blockedId);
+
+    return {
+      status: 'success',
+      message: 'User blocked successfully',
+    };
+  }
+
+  @Delete(':id/block')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Unblock a user',
+    description: 'Unblocks the specified user for the authenticated user',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The ID of the user to unblock',
+    example: 123,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully unblocked the user',
+    type: BlockResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - Cannot unblock yourself',
+    schema: ErrorResponseDto.schemaExample('You cannot unblock yourself', 'Conflict'),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - User not blocked',
+    schema: ErrorResponseDto.schemaExample('You have not blocked this user', 'Conflict'),
+  })
+  async unblockUser(
+    @Param('id', ParseIntPipe) blockedId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.usersService.unblockUser(user.id, blockedId);
+
+    return {
+      status: 'success',
+      message: 'User unblocked successfully',
     };
   }
 }

@@ -14,23 +14,25 @@ export class UsersService {
       throw new ConflictException('You cannot follow yourself');
     }
 
-    const userToFollow = await this.prismaService.user.findUnique({
-      where: { id: followingId },
-    });
+    // Check user existence and follow status in parallel
+    const [userToFollow, existingFollow] = await Promise.all([
+      this.prismaService.user.findUnique({
+        where: { id: followingId },
+        select: { id: true },
+      }),
+      this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId,
+            followingId,
+          },
+        },
+      }),
+    ]);
 
     if (!userToFollow) {
-      throw new NotFoundException('User to follow not found');
+      throw new NotFoundException('User not found');
     }
-
-    // Check if already following
-    const existingFollow = await this.prismaService.follow.findUnique({
-      where: {
-        followerId_followingId: {
-          followerId,
-          followingId,
-        },
-      },
-    });
 
     if (existingFollow) {
       throw new ConflictException('You are already following this user');
@@ -152,5 +154,100 @@ export class UsersService {
     };
 
     return { data, metadata };
+  }
+
+  async blockUser(blockerId: number, blockedId: number) {
+    if (blockerId === blockedId) {
+      throw new ConflictException('You cannot block yourself');
+    }
+
+    // Check user existence, block status, and follow status in parallel
+    const [userToBlock, existingBlock, existingFollow] = await Promise.all([
+      this.prismaService.user.findUnique({
+        where: { id: blockedId },
+        select: { id: true },
+      }),
+      this.prismaService.block.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId,
+            blockedId,
+          },
+        },
+      }),
+      this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: blockerId,
+            followingId: blockedId,
+          },
+        },
+      }),
+    ]);
+
+    if (!userToBlock) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (existingBlock) {
+      throw new ConflictException('You have already blocked this user');
+    }
+
+    // If following, unfollow and block in a transaction
+    if (existingFollow) {
+      const [, block] = await this.prismaService.$transaction([
+        this.prismaService.follow.delete({
+          where: {
+            followerId_followingId: {
+              followerId: blockerId,
+              followingId: blockedId,
+            },
+          },
+        }),
+        this.prismaService.block.create({
+          data: {
+            blockerId,
+            blockedId,
+          },
+        }),
+      ]);
+      return block;
+    }
+
+    // Otherwise, just block
+    return this.prismaService.block.create({
+      data: {
+        blockerId,
+        blockedId,
+      },
+    });
+  }
+
+  async unblockUser(blockerId: number, blockedId: number) {
+    if (blockerId === blockedId) {
+      throw new ConflictException('You cannot unblock yourself');
+    }
+
+    const existingBlock = await this.prismaService.block.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId,
+        },
+      },
+    });
+
+    if (!existingBlock) {
+      throw new ConflictException('You have not blocked this user');
+    }
+
+    return this.prismaService.block.delete({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId,
+        },
+      },
+    });
   }
 }
