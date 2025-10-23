@@ -16,4 +16,5 @@ export enum Services {
   POST = 'POST_SERVICE',
   LIKE = 'LIKE_SERVICE',
   REPOST = 'REPOST_SERVICE',
+  MENTION = 'MENTION_SERVICE',
 }

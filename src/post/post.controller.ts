@@ -14,6 +14,9 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
 import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { PostFiltersDto } from './dto/post-filter.dto';
+import { MentionService } from './services/mention.service';
+import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
+import { Mention, Post as PostModel, User } from 'generated/prisma';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -25,6 +28,8 @@ export class PostController {
     private readonly likeService: LikeService,
     @Inject(Services.REPOST)
     private readonly repostService: RepostService,
+    @Inject(Services.MENTION)
+    private readonly mentionService: MentionService,
   ) { }
 
   @Post()
@@ -483,5 +488,155 @@ export class PostController {
     };
   }
 
+  @Post(':postId/mention/:userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Mention a user in a post',
+    description: 'Mentions a user in the context of a specific post',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to mention the user in',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'User mentioned successfully',
+    type: ApiResponseDto<Mention>,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid post ID or user ID',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async mentionInPost(
+    @Param('postId') postId: number,
+    @Param('userId') userId: number,
+  ) {
+    const result = await this.mentionService.mentionUser(userId, postId);
 
+    return {
+      status: 'success',
+      message: "User mentioned successfully",
+      data: result,
+    };
+  }
+
+@Get('mentioned/:userId')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get posts mentioned by a user',
+    description: 'Retrieves a paginated list of posts that the specified user has been mentioned in',
+  })
+  @ApiParam({
+    name: 'userId',
+    type: Number,
+    description: 'The ID of the user to get mentioned posts for',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of mentioned posts per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Mentioned posts retrieved successfully',
+    type: ApiResponseDto<PostModel>,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getPostsMentioned(
+    @Param('userId') userId: number,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    const mentionedPosts = await this.mentionService.getMentionedPosts(+userId, +page, +limit);
+
+    return {
+      status: 'success',
+      message: 'Mentioned posts retrieved successfully',
+      data: mentionedPosts,
+    };
+  }
+@Get(':postId/mentions')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get list of users who mentioned a post',
+    description: 'Retrieves a paginated list of users who mentioned the specified post',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to get mentions for',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of mentions per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Mentions retrieved successfully',
+    type: ApiResponseDto<User[]>,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getMentionsInPost(
+    @Param('postId') postId: number,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    const mentions = await this.mentionService.getMentionsForPost(+postId, +page, +limit);
+
+    return {
+      status: 'success',
+      message: 'Mentions retrieved successfully',
+      data: mentions,
+    };
+  }
 }
