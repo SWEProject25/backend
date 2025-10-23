@@ -57,22 +57,30 @@ export class UsersController {
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Bad request - Invalid input data',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
   })
   @ApiResponse({
     status: HttpStatus.CONFLICT,
     description: 'Conflict - Already following this user',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('You are already following this user', 'Conflict'),
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'User to follow not found',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('User not found', 'Not Found'),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
   })
   async followUser(
     @Param('id', ParseIntPipe) followingId: number,
@@ -108,17 +116,25 @@ export class UsersController {
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Bad request - Invalid input data',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'User to unfollow not found',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('User not found', 'Not Found'),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
   })
   async unfollowUser(
     @Param('id', ParseIntPipe) unfollowingId: number,
@@ -169,12 +185,20 @@ export class UsersController {
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Bad request - Invalid input data',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('Invalid pagination parameters', 'Bad Request'),
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
   })
   async getFollowers(
     @Param('id', ParseIntPipe) userId: number,
@@ -230,12 +254,20 @@ export class UsersController {
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Bad request - Invalid input data',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('Invalid pagination parameters', 'Bad Request'),
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
   })
   async getFollowing(
     @Param('id', ParseIntPipe) userId: number,
