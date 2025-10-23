@@ -117,4 +117,24 @@ export class AuthService {
     console.log(user);
     return user;
   }
+
+  public async updateEmail(userId: number, email: string): Promise<void> {
+    const existingUser = await this.userService.findByEmail(email);
+
+    if (existingUser && existingUser.id !== userId) {
+      throw new ConflictException('Email is already in use by another user');
+    }
+
+    await this.userService.updateEmail(userId, email);
+  }
+
+  public async updateUsername(userId: number, username: string): Promise<void> {
+    const existingUser = await this.userService.findByUsername(username);
+
+    if (existingUser && existingUser.id !== userId) {
+      throw new ConflictException('Username is already taken');
+    }
+
+    await this.userService.updateUsername(userId, username);
+  }
 }

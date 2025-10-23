@@ -73,4 +73,35 @@ export class UserService {
       },
     });
   }
+
+  public async findByUsername(username: string) {
+    return await this.prismaService.user.findFirst({
+      where: {
+        username,
+      },
+    });
+  }
+
+  public async updateEmail(userId: number, email: string) {
+    return await this.prismaService.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        email,
+        is_verified: false,
+      },
+    });
+  }
+
+  public async updateUsername(userId: number, username: string) {
+    return await this.prismaService.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        username,
+      },
+    });
+  }
 }
