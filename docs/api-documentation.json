@@ -498,6 +498,328 @@
         ]
       }
     },
+    "/api/v1.0/users/{id}/follow": {
+      "post": {
+        "description": "Creates a follow relationship between the authenticated user and target user",
+        "operationId": "UsersController_followUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user to follow",
+            "schema": {
+              "example": 123,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successfully followed the user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User to follow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Already following this user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Follow a user",
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "description": "Removes the follow relationship between the authenticated user and target user",
+        "operationId": "UsersController_unfollowUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user to unfollow",
+            "schema": {
+              "example": 123,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully unfollowed the user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User to unfollow not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Unfollow a user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1.0/users/{id}/followers": {
+      "get": {
+        "description": "Retrieves a paginated list of users who follow the specified user",
+        "operationId": "UsersController_getFollowers",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user",
+            "schema": {
+              "example": 123,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 10, max: 100)",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "example": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved followers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FollowerDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get user followers",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1.0/users/{id}/following": {
+      "get": {
+        "description": "Retrieves a paginated list of users that the specified user is following",
+        "operationId": "UsersController_getFollowing",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user",
+            "schema": {
+              "example": 123,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 10, max: 100)",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "example": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved following users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FollowerDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get users followed by a user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
     "/api/v1.0/email": {
       "post": {
         "operationId": "EmailController_sendEmail",
@@ -1142,6 +1464,79 @@
         },
         "required": [
           "username"
+        ]
+      },
+      "FollowResponseDto": {
+        "type": "object",
+        "properties": {
+          "followerId": {
+            "type": "number",
+            "description": "The ID of the user who is following",
+            "example": 456
+          },
+          "followingId": {
+            "type": "number",
+            "description": "The ID of the user being followed",
+            "example": 123
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "The date and time when the follow was created",
+            "example": "2025-10-22T10:30:00.000Z"
+          }
+        },
+        "required": [
+          "followerId",
+          "followingId",
+          "createdAt"
+        ]
+      },
+      "FollowerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "User ID",
+            "example": 123
+          },
+          "username": {
+            "type": "string",
+            "description": "Username",
+            "example": "johndoe"
+          },
+          "displayName": {
+            "type": "object",
+            "description": "Display name",
+            "example": "John Doe",
+            "nullable": true
+          },
+          "bio": {
+            "type": "object",
+            "description": "User bio",
+            "example": "Software developer",
+            "nullable": true
+          },
+          "profileImageUrl": {
+            "type": "object",
+            "description": "Profile image URL",
+            "example": "https://example.com/profile.jpg",
+            "nullable": true
+          },
+          "followedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Date when the follow relationship was created",
+            "example": "2025-10-23T10:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "bio",
+          "profileImageUrl",
+          "followedAt"
         ]
       },
       "CreatePostDto": {

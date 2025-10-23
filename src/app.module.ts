@@ -10,6 +10,7 @@ import { Services } from './utils/constants';
 import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
 import { Request } from 'express';
 import { PostModule } from './post/post.module';
+import { UsersModule } from './users/users.module';
 import { ProfileModule } from './profile/profile.module';
 
 const envFilePath = '.env';
@@ -19,6 +20,7 @@ const envFilePath = '.env';
     ConfigModule.forRoot({ envFilePath, isGlobal: true }),
     AuthModule,
     UserModule,
+    UsersModule,
     EmailModule,
     GoogleRecaptchaModule.forRoot({
       secretKey: process.env.GOOGLE_RECAPTCHA_SECRET_KEY_V2,

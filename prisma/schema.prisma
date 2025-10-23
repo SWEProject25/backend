@@ -28,6 +28,8 @@ model User {
   Profile      Profile?
   // Verification EmailVerification[]
   Posts        Post[]
+  Followers    Follow[]            @relation("Following")
+  Following    Follow[]            @relation("Follower")
 }
 
 model Profile {
@@ -83,6 +85,18 @@ model Post {
   Replies     Post[]        @relation("PostToReplies")
 
   @@map("posts")
+}
+
+model Follow {
+  followerId  Int
+  followingId Int
+  createdAt   DateTime @default(now())
+
+  Follower    User     @relation("Follower", fields: [followerId], references: [id])
+  Following   User     @relation("Following", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+  @@map("follows")
 }
 
 enum PostType {

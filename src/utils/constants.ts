@@ -16,4 +16,5 @@ export enum Services {
   OTP = 'OTP_SERVICE',
   POST = 'POST_SERVICE',
   PROFILE = 'PROFILE_SERVICE',
+  USERS = 'USERS_SERVICE',
 }
