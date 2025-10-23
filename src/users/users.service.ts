@@ -43,4 +43,32 @@ export class UsersService {
       },
     });
   }
+
+  async unfollowUser(followerId: number, followingId: number) {
+    if (followerId === followingId) {
+      throw new ConflictException('You cannot unfollow yourself');
+    }
+
+    const existingFollow = await this.prismaService.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId,
+        },
+      },
+    });
+
+    if (!existingFollow) {
+      throw new ConflictException('You are not following this user');
+    }
+
+    return this.prismaService.follow.delete({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId,
+        },
+      },
+    });
+  }
 }
