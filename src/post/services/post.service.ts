@@ -259,11 +259,11 @@ export class PostService {
 
 
         -- Engagement counts
-        COUNT(DISTINCT l."user_id") AS likes_count,
-        COUNT(DISTINCT r."user_id") AS reposts_count,
-        COUNT(DISTINCT m."id") AS mentions_count,
-        COUNT(DISTINCT reply."id") FILTER (WHERE reply."type" = 'REPLY') AS replies_count,
-        COUNT(DISTINCT quote."id") FILTER (WHERE quote."type" = 'QUOTE') AS quotes_count,
+        COUNT(DISTINCT l."user_id")::int AS likes_count,
+        COUNT(DISTINCT r."user_id")::int AS reposts_count,
+        COUNT(DISTINCT m."id")::int AS mentions_count,
+        COUNT(DISTINCT reply."id") FILTER (WHERE reply."type" = 'REPLY')::int AS replies_count,
+        COUNT(DISTINCT quote."id") FILTER (WHERE quote."type" = 'QUOTE')::int AS quotes_count,
 
         EXTRACT(EPOCH FROM (NOW() - p."created_at")) / 3600.0 AS hours_since
       FROM "posts" p
