@@ -1,5 +1,38 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+class UserInfoDto {
+  @ApiProperty({
+    description: 'User ID',
+    example: 1,
+  })
+  id: number;
+
+  @ApiProperty({
+    description: 'Username',
+    example: 'john_doe',
+  })
+  username: string;
+
+  @ApiProperty({
+    description: 'User email',
+    example: 'john@example.com',
+  })
+  email: string;
+
+  @ApiProperty({
+    description: 'User role',
+    example: 'USER',
+    enum: ['USER', 'ADMIN'],
+  })
+  role: string;
+
+  @ApiProperty({
+    description: 'Account creation timestamp',
+    example: '2025-01-01T00:00:00.000Z',
+  })
+  created_at: Date;
+}
+
 export class ProfileResponseDto {
   @ApiProperty({
     description: 'Profile ID',
@@ -72,4 +105,10 @@ export class ProfileResponseDto {
     example: '2025-01-01T00:00:00.000Z',
   })
   updated_at: Date;
+
+  @ApiProperty({
+    description: 'Associated user information',
+    type: UserInfoDto,
+  })
+  User: UserInfoDto;
 }

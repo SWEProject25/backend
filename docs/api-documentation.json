@@ -582,7 +582,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfileResponseDto"
+                  "$ref": "#/components/schemas/GetProfileResponseDto"
                 }
               }
             }
@@ -638,7 +638,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponseDto"
+                  "$ref": "#/components/schemas/UpdateProfileResponseDto"
                 }
               }
             }
@@ -697,7 +697,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfileResponseDto"
+                  "$ref": "#/components/schemas/GetProfileResponseDto"
                 }
               }
             }
@@ -741,7 +741,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProfileResponseDto"
+                  "$ref": "#/components/schemas/GetProfileResponseDto"
                 }
               }
             }
@@ -1205,6 +1205,48 @@
           "data"
         ]
       },
+      "UserInfoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "User ID",
+            "example": 1
+          },
+          "username": {
+            "type": "string",
+            "description": "Username",
+            "example": "john_doe"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email",
+            "example": "john@example.com"
+          },
+          "role": {
+            "type": "string",
+            "description": "User role",
+            "example": "USER",
+            "enum": [
+              "USER",
+              "ADMIN"
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Account creation timestamp",
+            "example": "2025-01-01T00:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "email",
+          "role",
+          "created_at"
+        ]
+      },
       "ProfileResponseDto": {
         "type": "object",
         "properties": {
@@ -1270,6 +1312,14 @@
             "type": "string",
             "description": "Profile last update timestamp",
             "example": "2025-01-01T00:00:00.000Z"
+          },
+          "User": {
+            "description": "Associated user information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserInfoDto"
+              }
+            ]
           }
         },
         "required": [
@@ -1278,7 +1328,36 @@
           "name",
           "birth_date",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "User"
+        ]
+      },
+      "GetProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Response status",
+            "example": "success"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Profile retrieved successfully"
+          },
+          "data": {
+            "description": "Profile data",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfileResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "data"
         ]
       },
       "UpdateProfileDto": {
@@ -1327,6 +1406,34 @@
             "maxLength": 100
           }
         }
+      },
+      "UpdateProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Response status",
+            "example": "success"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Profile updated successfully"
+          },
+          "data": {
+            "description": "Updated profile data",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfileResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "data"
+        ]
       }
     }
   }

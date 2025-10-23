@@ -14,7 +14,7 @@ export class ProfileService {
     const profile = await this.prismaService.profile.findUnique({
       where: {
         user_id: userId,
-        is_deactivated: false
+        is_deactivated: false,
       },
       include: {
         User: {
@@ -83,6 +83,17 @@ export class ProfileService {
         user_id: userId,
       },
       data: updateProfileDto,
+      include: {
+        User: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+            created_at: true,
+          },
+        },
+      },
     });
 
     return updatedProfile;

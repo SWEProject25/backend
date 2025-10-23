@@ -19,11 +19,11 @@ import {
 } from '@nestjs/swagger';
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ProfileResponseDto } from './dto/profile-response.dto';
+import { GetProfileResponseDto } from './dto/get-profile-response.dto';
+import { UpdateProfileResponseDto } from './dto/update-profile-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Routes, Services } from 'src/utils/constants';
-import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
 
@@ -46,7 +46,7 @@ export class ProfileController {
   @ApiResponse({
     status: 200,
     description: 'Profile retrieved successfully',
-    type: ProfileResponseDto,
+    type: GetProfileResponseDto,
   })
   @ApiResponse({
     status: 401,
@@ -83,7 +83,7 @@ export class ProfileController {
   @ApiResponse({
     status: 200,
     description: 'Profile retrieved successfully',
-    type: ProfileResponseDto,
+    type: GetProfileResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -117,7 +117,7 @@ export class ProfileController {
   @ApiResponse({
     status: 200,
     description: 'Profile retrieved successfully',
-    type: ProfileResponseDto,
+    type: GetProfileResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -144,7 +144,7 @@ export class ProfileController {
   @ApiResponse({
     status: 200,
     description: 'Profile updated successfully',
-    type: ApiResponseDto,
+    type: UpdateProfileResponseDto,
   })
   @ApiResponse({
     status: 401,
