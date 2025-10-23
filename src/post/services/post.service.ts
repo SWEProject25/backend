@@ -257,6 +257,7 @@ export class PostService {
         (p."user_id" = ${userId}) AS is_mine,
         EXISTS(SELECT 1 FROM following f WHERE f.id = p."user_id") AS is_following,
 
+
         -- Engagement counts
         COUNT(DISTINCT l."user_id") AS likes_count,
         COUNT(DISTINCT r."user_id") AS reposts_count,
@@ -266,11 +267,11 @@ export class PostService {
 
         EXTRACT(EPOCH FROM (NOW() - p."created_at")) / 3600.0 AS hours_since
       FROM "posts" p
-      LEFT JOIN "users" u ON u."id" = p."user_id"
+      LEFT JOIN "User" u ON u."id" = p."user_id"
       LEFT JOIN "profiles" pr ON pr."user_id" = u."id"
-      LEFT JOIN "likes" l ON l."post_id" = p."id"
-      LEFT JOIN "reposts" r ON r."post_id" = p."id"
-      LEFT JOIN "mentions" m ON m."post_id" = p."id"
+      LEFT JOIN "Like" l ON l."post_id" = p."id"
+      LEFT JOIN "Repost" r ON r."post_id" = p."id"
+      LEFT JOIN "Mention" m ON m."post_id" = p."id"
       LEFT JOIN "posts" reply ON reply."parent_id" = p."id"
       LEFT JOIN "posts" quote ON quote."parent_id" = p."id"
 
