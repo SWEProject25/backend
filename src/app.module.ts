@@ -11,6 +11,7 @@ import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
 import { Request } from 'express';
 import { PostModule } from './post/post.module';
 import { UsersModule } from './users/users.module';
+import { ProfileModule } from './profile/profile.module';
 
 const envFilePath = '.env';
 
@@ -30,6 +31,7 @@ const envFilePath = '.env';
       // skipIf: process.env.NODE_ENV !== 'production',
     }),
     PostModule,
+    ProfileModule,
   ],
   controllers: [],
   providers: [

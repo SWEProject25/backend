@@ -37,6 +37,9 @@ import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { Recaptcha } from '@nestlab/google-recaptcha';
 import { RecaptchaDto } from './dto/recaptcha.dto';
 import { GoogleAuthGuard } from './guards/google-auth/google-auth.guard';
+import { UpdateEmailDto } from 'src/user/dto/update-email.dto';
+import { UpdateUsernameDto } from 'src/user/dto/update-username.dto';
+import { Patch } from '@nestjs/common';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -345,5 +348,74 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   public test() {
     return 'hello';
+  }
+
+  @Patch('update-email')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Update user email',
+    description:
+      'Updates the email address of the currently authenticated user.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Email updated successfully',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Email already in use',
+    type: ErrorResponseDto,
+  })
+  public async updateEmail(
+    @CurrentUser() user: any,
+    @Body() updateEmailDto: UpdateEmailDto,
+  ) {
+    await this.authService.updateEmail(user.id, updateEmailDto.email);
+    return {
+      status: 'success',
+      message: 'Email updated successfully. Please verify your new email.',
+    };
+  }
+
+  @Patch('update-username')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Update username',
+    description: 'Updates the username of the currently authenticated user.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Username updated successfully',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Username already taken',
+    type: ErrorResponseDto,
+  })
+  public async updateUsername(
+    @CurrentUser() user: any,
+    @Body() updateUsernameDto: UpdateUsernameDto,
+  ) {
+    await this.authService.updateUsername(user.id, updateUsernameDto.username);
+    return {
+      status: 'success',
+      message: 'Username updated successfully',
+    };
   }
 }
