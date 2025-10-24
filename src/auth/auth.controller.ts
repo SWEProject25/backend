@@ -317,9 +317,12 @@ export class AuthController {
   @Get('google/redirect')
   @Public()
   @UseGuards(GoogleAuthGuard)
-  public async googleRedirect(@Req() req, @Res() res: Response) {
+  public async googleRedirect(
+    @Req() req: RequestWithUser,
+    @Res() res: Response,
+  ) {
     const { accessToken, ...user } = await this.authService.login(
-      req.user.id,
+      req.user.sub,
       req.user.username,
     );
     this.jwtTokenService.setAuthCookies(res, accessToken);
@@ -332,11 +335,19 @@ export class AuthController {
               {
                 status: 'success',
                 data: {
-                  url: '${process.env.FRONTEND_URL}/home',
-                  user: ${JSON.stringify(user)}
+                  url: '${
+                    process.env.NODE_ENV === 'dev'
+                      ? process.env.FRONTEND_URL
+                      : process.env.FRONTEND_URL_PROD
+                  }'/home',
+                  user: ${JSON.stringify(req.user)}
                 }
               },
-              '${process.env.FRONTEND_URL}'
+              '${
+                process.env.NODE_ENV === 'dev'
+                  ? process.env.FRONTEND_URL
+                  : process.env.FRONTEND_URL_PROD
+              }'
             );
             window.close();
           </script>
@@ -355,9 +366,12 @@ export class AuthController {
   @Get('github/redirect')
   @Public()
   @UseGuards(GithubAuthGuard)
-  public async githubRedirect(@Req() req, @Res() res: Response) {
+  public async githubRedirect(
+    @Req() req: RequestWithUser,
+    @Res() res: Response,
+  ) {
     const { accessToken, ...user } = await this.authService.login(
-      req.user.id,
+      req.user.sub,
       req.user.username,
     );
     this.jwtTokenService.setAuthCookies(res, accessToken);
@@ -370,11 +384,19 @@ export class AuthController {
               {
                 status: 'success',
                 data: {
-                  url: '${process.env.FRONTEND_URL}/home',
-                  user: ${JSON.stringify(user)}
+                  url: '${
+                    process.env.NODE_ENV === 'dev'
+                      ? process.env.FRONTEND_URL
+                      : process.env.FRONTEND_URL_PROD
+                  }'/home',
+                  user: ${JSON.stringify(req.user)}
                 }
               },
-              '${process.env.FRONTEND_URL}'
+              '${
+                process.env.NODE_ENV === 'dev'
+                  ? process.env.FRONTEND_URL
+                  : process.env.FRONTEND_URL_PROD
+              }'
             );
             window.close();
           </script>

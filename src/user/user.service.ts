@@ -104,11 +104,12 @@ export class UserService {
     };
   }
 
-  public async getUserData(email: string) {
+  public async getUserData(uniqueIdentifier: string) {
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(uniqueIdentifier);
     const user = await this.prismaService.user.findUnique({
-      where: {
-        email,
-      },
+      where: isEmail
+        ? { email: uniqueIdentifier }
+        : { username: uniqueIdentifier },
     });
     if (user) {
       const profile = await this.prismaService.profile.findUnique({
@@ -121,6 +122,6 @@ export class UserService {
         profile,
       };
     }
-    return user;
+    return null;
   }
 }

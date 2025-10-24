@@ -106,10 +106,15 @@ export class AuthService {
 
   public async validateGoogleUser(googleUser: CreateUserDto) {
     const email = googleUser.email;
-    const existingUser = await this.userService.findByEmail(email);
-    // console.log('existing user from google', user);
-    if (existingUser) {
-      return existingUser;
+    const existingUser = await this.userService.getUserData(email);
+    if (existingUser?.user && existingUser?.profile) {
+      return {
+        username: existingUser.user.username,
+        role: existingUser.user.role,
+        email: existingUser.user.email,
+        name: existingUser.profile.name,
+        profileImageUrl: existingUser.profile.profile_image_url,
+      };
     }
     const newUser = await this.userService.create(googleUser);
     const user = {
@@ -117,28 +122,35 @@ export class AuthService {
       role: newUser.newUser.role,
       email: newUser.newUser.email,
       name: newUser.userProfile.name,
-      birth_date: newUser.userProfile.birth_date,
-      profile_image_url: newUser.userProfile.profile_image_url,
-      banner_image_url: newUser.userProfile.banner_image_url,
-      bio: newUser.userProfile.bio,
-      location: newUser.userProfile.location,
-      website: newUser.userProfile.website,
-      created_at: newUser.newUser.created_at,
+      profileImageUrl: newUser.userProfile.profile_image_url,
     };
-    console.log('validate google user');
-    console.log(user);
     return user;
   }
 
   public async validateGithubUser(githubUserData: OAuthProfileDto) {
-    const existingUsername = await this.userService.findByUsername(
+    const existingUser = await this.userService.getUserData(
       githubUserData.username!,
     );
-    if (existingUsername) {
-      // @TODO check for provider
-      return existingUsername;
+    // if (existingUser) {
+    //   // @TODO check for provider
+    //   return existingUser;
+    // }
+    if (existingUser?.user && existingUser?.profile) {
+      return {
+        username: existingUser.user.username,
+        role: existingUser.user.role,
+        email: existingUser.user.email,
+        name: existingUser.profile.name,
+        profileImageUrl: existingUser.profile.profile_image_url,
+      };
     }
     const newUser = await this.userService.createOAuthUser(githubUserData);
-    return newUser;
+    return {
+      username: newUser.newUser.username,
+      role: newUser.newUser.role,
+      email: newUser.newUser.email,
+      name: newUser.proflie.name,
+      profileImageUrl: newUser.proflie.profile_image_url,
+    };
   }
 }

@@ -32,7 +32,6 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     profile: Profile,
     done: VerifiedCallback,
   ) {
-    console.log('proifle', profile);
     const username = profile.username!;
     const userDisplayname = profile.displayName;
     const providerId = profile.id;
