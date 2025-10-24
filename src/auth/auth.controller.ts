@@ -141,7 +141,7 @@ export class AuthController {
     return {
       status: 'success',
       message: 'Logged in successfully',
-      date: {
+      data: {
         user: {
           id: result.user.id,
           name: result.user.username,
