@@ -366,4 +366,68 @@ export class UsersService {
 
     return { data, metadata };
   }
+
+  async muteUser(muterId: number, mutedId: number) {
+    if (muterId === mutedId) {
+      throw new ConflictException('You cannot mute yourself');
+    }
+
+    const [userToMute, existingMute] = await Promise.all([
+      this.prismaService.user.findUnique({
+        where: { id: mutedId },
+        select: { id: true },
+      }),
+      this.prismaService.mute.findUnique({
+        where: {
+          muterId_mutedId: {
+            muterId,
+            mutedId,
+          },
+        },
+      }),
+    ]);
+
+    if (!userToMute) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (existingMute) {
+      throw new ConflictException('You have already muted this user');
+    }
+
+    return this.prismaService.mute.create({
+      data: {
+        muterId,
+        mutedId,
+      },
+    });
+  }
+
+  async unmuteUser(muterId: number, mutedId: number) {
+    if (muterId === mutedId) {
+      throw new ConflictException('You cannot unmute yourself');
+    }
+
+    const existingMute = await this.prismaService.mute.findUnique({
+      where: {
+        muterId_mutedId: {
+          muterId,
+          mutedId,
+        },
+      },
+    });
+
+    if (!existingMute) {
+      throw new ConflictException('You have not muted this user');
+    }
+
+    return this.prismaService.mute.delete({
+      where: {
+        muterId_mutedId: {
+          muterId,
+          mutedId,
+        },
+      },
+    });
+  }
 }

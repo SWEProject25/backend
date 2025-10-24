@@ -28,6 +28,7 @@ import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { UserInteractionDto } from './dto/UserInteraction.dto';
 import { BlockResponseDto } from './dto/block-response.dto';
+import { MuteResponseDto } from './dto/mute-response.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -452,6 +453,112 @@ export class UsersController {
       message: 'Blocked users retrieved successfully',
       data,
       metadata,
+    };
+  }
+
+  @Post(':id/mute')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Mute a user',
+    description: 'Mutes the specified user for the authenticated user',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The ID of the user to mute',
+    example: 123,
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Successfully muted the user',
+    type: MuteResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - Cannot mute yourself',
+    schema: ErrorResponseDto.schemaExample('You cannot mute yourself', 'Conflict'),
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User to mute not found',
+    schema: ErrorResponseDto.schemaExample('User to mute not found', 'Not Found'),
+  })
+  async muteUser(
+    @Param('id', ParseIntPipe) mutedId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.usersService.muteUser(user.id, mutedId);
+
+    return {
+      status: 'success',
+      message: 'User muted successfully',
+    };
+  }
+
+  @Delete(':id/mute')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Unmute a user',
+    description: 'Unmutes the specified user for the authenticated user',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The ID of the user to unmute',
+    example: 123,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully unmuted the user',
+    type: MuteResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - Cannot unmute yourself',
+    schema: ErrorResponseDto.schemaExample('You cannot unmute yourself', 'Conflict'),
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User to unmute not found',
+    schema: ErrorResponseDto.schemaExample('User to unmute not found', 'Not Found'),
+  })
+  async unmuteUser(
+    @Param('id', ParseIntPipe) unmutedId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.usersService.unmuteUser(user.id, unmutedId);
+
+    return {
+      status: 'success',
+      message: 'User unmuted successfully',
     };
   }
 }

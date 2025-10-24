@@ -35,6 +35,8 @@ model User {
   mentions   Mention[]
   Blockers     Block[]             @relation("Blocked")
   Blocked Block[]             @relation("Blocker")
+  Muters       Mute[]              @relation("Muted")
+  Muted       Mute[]              @relation("Muter")
 }
 
 model Profile {
@@ -117,6 +119,18 @@ model Block {
 
   @@id([blockerId, blockedId])
   @@map("blocks")
+}
+
+model Mute {
+  muterId     Int
+  mutedId     Int
+  createdAt   DateTime @default(now())
+
+  Muter       User     @relation("Muter", fields: [muterId], references: [id])
+  Muted       User     @relation("Muted", fields: [mutedId], references: [id])
+
+  @@id([muterId, mutedId])
+  @@map("mutes")
 }
 
 enum PostType {
