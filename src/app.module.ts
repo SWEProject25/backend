@@ -12,6 +12,8 @@ import { Request } from 'express';
 import { PostModule } from './post/post.module';
 import { UsersModule } from './users/users.module';
 import { ProfileModule } from './profile/profile.module';
+import { MessagesModule } from './messages/messages.module';
+import { ConversationsModule } from './conversations/conversations.module';
 
 const envFilePath = '.env';
 
@@ -32,6 +34,8 @@ const envFilePath = '.env';
     }),
     PostModule,
     ProfileModule,
+    MessagesModule,
+    ConversationsModule,
   ],
   controllers: [],
   providers: [

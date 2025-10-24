@@ -37,6 +37,9 @@ model User {
   Blocked Block[]             @relation("Blocker")
   Muters       Mute[]              @relation("Muted")
   Muted       Mute[]              @relation("Muter")
+  ConversationsAsUser1 Conversation[] @relation("User1Conversations")
+  ConversationsAsUser2 Conversation[] @relation("User2Conversations")
+  MessagesSent Message[]
 }
 
 model Profile {
@@ -183,4 +186,33 @@ model Mention {
 
   post        Post    @relation(fields: [post_id], references: [id])
   user        User    @relation(fields: [user_id], references: [id])
+}
+
+model Conversation {
+  id          Int       @id @default(autoincrement())
+  user1Id    Int
+  user2Id    Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime?  @updatedAt
+
+  Messages    Message[]
+  User1       User      @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
+  User2       User      @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
+
+  @@map("conversations")
+}
+
+model Message {
+  id             Int       @id @default(autoincrement())
+  conversationId Int
+  senderId       Int
+  content        String    @db.VarChar(1000)
+  isDeleted     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime?  @updatedAt
+
+  Conversation   Conversation @relation(fields: [conversationId], references: [id])
+  Sender         User         @relation(fields: [senderId], references: [id])
+
+  @@map("messages")
 }
