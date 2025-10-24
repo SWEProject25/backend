@@ -198,7 +198,7 @@ model Conversation {
   Messages    Message[]
   User1       User      @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
   User2       User      @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
-
+  @@unique([user1Id, user2Id])
   @@map("conversations")
 }
 
@@ -206,8 +206,10 @@ model Message {
   id             Int       @id @default(autoincrement())
   conversationId Int
   senderId       Int
-  content        String    @db.VarChar(1000)
-  isDeleted     Boolean   @default(false)
+  text        String    @db.VarChar(1000)
+  isDeletedU1     Boolean   @default(false)
+  isDeletedU2     Boolean   @default(false)
+  isSeen        Boolean   @default(false)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime?  @updatedAt
 

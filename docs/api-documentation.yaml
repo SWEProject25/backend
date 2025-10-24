@@ -3319,112 +3319,134 @@
     },
     "/api/v1.0/conversations": {
       "post": {
-        "operationId": "ConversationsController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateConversationDto"
-              }
+        "description": "Creates a new conversation between the authenticated user and another user",
+        "operationId": "ConversationsController_createConversation",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
             }
           }
-        },
+        ],
         "responses": {
           "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Conversations"
-        ]
-      },
-      "get": {
-        "operationId": "ConversationsController_findAll",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Conversations"
-        ]
-      }
-    },
-    "/api/v1.0/conversations/{id}": {
-      "get": {
-        "operationId": "ConversationsController_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
+            "description": "Conversation created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateConversationResponseDto"
+                }
+              }
             }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Conversations"
-        ]
-      },
-      "patch": {
-        "operationId": "ConversationsController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid user ID provided"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
+                }
+              }
             }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateConversationDto"
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Conversation already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "A conversation between these users already exists"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Conflict"
+                    }
+                  }
+                }
               }
             }
           }
         },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Conversations"
-        ]
-      },
-      "delete": {
-        "operationId": "ConversationsController_remove",
-        "parameters": [
+        "security": [
           {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
+            "cookie": []
           }
         ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
+        "summary": "Create a conversation between two users",
         "tags": [
-          "Conversations"
+          "conversations"
         ]
       }
     }
@@ -4562,11 +4584,7 @@
           "data"
         ]
       },
-      "CreateConversationDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "UpdateConversationDto": {
+      "CreateConversationResponseDto": {
         "type": "object",
         "properties": {}
       }
