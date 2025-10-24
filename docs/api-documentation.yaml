@@ -3317,7 +3317,192 @@
         ]
       }
     },
-    "/api/v1.0/conversations": {
+    "/api/v1.0/messages/{conversationId}": {
+      "get": {
+        "description": "Retrieves paginated messages for a specific conversation",
+        "operationId": "MessagesController_getMessages",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of messages per page (default: 20)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Messages retrieved successfully"
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Conversation not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Conversation not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get messages for a conversation",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/v1.0/messages/{conversationId}/{messageId}": {
+      "delete": {
+        "description": "Soft deletes a message for the authenticated user",
+        "operationId": "MessagesController_removeMessage",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "messageId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the message to delete",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Message or conversation not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Message not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Delete a message",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/v1.0/conversations/{userId}": {
       "post": {
         "description": "Creates a new conversation between the authenticated user and another user",
         "operationId": "ConversationsController_createConversation",
@@ -3325,7 +3510,8 @@
           {
             "name": "userId",
             "required": true,
-            "in": "query",
+            "in": "path",
+            "description": "The ID of the other user to start a conversation with",
             "schema": {
               "type": "number"
             }
@@ -3445,6 +3631,135 @@
           }
         ],
         "summary": "Create a conversation between two users",
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
+    "/api/v1.0/conversations": {
+      "get": {
+        "description": "Retrieves all conversations involving the authenticated user",
+        "operationId": "ConversationsController_getUserConversations",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of conversations per page (default: 20)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversations retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CreateConversationResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get all conversations for the authenticated user",
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
+    "/api/v1.0/conversations/unseen": {
+      "get": {
+        "description": "Retrieves the total number of unseen messages across all conversations",
+        "operationId": "ConversationsController_getUnseenMessagesCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Unseen messages count retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "success",
+                    "unseenCount": 5
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get count of unseen messages for the authenticated user",
         "tags": [
           "conversations"
         ]
@@ -4586,7 +4901,35 @@
       },
       "CreateConversationResponseDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "conversationId": {
+            "type": "number",
+            "description": "The ID of the conversation",
+            "example": 1
+          },
+          "user1Id": {
+            "type": "number",
+            "description": "The ID of the first user",
+            "example": 1
+          },
+          "user2Id": {
+            "type": "number",
+            "description": "The ID of the second user",
+            "example": 2
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "The creation date of the conversation",
+            "example": "2025-10-24T21:55:48.147Z"
+          }
+        },
+        "required": [
+          "conversationId",
+          "user1Id",
+          "user2Id",
+          "createdAt"
+        ]
       }
     }
   }

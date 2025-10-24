@@ -9,34 +9,42 @@ import {
 import {
   Controller,
   HttpStatus,
-  Inject,
   Post,
   Get,
   UseGuards,
   Param,
   ParseIntPipe,
   Query,
+  Inject,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-
 import { ConversationsService } from './conversations.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { CreateConversationResponseDto } from './dto/create-conversation-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
+import { Services } from 'src/utils/constants';
 
 @ApiTags('conversations')
 @Controller('conversations')
 export class ConversationsController {
-  constructor(private readonly conversationsService: ConversationsService) {}
+  constructor(
+    @Inject(Services.CONVERSATIONS)
+    private readonly conversationsService: ConversationsService,
+  ) {}
 
-  @Post('/')
+  @Post('/:userId')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Create a conversation between two users',
     description: 'Creates a new conversation between the authenticated user and another user',
+  })
+  @ApiParam({
+    name: 'userId',
+    type: Number,
+    description: 'The ID of the other user to start a conversation with',
   })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -71,18 +79,18 @@ export class ConversationsController {
   })
   async createConversation(
     @CurrentUser() user: AuthenticatedUser,
-    @Query('userId', ParseIntPipe) otherUserId: number,
+    @Param('userId', ParseIntPipe) otherUserId: number,
   ) {
     const createConversationDto: CreateConversationDto = {
       user1Id: user.id,
       user2Id: otherUserId,
     };
 
-    const conversation = await this.conversationsService.create(createConversationDto, user.id);
+    const conversation = await this.conversationsService.create(createConversationDto);
 
     return {
       status: 'success',
-      conversation,
+      ...conversation,
     };
   }
 
@@ -92,6 +100,18 @@ export class ConversationsController {
   @ApiOperation({
     summary: 'Get all conversations for the authenticated user',
     description: 'Retrieves all conversations involving the authenticated user',
+  })
+  @ApiQuery({
+    name: 'page',
+    type: Number,
+    required: false,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    type: Number,
+    required: false,
+    description: 'Number of conversations per page (default: 20)',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -106,55 +126,19 @@ export class ConversationsController {
       'Unauthorized',
     ),
   })
-  async getUserConversations(@CurrentUser() user: AuthenticatedUser) {
-    const conversations = await this.conversationsService.getConversationsForUser(user.id);
-    return {
-      status: 'success',
-      conversations,
-    };
-  }
-
-  @Get('/:conversationId')
-  @UseGuards(JwtAuthGuard)
-  @ApiCookieAuth()
-  @ApiOperation({
-    summary: 'Get a specific conversation by ID',
-    description: 'Retrieves a conversation by its ID for the authenticated user',
-  })
-  @ApiParam({
-    name: 'conversationId',
-    type: Number,
-    description: 'The ID of the conversation to retrieve',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Conversation retrieved successfully',
-    type: CreateConversationResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Unauthorized - Token missing or invalid',
-    schema: ErrorResponseDto.schemaExample(
-      'Authentication token is missing or invalid',
-      'Unauthorized',
-    ),
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Conversation not found',
-    schema: ErrorResponseDto.schemaExample('Conversation not found', 'Not Found'),
-  })
-  async getConversationMessages(
+  async getUserConversations(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('conversationId', ParseIntPipe) conversationId: number,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {
-    const messages = await this.conversationsService.getConversationMessages(
-      conversationId,
+    const result = await this.conversationsService.getConversationsForUser(
       user.id,
+      page || 1,
+      limit || 20,
     );
     return {
       status: 'success',
-      messages,
+      ...result,
     };
   }
 
@@ -190,4 +174,48 @@ export class ConversationsController {
       unseenCount,
     };
   }
+
+  // @Get('/:conversationId')
+  // @UseGuards(JwtAuthGuard)
+  // @ApiCookieAuth()
+  // @ApiOperation({
+  //   summary: 'Get a specific conversation by ID',
+  //   description: 'Retrieves a conversation by its ID for the authenticated user',
+  // })
+  // @ApiParam({
+  //   name: 'conversationId',
+  //   type: Number,
+  //   description: 'The ID of the conversation to retrieve',
+  // })
+  // @ApiResponse({
+  //   status: HttpStatus.OK,
+  //   description: 'Conversation retrieved successfully',
+  //   type: CreateConversationResponseDto,
+  // })
+  // @ApiResponse({
+  //   status: HttpStatus.UNAUTHORIZED,
+  //   description: 'Unauthorized - Token missing or invalid',
+  //   schema: ErrorResponseDto.schemaExample(
+  //     'Authentication token is missing or invalid',
+  //     'Unauthorized',
+  //   ),
+  // })
+  // @ApiResponse({
+  //   status: HttpStatus.NOT_FOUND,
+  //   description: 'Conversation not found',
+  //   schema: ErrorResponseDto.schemaExample('Conversation not found', 'Not Found'),
+  // })
+  // async getConversationMessages(
+  //   @CurrentUser() user: AuthenticatedUser,
+  //   @Param('conversationId', ParseIntPipe) conversationId: number,
+  // ) {
+  //   const messages = await this.conversationsService.getConversationMessages(
+  //     conversationId,
+  //     user.id,
+  //   );
+  //   return {
+  //     status: 'success',
+  //     messages,
+  //   };
+  // }
 }

@@ -10,7 +10,7 @@ export class ConversationsService {
     private readonly prismaService: PrismaService,
   ) {}
 
-  async create(createConversationDto: CreateConversationDto, currentUserId: number) {
+  async create(createConversationDto: CreateConversationDto) {
     // Ensure user1Id is always less than user2Id to maintain uniqueness {1,2} == {2,1}
     const { user1Id, user2Id } =
       createConversationDto.user1Id < createConversationDto.user2Id
@@ -28,7 +28,7 @@ export class ConversationsService {
     }
 
     // Determine if current user is user1 or user2
-    const isUser1 = currentUserId === user1Id;
+    const isUser1 = createConversationDto.user1Id === user1Id;
     const deletedField = isUser1 ? 'isDeletedU1' : 'isDeletedU2';
 
     const oldConversation = await this.prismaService.conversation.findFirst({
@@ -106,143 +106,110 @@ export class ConversationsService {
     };
   }
 
-  async getConversationsForUser(userId: number) {
-    const conversations = await this.prismaService.conversation.findMany({
-      where: {
-        OR: [{ user1Id: userId }, { user2Id: userId }],
-      },
-      include: {
-        User1: {
-          select: {
-            id: true,
-            username: true,
-            Profile: {
-              select: {
-                name: true,
-                profile_image_url: true,
-              },
-            },
-          },
-        },
-        User2: {
-          select: {
-            id: true,
-            username: true,
-            Profile: {
-              select: {
-                name: true,
-                profile_image_url: true,
-              },
-            },
-          },
-        },
-        Messages: {
-          orderBy: {
-            createdAt: 'desc',
-          },
-          take: 10, // Take more messages to find a visible one
-          select: {
-            id: true,
-            text: true,
-            senderId: true,
-            createdAt: true,
-            updatedAt: true,
-            isDeletedU1: true,
-            isDeletedU2: true,
-          },
-        },
-      },
-      orderBy: {
-        updatedAt: 'desc',
-      },
-    });
-
-    // Transform Messages to messages and filter based on user
-    return conversations.map(({ Messages, User1, User2, ...conversation }) => {
-      const isUser1 = userId === conversation.user1Id;
-
-      // Find the first message that's not deleted for this user
-      const lastVisibleMessage = Messages.find((msg) =>
-        isUser1 ? !msg.isDeletedU1 : !msg.isDeletedU2,
-      );
-
-      return {
-        ...conversation,
-        lastMessage: lastVisibleMessage
-          ? {
-              id: lastVisibleMessage.id,
-              text: lastVisibleMessage.text,
-              senderId: lastVisibleMessage.senderId,
-              createdAt: lastVisibleMessage.createdAt,
-              updatedAt: lastVisibleMessage.updatedAt,
-            }
-          : null,
-        user1: {
-          id: User1.id,
-          username: User1.username,
-          profile_image_url: User1.Profile?.profile_image_url ?? null,
-          displayName: User1.Profile?.name ?? null,
-        },
-        user2: {
-          id: User2.id,
-          username: User2.username,
-          profile_image_url: User2.Profile?.profile_image_url ?? null,
-          displayName: User2.Profile?.name ?? null,
-        },
-      };
-    });
-  }
-
-  async getConversationMessages(
-    conversationId: number,
-    currentUserId: number,
-    page: number = 1,
-    limit: number = 20,
-  ) {
+  async getConversationsForUser(userId: number, page: number = 1, limit: number = 20) {
     const skip = (page - 1) * limit;
 
-    // First get the conversation to determine if user is user1 or user2
-    const conversation = await this.prismaService.conversation.findUnique({
-      where: { id: conversationId },
-      select: { user1Id: true, user2Id: true },
-    });
-
-    if (!conversation) {
-      throw new ConflictException('Conversation not found');
-    }
-
-    const isUser1 = currentUserId === conversation.user1Id;
-    const deletedField = isUser1 ? 'isDeletedU1' : 'isDeletedU2';
-
-    const [messages, total] = await Promise.all([
-      this.prismaService.message.findMany({
+    const [conversations, total] = await this.prismaService.$transaction([
+      this.prismaService.conversation.findMany({
         where: {
-          conversationId,
-          [deletedField]: false,
+          OR: [{ user1Id: userId }, { user2Id: userId }],
+        },
+        select: {
+          id: true,
+          updatedAt: true,
+          createdAt: true,
+          User1: {
+            select: {
+              id: true,
+              username: true,
+              Profile: {
+                select: {
+                  name: true,
+                  profile_image_url: true,
+                },
+              },
+            },
+          },
+          User2: {
+            select: {
+              id: true,
+              username: true,
+              Profile: {
+                select: {
+                  name: true,
+                  profile_image_url: true,
+                },
+              },
+            },
+          },
+          Messages: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+            take: 10, // Take more messages to find a visible one
+            select: {
+              id: true,
+              text: true,
+              senderId: true,
+              createdAt: true,
+              updatedAt: true,
+              isDeletedU1: true,
+              isDeletedU2: true,
+            },
+          },
         },
         orderBy: {
-          createdAt: 'desc',
+          updatedAt: 'desc',
         },
         skip,
         take: limit,
-        select: {
-          id: true,
-          text: true,
-          senderId: true,
-          createdAt: true,
-          updatedAt: true,
-        },
       }),
-      this.prismaService.message.count({
+      this.prismaService.conversation.count({
         where: {
-          conversationId,
-          [deletedField]: false,
+          OR: [{ user1Id: userId }, { user2Id: userId }],
         },
       }),
     ]);
 
+    // Transform Messages to messages and filter based on user
+    const transformedConversations = conversations.map(
+      ({ Messages, User1, User2, ...conversation }) => {
+        const isUser1 = userId === User1.id;
+
+        // Find the first message that's not deleted for this user
+        const lastVisibleMessage = Messages.find((msg) =>
+          isUser1 ? !msg.isDeletedU1 : !msg.isDeletedU2,
+        );
+
+        return {
+          ...conversation,
+          lastMessage: lastVisibleMessage
+            ? {
+                id: lastVisibleMessage.id,
+                text: lastVisibleMessage.text,
+                senderId: lastVisibleMessage.senderId,
+                createdAt: lastVisibleMessage.createdAt,
+                updatedAt: lastVisibleMessage.updatedAt,
+              }
+            : null,
+          user1: {
+            id: User1.id,
+            username: User1.username,
+            profile_image_url: User1.Profile?.profile_image_url ?? null,
+            displayName: User1.Profile?.name ?? null,
+          },
+          user2: {
+            id: User2.id,
+            username: User2.username,
+            profile_image_url: User2.Profile?.profile_image_url ?? null,
+            displayName: User2.Profile?.name ?? null,
+          },
+        };
+      },
+    );
+
     return {
-      messages: messages.reverse(), // Return oldest first for chat display
+      data: transformedConversations,
       metadata: {
         totalItems: total,
         page,
