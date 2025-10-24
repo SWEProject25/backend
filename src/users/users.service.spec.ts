@@ -20,6 +20,13 @@ describe('UsersService', () => {
       count: jest.fn(),
       findMany: jest.fn(),
     },
+    block: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+      findMany: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -76,6 +83,7 @@ describe('UsersService', () => {
       expect(result).toEqual(mockFollow);
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
         where: { id: followingId },
+        select: { id: true },
       });
       expect(mockPrismaService.follow.findUnique).toHaveBeenCalledWith({
         where: {
@@ -103,14 +111,14 @@ describe('UsersService', () => {
 
     it('should throw NotFoundException when user to follow does not exist', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.follow.findUnique.mockResolvedValue(null);
 
       await expect(service.followUser(followerId, followingId)).rejects.toThrow(NotFoundException);
-      await expect(service.followUser(followerId, followingId)).rejects.toThrow(
-        'User to follow not found',
-      );
+      await expect(service.followUser(followerId, followingId)).rejects.toThrow('User not found');
 
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
         where: { id: followingId },
+        select: { id: true },
       });
       expect(mockPrismaService.follow.create).not.toHaveBeenCalled();
     });
@@ -126,6 +134,7 @@ describe('UsersService', () => {
 
       expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
         where: { id: followingId },
+        select: { id: true },
       });
       expect(mockPrismaService.follow.findUnique).toHaveBeenCalledWith({
         where: {
@@ -415,6 +424,322 @@ describe('UsersService', () => {
 
       expect(result.metadata.page).toBe(1);
       expect(result.metadata.limit).toBe(10);
+    });
+  });
+
+  describe('blockUser', () => {
+    const blockerId = 1;
+    const blockedId = 2;
+    const mockUser = { id: blockedId };
+    const mockBlock = {
+      id: 1,
+      blockerId,
+      blockedId,
+      createdAt: new Date(),
+    };
+
+    it('should successfully block a user when not following', async () => {
+      // Mock Promise.all responses: [user exists, no existing block, no existing follow]
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.block.findUnique.mockResolvedValue(null);
+      mockPrismaService.follow.findUnique.mockResolvedValue(null);
+      mockPrismaService.block.create.mockResolvedValue(mockBlock);
+
+      const result = await service.blockUser(blockerId, blockedId);
+
+      expect(result).toEqual(mockBlock);
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: blockedId },
+        select: { id: true },
+      });
+      expect(mockPrismaService.block.findUnique).toHaveBeenCalledWith({
+        where: {
+          blockerId_blockedId: {
+            blockerId,
+            blockedId,
+          },
+        },
+      });
+      expect(mockPrismaService.follow.findUnique).toHaveBeenCalledWith({
+        where: {
+          followerId_followingId: {
+            followerId: blockerId,
+            followingId: blockedId,
+          },
+        },
+      });
+      expect(mockPrismaService.block.create).toHaveBeenCalledWith({
+        data: {
+          blockerId,
+          blockedId,
+        },
+      });
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should successfully block a user and unfollow in transaction when following', async () => {
+      const mockFollow = { followerId: blockerId, followingId: blockedId };
+
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.block.findUnique.mockResolvedValue(null);
+      mockPrismaService.follow.findUnique.mockResolvedValue(mockFollow);
+      mockPrismaService.$transaction.mockResolvedValue([mockFollow, mockBlock]);
+
+      const result = await service.blockUser(blockerId, blockedId);
+
+      expect(result).toEqual(mockBlock);
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw ConflictException when trying to block yourself', async () => {
+      await expect(service.blockUser(1, 1)).rejects.toThrow(ConflictException);
+      await expect(service.blockUser(1, 1)).rejects.toThrow('You cannot block yourself');
+
+      expect(mockPrismaService.user.findUnique).not.toHaveBeenCalled();
+      expect(mockPrismaService.block.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when user to block does not exist', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.block.findUnique.mockResolvedValue(null);
+      mockPrismaService.follow.findUnique.mockResolvedValue(null);
+
+      await expect(service.blockUser(blockerId, blockedId)).rejects.toThrow(NotFoundException);
+      await expect(service.blockUser(blockerId, blockedId)).rejects.toThrow('User not found');
+
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: blockedId },
+        select: { id: true },
+      });
+      expect(mockPrismaService.block.create).not.toHaveBeenCalled();
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException when already blocked', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.block.findUnique.mockResolvedValue(mockBlock);
+      mockPrismaService.follow.findUnique.mockResolvedValue(null);
+
+      await expect(service.blockUser(blockerId, blockedId)).rejects.toThrow(ConflictException);
+      await expect(service.blockUser(blockerId, blockedId)).rejects.toThrow(
+        'You have already blocked this user',
+      );
+
+      expect(mockPrismaService.block.create).not.toHaveBeenCalled();
+      expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('unblockUser', () => {
+    const blockerId = 1;
+    const blockedId = 2;
+    const mockBlock = {
+      id: 1,
+      blockerId,
+      blockedId,
+      createdAt: new Date(),
+    };
+
+    it('should successfully unblock a user', async () => {
+      mockPrismaService.block.findUnique.mockResolvedValue(mockBlock);
+      mockPrismaService.block.delete.mockResolvedValue(mockBlock);
+
+      const result = await service.unblockUser(blockerId, blockedId);
+
+      expect(result).toEqual(mockBlock);
+      expect(mockPrismaService.block.findUnique).toHaveBeenCalledWith({
+        where: {
+          blockerId_blockedId: {
+            blockerId,
+            blockedId,
+          },
+        },
+      });
+      expect(mockPrismaService.block.delete).toHaveBeenCalledWith({
+        where: {
+          blockerId_blockedId: {
+            blockerId,
+            blockedId,
+          },
+        },
+      });
+    });
+
+    it('should throw ConflictException when trying to unblock yourself', async () => {
+      await expect(service.unblockUser(1, 1)).rejects.toThrow(ConflictException);
+      await expect(service.unblockUser(1, 1)).rejects.toThrow('You cannot unblock yourself');
+
+      expect(mockPrismaService.block.findUnique).not.toHaveBeenCalled();
+      expect(mockPrismaService.block.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException when user is not blocked', async () => {
+      mockPrismaService.block.findUnique.mockResolvedValue(null);
+
+      await expect(service.unblockUser(blockerId, blockedId)).rejects.toThrow(ConflictException);
+      await expect(service.unblockUser(blockerId, blockedId)).rejects.toThrow(
+        'You have not blocked this user',
+      );
+
+      expect(mockPrismaService.block.findUnique).toHaveBeenCalledWith({
+        where: {
+          blockerId_blockedId: {
+            blockerId,
+            blockedId,
+          },
+        },
+      });
+      expect(mockPrismaService.block.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getBlockedUsers', () => {
+    const userId = 1;
+    const page = 1;
+    const limit = 10;
+
+    const mockBlockedUsers = [
+      {
+        id: 1,
+        blockerId: userId,
+        blockedId: 2,
+        createdAt: new Date('2025-10-23T10:00:00.000Z'),
+        Blocked: {
+          id: 2,
+          username: 'blocked1',
+          Profile: {
+            name: 'Blocked One',
+            bio: 'Bio of blocked user 1',
+            profile_image_url: 'https://example.com/blocked1.jpg',
+          },
+        },
+      },
+      {
+        id: 2,
+        blockerId: userId,
+        blockedId: 3,
+        createdAt: new Date('2025-10-23T09:00:00.000Z'),
+        Blocked: {
+          id: 3,
+          username: 'blocked2',
+          Profile: {
+            name: null,
+            bio: null,
+            profile_image_url: null,
+          },
+        },
+      },
+    ];
+
+    it('should successfully retrieve paginated blocked users', async () => {
+      const totalItems = 2;
+      mockPrismaService.$transaction.mockResolvedValue([totalItems, mockBlockedUsers]);
+
+      const result = await service.getBlockedUsers(userId, page, limit);
+
+      expect(result).toEqual({
+        data: [
+          {
+            id: 2,
+            username: 'blocked1',
+            displayName: 'Blocked One',
+            bio: 'Bio of blocked user 1',
+            profileImageUrl: 'https://example.com/blocked1.jpg',
+            blockedAt: new Date('2025-10-23T10:00:00.000Z'),
+          },
+          {
+            id: 3,
+            username: 'blocked2',
+            displayName: null,
+            bio: null,
+            profileImageUrl: null,
+            blockedAt: new Date('2025-10-23T09:00:00.000Z'),
+          },
+        ],
+        metadata: {
+          totalItems: 2,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        },
+      });
+
+      expect(mockPrismaService.$transaction).toHaveBeenCalledWith([
+        expect.objectContaining({
+          // count query
+        }),
+        expect.objectContaining({
+          // findMany query
+        }),
+      ]);
+    });
+
+    it('should return empty array when no blocked users exist', async () => {
+      mockPrismaService.$transaction.mockResolvedValue([0, []]);
+
+      const result = await service.getBlockedUsers(userId, page, limit);
+
+      expect(result).toEqual({
+        data: [],
+        metadata: {
+          totalItems: 0,
+          page: 1,
+          limit: 10,
+          totalPages: 0,
+        },
+      });
+    });
+
+    it('should calculate correct pagination metadata', async () => {
+      const totalItems = 25;
+      mockPrismaService.$transaction.mockResolvedValue([totalItems, mockBlockedUsers]);
+
+      const result = await service.getBlockedUsers(userId, 2, 10);
+
+      expect(result.metadata).toEqual({
+        totalItems: 25,
+        page: 2,
+        limit: 10,
+        totalPages: 3,
+      });
+    });
+
+    it('should use default pagination values', async () => {
+      mockPrismaService.$transaction.mockResolvedValue([2, mockBlockedUsers]);
+
+      const result = await service.getBlockedUsers(userId);
+
+      expect(result.metadata.page).toBe(1);
+      expect(result.metadata.limit).toBe(10);
+    });
+
+    it('should handle users with no profile data', async () => {
+      const blockedUsersNoProfile = [
+        {
+          id: 1,
+          blockerId: userId,
+          blockedId: 2,
+          createdAt: new Date('2025-10-23T10:00:00.000Z'),
+          Blocked: {
+            id: 2,
+            username: 'blocked1',
+            Profile: null,
+          },
+        },
+      ];
+
+      mockPrismaService.$transaction.mockResolvedValue([1, blockedUsersNoProfile]);
+
+      const result = await service.getBlockedUsers(userId, page, limit);
+
+      expect(result.data[0]).toEqual({
+        id: 2,
+        username: 'blocked1',
+        displayName: null,
+        bio: null,
+        profileImageUrl: null,
+        blockedAt: new Date('2025-10-23T10:00:00.000Z'),
+      });
     });
   });
 });

@@ -14,26 +14,52 @@ export class UsersService {
       throw new ConflictException('You cannot follow yourself');
     }
 
-    const userToFollow = await this.prismaService.user.findUnique({
-      where: { id: followingId },
-    });
+    // Check user existence and follow status in parallel
+    const [userToFollow, existingFollow, existingBlock, existingBlockRev] = await Promise.all([
+      this.prismaService.user.findUnique({
+        where: { id: followingId },
+        select: { id: true },
+      }),
+      this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId,
+            followingId,
+          },
+        },
+      }),
+      this.prismaService.block.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: followerId,
+            blockedId: followingId,
+          },
+        },
+      }),
+      this.prismaService.block.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: followingId,
+            blockedId: followerId,
+          },
+        },
+      }),
+    ]);
 
     if (!userToFollow) {
-      throw new NotFoundException('User to follow not found');
+      throw new NotFoundException('User not found');
     }
-
-    // Check if already following
-    const existingFollow = await this.prismaService.follow.findUnique({
-      where: {
-        followerId_followingId: {
-          followerId,
-          followingId,
-        },
-      },
-    });
 
     if (existingFollow) {
       throw new ConflictException('You are already following this user');
+    }
+
+    if (existingBlock) {
+      throw new ConflictException('You cannot follow a user you have blocked');
+    }
+
+    if (existingBlockRev) {
+      throw new ConflictException('You cannot follow a user who has blocked you');
     }
 
     return this.prismaService.follow.create({
@@ -142,6 +168,193 @@ export class UsersService {
       bio: follow.Following.Profile?.bio || null,
       profileImageUrl: follow.Following.Profile?.profile_image_url || null,
       followedAt: follow.createdAt,
+    }));
+
+    const metadata = {
+      totalItems,
+      page,
+      limit,
+      totalPages: Math.ceil(totalItems / limit),
+    };
+
+    return { data, metadata };
+  }
+
+  async blockUser(blockerId: number, blockedId: number) {
+    if (blockerId === blockedId) {
+      throw new ConflictException('You cannot block yourself');
+    }
+
+    // Check user existence, block status, and follow status in parallel
+    const [userToBlock, existingBlock, existingFollow, existingFollowRev] = await Promise.all([
+      this.prismaService.user.findUnique({
+        where: { id: blockedId },
+        select: { id: true },
+      }),
+      this.prismaService.block.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId,
+            blockedId,
+          },
+        },
+      }),
+      this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: blockerId,
+            followingId: blockedId,
+          },
+        },
+      }),
+      this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: blockedId,
+            followingId: blockerId,
+          },
+        },
+      }),
+    ]);
+
+    if (!userToBlock) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (existingBlock) {
+      throw new ConflictException('You have already blocked this user');
+    }
+
+    // If following, unfollow and block in a transaction
+    if (existingFollow && existingFollowRev) {
+      const [, block] = await this.prismaService.$transaction([
+        this.prismaService.follow.delete({
+          where: {
+            followerId_followingId: {
+              followerId: blockerId,
+              followingId: blockedId,
+            },
+          },
+        }),
+        this.prismaService.block.create({
+          data: {
+            blockerId,
+            blockedId,
+          },
+        }),
+        this.prismaService.follow.delete({
+          where: {
+            followerId_followingId: {
+              followerId: blockedId,
+              followingId: blockerId,
+            },
+          },
+        }),
+      ]);
+      return block;
+    } else if (existingFollow) {
+      await this.prismaService.$transaction([
+        this.prismaService.follow.delete({
+          where: {
+            followerId_followingId: {
+              followerId: blockerId,
+              followingId: blockedId,
+            },
+          },
+        }),
+        this.prismaService.block.create({
+          data: {
+            blockerId,
+            blockedId,
+          },
+        }),
+      ]);
+      return;
+    } else if (existingFollowRev) {
+      await this.prismaService.$transaction([
+        this.prismaService.follow.delete({
+          where: {
+            followerId_followingId: {
+              followerId: blockedId,
+              followingId: blockerId,
+            },
+          },
+        }),
+        this.prismaService.block.create({
+          data: {
+            blockerId,
+            blockedId,
+          },
+        }),
+      ]);
+    }
+
+    // Otherwise, just block
+    return this.prismaService.block.create({
+      data: {
+        blockerId,
+        blockedId,
+      },
+    });
+  }
+
+  async unblockUser(blockerId: number, blockedId: number) {
+    if (blockerId === blockedId) {
+      throw new ConflictException('You cannot unblock yourself');
+    }
+
+    const existingBlock = await this.prismaService.block.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId,
+        },
+      },
+    });
+
+    if (!existingBlock) {
+      throw new ConflictException('You have not blocked this user');
+    }
+
+    return this.prismaService.block.delete({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId,
+        },
+      },
+    });
+  }
+
+  async getBlockedUsers(userId: number, page: number = 1, limit: number = 10) {
+    const [totalItems, blockedUsers] = await this.prismaService.$transaction([
+      this.prismaService.block.count({
+        where: { blockerId: userId },
+      }),
+      this.prismaService.block.findMany({
+        where: { blockerId: userId },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          Blocked: {
+            select: {
+              id: true,
+              username: true,
+              Profile: { select: { name: true, bio: true, profile_image_url: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const data = blockedUsers.map((block) => ({
+      id: block.Blocked.id,
+      username: block.Blocked.username,
+      displayName: block.Blocked.Profile?.name || null,
+      bio: block.Blocked.Profile?.bio || null,
+      profileImageUrl: block.Blocked.Profile?.profile_image_url || null,
+      blockedAt: block.createdAt,
     }));
 
     const metadata = {
