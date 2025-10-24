@@ -27,6 +27,13 @@ describe('UsersService', () => {
       count: jest.fn(),
       findMany: jest.fn(),
     },
+    mute: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+      count: jest.fn(),
+      findMany: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -739,6 +746,305 @@ describe('UsersService', () => {
         bio: null,
         profileImageUrl: null,
         blockedAt: new Date('2025-10-23T10:00:00.000Z'),
+      });
+    });
+  });
+
+  describe('muteUser', () => {
+    const muterId = 1;
+    const mutedId = 2;
+    const mockUser = { id: mutedId };
+    const mockMute = {
+      id: 1,
+      muterId,
+      mutedId,
+      createdAt: new Date(),
+    };
+
+    it('should successfully mute a user', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.mute.findUnique.mockResolvedValue(null);
+      mockPrismaService.mute.create.mockResolvedValue(mockMute);
+
+      const result = await service.muteUser(muterId, mutedId);
+
+      expect(result).toEqual(mockMute);
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: mutedId },
+        select: { id: true },
+      });
+      expect(mockPrismaService.mute.findUnique).toHaveBeenCalledWith({
+        where: {
+          muterId_mutedId: {
+            muterId,
+            mutedId,
+          },
+        },
+      });
+      expect(mockPrismaService.mute.create).toHaveBeenCalledWith({
+        data: {
+          muterId,
+          mutedId,
+        },
+      });
+    });
+
+    it('should throw ConflictException when trying to mute yourself', async () => {
+      await expect(service.muteUser(1, 1)).rejects.toThrow(ConflictException);
+      await expect(service.muteUser(1, 1)).rejects.toThrow('You cannot mute yourself');
+
+      expect(mockPrismaService.user.findUnique).not.toHaveBeenCalled();
+      expect(mockPrismaService.mute.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when user to mute does not exist', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.mute.findUnique.mockResolvedValue(null);
+
+      await expect(service.muteUser(muterId, mutedId)).rejects.toThrow(NotFoundException);
+      await expect(service.muteUser(muterId, mutedId)).rejects.toThrow('User not found');
+
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: mutedId },
+        select: { id: true },
+      });
+      expect(mockPrismaService.mute.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException when already muted', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.mute.findUnique.mockResolvedValue(mockMute);
+
+      await expect(service.muteUser(muterId, mutedId)).rejects.toThrow(ConflictException);
+      await expect(service.muteUser(muterId, mutedId)).rejects.toThrow(
+        'You have already muted this user',
+      );
+
+      expect(mockPrismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: mutedId },
+        select: { id: true },
+      });
+      expect(mockPrismaService.mute.findUnique).toHaveBeenCalledWith({
+        where: {
+          muterId_mutedId: {
+            muterId,
+            mutedId,
+          },
+        },
+      });
+      expect(mockPrismaService.mute.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('unmuteUser', () => {
+    const muterId = 1;
+    const mutedId = 2;
+    const mockMute = {
+      id: 1,
+      muterId,
+      mutedId,
+      createdAt: new Date(),
+    };
+
+    it('should successfully unmute a user', async () => {
+      mockPrismaService.mute.findUnique.mockResolvedValue(mockMute);
+      mockPrismaService.mute.delete.mockResolvedValue(mockMute);
+
+      const result = await service.unmuteUser(muterId, mutedId);
+
+      expect(result).toEqual(mockMute);
+      expect(mockPrismaService.mute.findUnique).toHaveBeenCalledWith({
+        where: {
+          muterId_mutedId: {
+            muterId,
+            mutedId,
+          },
+        },
+      });
+      expect(mockPrismaService.mute.delete).toHaveBeenCalledWith({
+        where: {
+          muterId_mutedId: {
+            muterId,
+            mutedId,
+          },
+        },
+      });
+    });
+
+    it('should throw ConflictException when trying to unmute yourself', async () => {
+      await expect(service.unmuteUser(1, 1)).rejects.toThrow(ConflictException);
+      await expect(service.unmuteUser(1, 1)).rejects.toThrow('You cannot unmute yourself');
+
+      expect(mockPrismaService.mute.findUnique).not.toHaveBeenCalled();
+      expect(mockPrismaService.mute.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException when user is not muted', async () => {
+      mockPrismaService.mute.findUnique.mockResolvedValue(null);
+
+      await expect(service.unmuteUser(muterId, mutedId)).rejects.toThrow(ConflictException);
+      await expect(service.unmuteUser(muterId, mutedId)).rejects.toThrow(
+        'You have not muted this user',
+      );
+
+      expect(mockPrismaService.mute.findUnique).toHaveBeenCalledWith({
+        where: {
+          muterId_mutedId: {
+            muterId,
+            mutedId,
+          },
+        },
+      });
+      expect(mockPrismaService.mute.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getMutedUsers', () => {
+    const userId = 1;
+    const page = 1;
+    const limit = 10;
+
+    const mockMutedUsers = [
+      {
+        id: 1,
+        muterId: userId,
+        mutedId: 2,
+        createdAt: new Date('2025-10-23T10:00:00.000Z'),
+        Muted: {
+          id: 2,
+          username: 'muted1',
+          Profile: {
+            name: 'Muted One',
+            bio: 'Bio of muted user 1',
+            profile_image_url: 'https://example.com/muted1.jpg',
+          },
+        },
+      },
+      {
+        id: 2,
+        muterId: userId,
+        mutedId: 3,
+        createdAt: new Date('2025-10-23T09:00:00.000Z'),
+        Muted: {
+          id: 3,
+          username: 'muted2',
+          Profile: {
+            name: null,
+            bio: null,
+            profile_image_url: null,
+          },
+        },
+      },
+    ];
+
+    it('should successfully retrieve paginated muted users', async () => {
+      const totalItems = 2;
+      mockPrismaService.$transaction.mockResolvedValue([totalItems, mockMutedUsers]);
+
+      const result = await service.getMutedUsers(userId, page, limit);
+
+      expect(result).toEqual({
+        data: [
+          {
+            id: 2,
+            username: 'muted1',
+            displayName: 'Muted One',
+            bio: 'Bio of muted user 1',
+            profileImageUrl: 'https://example.com/muted1.jpg',
+            mutedAt: new Date('2025-10-23T10:00:00.000Z'),
+          },
+          {
+            id: 3,
+            username: 'muted2',
+            displayName: null,
+            bio: null,
+            profileImageUrl: null,
+            mutedAt: new Date('2025-10-23T09:00:00.000Z'),
+          },
+        ],
+        metadata: {
+          totalItems: 2,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+        },
+      });
+
+      expect(mockPrismaService.$transaction).toHaveBeenCalledWith([
+        expect.objectContaining({
+          // count query
+        }),
+        expect.objectContaining({
+          // findMany query
+        }),
+      ]);
+    });
+
+    it('should return empty array when no muted users exist', async () => {
+      mockPrismaService.$transaction.mockResolvedValue([0, []]);
+
+      const result = await service.getMutedUsers(userId, page, limit);
+
+      expect(result).toEqual({
+        data: [],
+        metadata: {
+          totalItems: 0,
+          page: 1,
+          limit: 10,
+          totalPages: 0,
+        },
+      });
+    });
+
+    it('should calculate correct pagination metadata', async () => {
+      const totalItems = 25;
+      mockPrismaService.$transaction.mockResolvedValue([totalItems, mockMutedUsers]);
+
+      const result = await service.getMutedUsers(userId, 2, 10);
+
+      expect(result.metadata).toEqual({
+        totalItems: 25,
+        page: 2,
+        limit: 10,
+        totalPages: 3,
+      });
+    });
+
+    it('should use default pagination values', async () => {
+      mockPrismaService.$transaction.mockResolvedValue([2, mockMutedUsers]);
+
+      const result = await service.getMutedUsers(userId);
+
+      expect(result.metadata.page).toBe(1);
+      expect(result.metadata.limit).toBe(10);
+    });
+
+    it('should handle users with no profile data', async () => {
+      const mutedUsersNoProfile = [
+        {
+          id: 1,
+          muterId: userId,
+          mutedId: 2,
+          createdAt: new Date('2025-10-23T10:00:00.000Z'),
+          Muted: {
+            id: 2,
+            username: 'muted1',
+            Profile: null,
+          },
+        },
+      ];
+
+      mockPrismaService.$transaction.mockResolvedValue([1, mutedUsersNoProfile]);
+
+      const result = await service.getMutedUsers(userId, page, limit);
+
+      expect(result.data[0]).toEqual({
+        id: 2,
+        username: 'muted1',
+        displayName: null,
+        bio: null,
+        profileImageUrl: null,
+        mutedAt: new Date('2025-10-23T10:00:00.000Z'),
       });
     });
   });

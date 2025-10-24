@@ -366,4 +366,109 @@ export class UsersService {
 
     return { data, metadata };
   }
+
+  async muteUser(muterId: number, mutedId: number) {
+    if (muterId === mutedId) {
+      throw new ConflictException('You cannot mute yourself');
+    }
+
+    const [userToMute, existingMute] = await Promise.all([
+      this.prismaService.user.findUnique({
+        where: { id: mutedId },
+        select: { id: true },
+      }),
+      this.prismaService.mute.findUnique({
+        where: {
+          muterId_mutedId: {
+            muterId,
+            mutedId,
+          },
+        },
+      }),
+    ]);
+
+    if (!userToMute) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (existingMute) {
+      throw new ConflictException('You have already muted this user');
+    }
+
+    return this.prismaService.mute.create({
+      data: {
+        muterId,
+        mutedId,
+      },
+    });
+  }
+
+  async unmuteUser(muterId: number, mutedId: number) {
+    if (muterId === mutedId) {
+      throw new ConflictException('You cannot unmute yourself');
+    }
+
+    const existingMute = await this.prismaService.mute.findUnique({
+      where: {
+        muterId_mutedId: {
+          muterId,
+          mutedId,
+        },
+      },
+    });
+
+    if (!existingMute) {
+      throw new ConflictException('You have not muted this user');
+    }
+
+    return this.prismaService.mute.delete({
+      where: {
+        muterId_mutedId: {
+          muterId,
+          mutedId,
+        },
+      },
+    });
+  }
+
+  async getMutedUsers(userId: number, page: number = 1, limit: number = 10) {
+    const [totalItems, mutedUsers] = await this.prismaService.$transaction([
+      this.prismaService.mute.count({
+        where: { muterId: userId },
+      }),
+      this.prismaService.mute.findMany({
+        where: { muterId: userId },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          Muted: {
+            select: {
+              id: true,
+              username: true,
+              Profile: { select: { name: true, bio: true, profile_image_url: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const data = mutedUsers.map((mute) => ({
+      id: mute.Muted.id,
+      username: mute.Muted.username,
+      displayName: mute.Muted.Profile?.name || null,
+      bio: mute.Muted.Profile?.bio || null,
+      profileImageUrl: mute.Muted.Profile?.profile_image_url || null,
+      mutedAt: mute.createdAt,
+    }));
+
+    const metadata = {
+      totalItems,
+      page,
+      limit,
+      totalPages: Math.ceil(totalItems / limit),
+    };
+
+    return { data, metadata };
+  }
 }
