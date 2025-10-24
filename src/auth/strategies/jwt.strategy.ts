@@ -10,19 +10,26 @@ import { cookieExtractor } from '../utils/cookie-extractor';
 import { Services } from 'src/utils/constants';
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy) {
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     @Inject(jwtConfig.KEY)
     private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
     @Inject(Services.AUTH)
     private readonly authService: AuthService,
   ) {
+    // super({
+    //   jwtFromRequest: ExtractJwt.fromExtractors([
+    //     cookieExtractor('access_token'),
+    //   ]),
+    //   ignoreExpiration: false,
+    //   secretOrKey: jwtConfiguration.secret,
+    // });
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        cookieExtractor('access_token'),
+        cookieExtractor['access_token'],
       ]),
       ignoreExpiration: false,
-      secretOrKey: jwtConfiguration.secret!,
+      secretOrKey: process.env.JWT_SECRET!,
     });
   }
   async validate(payload: AuthJwtPayload) {
