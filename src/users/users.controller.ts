@@ -561,4 +561,65 @@ export class UsersController {
       message: 'User unmuted successfully',
     };
   }
+
+  @Get('mutes/me')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get muted users',
+    description: 'Retrieves a paginated list of users muted by the authenticated user',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10, max: 100)',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully retrieved muted users',
+    type: UserInteractionDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid pagination parameters', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
+  })
+  async getMutedUsers(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() paginationQuery: PaginationDto,
+  ) {
+    const { data, metadata } = await this.usersService.getMutedUsers(
+      user.id,
+      paginationQuery.page,
+      paginationQuery.limit,
+    );
+    return {
+      status: 'success',
+      message: 'Muted users retrieved successfully',
+      data,
+      metadata,
+    };
+  }
 }

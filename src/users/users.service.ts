@@ -430,4 +430,45 @@ export class UsersService {
       },
     });
   }
+
+  async getMutedUsers(userId: number, page: number = 1, limit: number = 10) {
+    const [totalItems, mutedUsers] = await this.prismaService.$transaction([
+      this.prismaService.mute.count({
+        where: { muterId: userId },
+      }),
+      this.prismaService.mute.findMany({
+        where: { muterId: userId },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          Muted: {
+            select: {
+              id: true,
+              username: true,
+              Profile: { select: { name: true, bio: true, profile_image_url: true } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const data = mutedUsers.map((mute) => ({
+      id: mute.Muted.id,
+      username: mute.Muted.username,
+      displayName: mute.Muted.Profile?.name || null,
+      bio: mute.Muted.Profile?.bio || null,
+      profileImageUrl: mute.Muted.Profile?.profile_image_url || null,
+      mutedAt: mute.createdAt,
+    }));
+
+    const metadata = {
+      totalItems,
+      page,
+      limit,
+      totalPages: Math.ceil(totalItems / limit),
+    };
+
+    return { data, metadata };
+  }
 }
