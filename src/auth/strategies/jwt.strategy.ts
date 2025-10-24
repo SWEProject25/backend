@@ -4,7 +4,6 @@ import { Strategy, ExtractJwt } from 'passport-jwt';
 import jwtConfig from '../config/jwt.config';
 import { ConfigType } from '@nestjs/config';
 import { AuthService } from '../auth.service';
-import { Request } from 'express';
 import { AuthJwtPayload } from 'src/types/jwtPayload';
 import { cookieExtractor } from '../utils/cookie-extractor';
 import { Services } from 'src/utils/constants';
@@ -17,21 +16,15 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     @Inject(Services.AUTH)
     private readonly authService: AuthService,
   ) {
-    // super({
-    //   jwtFromRequest: ExtractJwt.fromExtractors([
-    //     cookieExtractor('access_token'),
-    //   ]),
-    //   ignoreExpiration: false,
-    //   secretOrKey: jwtConfiguration.secret,
-    // });
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        cookieExtractor['access_token'],
+        cookieExtractor('access_token'),
       ]),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET!,
+      secretOrKey: jwtConfiguration.secret as string,
     });
   }
+
   async validate(payload: AuthJwtPayload) {
     const userId = payload.sub;
     const user = await this.authService.validateUserJwt(userId);
