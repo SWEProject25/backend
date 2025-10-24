@@ -35,6 +35,9 @@ async function bootstrap() {
   const documentation = SwaggerModule.createDocument(app, swagger);
   // http://localhost:PORT/swagger
   SwaggerModule.setup('swagger', app, documentation);
+  app.getHttpAdapter().get('/swagger.json', (req, res) => {
+    res.type('application/json').send(documentation);
+  });
   writeFileSync('./docs/api-documentation.json', JSON.stringify(documentation, null, 2));
   writeFileSync('./docs/api-documentation.yaml', JSON.stringify(documentation, null, 2));
 
