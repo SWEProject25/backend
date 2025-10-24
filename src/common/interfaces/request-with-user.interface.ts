@@ -7,5 +7,6 @@ export interface RequestWithUser extends Request {
     email?: string;
     role?: string;
     name?: string;
+    profileImageUrl?: string;
   };
 }

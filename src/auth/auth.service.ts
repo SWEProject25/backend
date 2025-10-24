@@ -74,12 +74,23 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    const userData = await this.userService.getUserData(email);
 
+    if (userData?.profile && userData?.user) {
+      return {
+        sub: userData.user.id,
+        username: userData.user.username,
+        role: userData.user.role,
+        email: userData.user.email!,
+        name: userData.profile.name,
+        profileImageUrl: userData.profile.profile_image_url!,
+      };
+    }
     // return to req.user
     return {
       sub: user.id,
       username: user.username,
-      // role: user.role,
+      role: user.role,
     };
   }
 

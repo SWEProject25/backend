@@ -2,13 +2,16 @@ import {
   Inject,
   Injectable,
   UnprocessableEntityException,
+  ConflictException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { EmailService } from 'src/email/email.service';
 import { UserService } from 'src/user/user.service';
 import { OtpService } from './../otp/otp.service';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { Services } from 'src/utils/constants';
+
+const RESEND_COOLDOWN_SECONDS = 60; // 1 minute
 
 @Injectable()
 export class EmailVerificationService {
@@ -25,12 +28,23 @@ export class EmailVerificationService {
     const user = await this.userService.findByEmail(email);
 
     if (user?.is_verified) {
-      throw new UnprocessableEntityException('Account already verified');
+      throw new ConflictException('Account already verified');
     }
 
-    const otp = await this.otpService.generate(email);
-    const html = this.renderTemplate(otp, 'email-verification.html');
+    const isCoolingDown = await this.otpService.isRateLimited(email);
+    if (isCoolingDown) {
+      throw new HttpException(
+        `Please wait ${RESEND_COOLDOWN_SECONDS} seconds before requesting another email.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
 
+    const otp = await this.otpService.generateAndRateLimit(email);
+
+    const html = this.emailService.renderTemplate(
+      otp,
+      'email-verification.html',
+    );
     await this.emailService.sendEmail({
       subject: 'Account Verification',
       recipients: [email],
@@ -39,12 +53,6 @@ export class EmailVerificationService {
   }
 
   async resendVerificationEmail(email: string): Promise<void> {
-    const existingOtp = await this.userService.checkExistingOtp(email);
-
-    if (existingOtp) {
-      await this.otpService.deleteExisting(email);
-    }
-
     await this.sendVerificationEmail(email);
   }
 
@@ -52,22 +60,15 @@ export class EmailVerificationService {
     const user = await this.userService.findByEmail(email);
 
     if (user?.is_verified) {
-      throw new UnprocessableEntityException('Account already verified');
+      throw new ConflictException('Account already verified');
     }
 
     const isValid = await this.otpService.validate(email, otp);
-
     if (!isValid) {
       throw new UnprocessableEntityException('Invalid or expired OTP');
     }
 
+    // await this.userService.update(user.id, { is_verified: true });
     return true;
-  }
-
-  private renderTemplate(otp: string, path: string): string {
-    const templatePath = join(process.cwd(), 'src', 'email', 'templates', path);
-
-    const template = readFileSync(templatePath, 'utf-8');
-    return template.replace('{{verificationCode}}', otp);
   }
 }

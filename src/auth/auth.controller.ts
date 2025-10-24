@@ -93,13 +93,7 @@ export class AuthController {
           role: newUser.role,
           email: newUser.email,
           name: userProfile.name,
-          birth_date: userProfile.birth_date,
-          profile_image_url: userProfile.profile_image_url,
-          banner_image_url: userProfile.banner_image_url,
-          bio: userProfile.bio,
-          location: userProfile.location,
-          website: userProfile.website,
-          created_at: newUser.created_at,
+          profileImageUrl: userProfile.profile_image_url,
         },
       },
     };
@@ -141,10 +135,13 @@ export class AuthController {
     return {
       status: 'success',
       message: 'Logged in successfully',
-      date: {
+      data: {
         user: {
-          id: result.user.id,
-          name: result.user.username,
+          username: req.user.username,
+          role: req.user.role,
+          email: req.user.email,
+          name: req.user.name,
+          profileImageUrl: req.user.profileImageUrl,
         },
       },
     };

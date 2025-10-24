@@ -5,6 +5,7 @@ import { hash } from 'argon2';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Services } from 'src/utils/constants';
 import { OAuthProfileDto } from 'src/auth/dto/oauth-profile.dto';
+import { generateUsername } from 'src/utils/username.util';
 
 @Injectable()
 export class UserService {
@@ -15,7 +16,7 @@ export class UserService {
   public async create(createUserDto: CreateUserDto) {
     const { password, name, birth_date, ...user } = createUserDto;
     const hashedPassword = await hash(password);
-    const username = 'temp'; // @TODO changed to unique identifer for each user
+    const username = generateUsername(name);
     const newUser = await this.prismaService.user.create({
       data: {
         ...user,
@@ -101,5 +102,25 @@ export class UserService {
       newUser,
       proflie,
     };
+  }
+
+  public async getUserData(email: string) {
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        email,
+      },
+    });
+    if (user) {
+      const profile = await this.prismaService.profile.findUnique({
+        where: {
+          user_id: user.id,
+        },
+      });
+      return {
+        user,
+        profile,
+      };
+    }
+    return user;
   }
 }
