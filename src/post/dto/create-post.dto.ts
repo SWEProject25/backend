@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PostType, PostVisibility } from 'generated/prisma';
 
-
 export class CreatePostDto {
   @IsString()
   @IsNotEmpty({ message: 'Content is required' })
@@ -26,8 +25,7 @@ export class CreatePostDto {
 
   @IsOptional()
   @ApiPropertyOptional({
-    description:
-      'The ID of the parent post (used when this post is a reply or quote)',
+    description: 'The ID of the parent post (used when this post is a reply or quote)',
     example: 42,
     type: Number,
     nullable: true,
@@ -39,8 +37,7 @@ export class CreatePostDto {
   })
   @IsNotEmpty({ message: 'Visibility is required' })
   @ApiProperty({
-    description:
-      'The visibility level of the post (EVERY_ONE, FOLLOWERS, or MENTIONED)',
+    description: 'The visibility level of the post (EVERY_ONE, FOLLOWERS, or MENTIONED)',
     enum: PostVisibility,
     example: PostVisibility.EVERY_ONE,
   })

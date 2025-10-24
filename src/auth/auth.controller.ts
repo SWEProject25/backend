@@ -13,12 +13,7 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../user/dto/create-user.dto';
-import {
-  ApiBody,
-  ApiCookieAuth,
-  ApiOperation,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { ApiBody, ApiCookieAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth/local-auth.guard';
 import { Response } from 'express';
 import { JwtAuthGuard } from './guards/jwt-auth/jwt-auth.guard';
@@ -131,10 +126,7 @@ export class AuthController {
     description: 'Unauthorized - Invalid credentials',
     type: ErrorResponseDto,
   })
-  public async login(
-    @Request() req: RequestWithUser,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  public async login(@Request() req: RequestWithUser, @Res({ passthrough: true }) res: Response) {
     const { accessToken, ...result } = await this.authService.login(
       req.user.sub,
       req.user.username,
@@ -158,8 +150,7 @@ export class AuthController {
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Get current user information',
-    description:
-      'Returns profile details of the currently authenticated user from the JWT token.',
+    description: 'Returns profile details of the currently authenticated user from the JWT token.',
   })
   @ApiResponse({
     status: 200,
@@ -181,8 +172,7 @@ export class AuthController {
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Logout user',
-    description:
-      'Clears authentication cookies (access_token and refresh_token).',
+    description: 'Clears authentication cookies (access_token and refresh_token).',
   })
   @ApiResponse({
     status: 200,
@@ -200,8 +190,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Check if an email already exists',
-    description:
-      'Verifies whether the given email is already registered in the system.',
+    description: 'Verifies whether the given email is already registered in the system.',
   })
   @ApiBody({
     description: 'Email to be checked',
@@ -227,8 +216,7 @@ export class AuthController {
   @Public()
   @ApiOperation({
     summary: 'Generate and send a verification OTP',
-    description:
-      "Generates a new OTP and sends it to the user's email for verification.",
+    description: "Generates a new OTP and sends it to the user's email for verification.",
   })
   @ApiResponse({
     status: 200,
@@ -278,10 +266,7 @@ export class AuthController {
     description: 'Invalid or expired OTP',
     type: ErrorResponseDto,
   })
-  public async verifyEmailOtp(
-    @Body('otp') otp: string,
-    @Body('email') email: string,
-  ) {
+  public async verifyEmailOtp(@Body('otp') otp: string, @Body('email') email: string) {
     const result = await this.emailVerificationService.verifyEmail(email, otp);
 
     return {
@@ -296,8 +281,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Verifies a Google reCAPTCHA token',
-    description:
-      'Endpoint to verify a user is human before allowing other actions.',
+    description: 'Endpoint to verify a user is human before allowing other actions.',
   })
   @ApiResponse({ status: 200, description: 'Human verification successful.' })
   @ApiResponse({ status: 400, description: 'reCAPTCHA verification failed.' })
@@ -356,8 +340,7 @@ export class AuthController {
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Update user email',
-    description:
-      'Updates the email address of the currently authenticated user.',
+    description: 'Updates the email address of the currently authenticated user.',
   })
   @ApiResponse({
     status: 200,
@@ -374,10 +357,7 @@ export class AuthController {
     description: 'Conflict - Email already in use',
     type: ErrorResponseDto,
   })
-  public async updateEmail(
-    @CurrentUser() user: any,
-    @Body() updateEmailDto: UpdateEmailDto,
-  ) {
+  public async updateEmail(@CurrentUser() user: any, @Body() updateEmailDto: UpdateEmailDto) {
     await this.authService.updateEmail(user.id, updateEmailDto.email);
     return {
       status: 'success',
