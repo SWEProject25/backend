@@ -5,11 +5,13 @@ import {
   ConflictException,
   HttpException,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { EmailService } from 'src/email/email.service';
 import { UserService } from 'src/user/user.service';
 import { OtpService } from './../otp/otp.service';
 import { Services } from 'src/utils/constants';
+import { VerifyOtpDto } from 'src/auth/dto/email-verification.dto';
 
 const RESEND_COOLDOWN_SECONDS = 60; // 1 minute
 
@@ -27,7 +29,11 @@ export class EmailVerificationService {
   async sendVerificationEmail(email: string): Promise<void> {
     const user = await this.userService.findByEmail(email);
 
-    if (user?.is_verified) {
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.is_verified) {
       throw new ConflictException('Account already verified');
     }
 
@@ -53,14 +59,18 @@ export class EmailVerificationService {
     await this.sendVerificationEmail(email);
   }
 
-  async verifyEmail(email: string, otp: string): Promise<boolean> {
-    const user = await this.userService.findByEmail(email);
+  async verifyEmail(verifyOtpDto: VerifyOtpDto): Promise<boolean> {
+    const user = await this.userService.findByEmail(verifyOtpDto.email);
 
-    if (user?.is_verified) {
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.is_verified) {
       throw new ConflictException('Account already verified');
     }
 
-    const isValid = await this.otpService.validate(email, otp);
+    const isValid = await this.otpService.validate(verifyOtpDto.email, verifyOtpDto.otp);
     if (!isValid) {
       throw new UnprocessableEntityException('Invalid or expired OTP');
     }

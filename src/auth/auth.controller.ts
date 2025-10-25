@@ -15,7 +15,17 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../user/dto/create-user.dto';
-import { ApiBody, ApiCookieAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBody,
+  ApiConflictResponse,
+  ApiCookieAuth,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTooManyRequestsResponse,
+  ApiUnprocessableEntityResponse,
+} from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth/local-auth.guard';
 import { Response } from 'express';
 import { JwtAuthGuard } from './guards/jwt-auth/jwt-auth.guard';
@@ -41,6 +51,7 @@ import { VerifyResetTokenDto } from './dto/verify-token-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateEmailDto } from 'src/user/dto/update-email.dto';
 import { UpdateUsernameDto } from 'src/user/dto/update-username.dto';
+import { EmailDto, VerifyOtpDto } from './dto/email-verification.dto';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -221,15 +232,32 @@ export class AuthController {
   @Public()
   @ApiOperation({
     summary: 'Generate and send a verification OTP',
-    description: "Generates a new OTP and sends it to the user's email for verification.",
+    description:
+      "Generates a new One-Time Password (OTP) and sends it to the user's email. Throws 409 if already verified, 429 if rate-limited, and 404 if user not found.",
   })
   @ApiResponse({
     status: 200,
     description: 'Verification OTP sent successfully',
     type: ApiResponseDto,
   })
-  public async generateVerificationEmail(@Body('email') email: string) {
-    await this.emailVerificationService.sendVerificationEmail(email);
+  @ApiBadRequestResponse({
+    description: 'Invalid email or malformed request',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'User not found',
+    type: ErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description: 'Account already verified',
+    type: ErrorResponseDto,
+  })
+  @ApiTooManyRequestsResponse({
+    description: 'Too many OTP requests in a short time',
+    type: ErrorResponseDto,
+  })
+  public async generateVerificationEmail(@Body() emailVerificationDto: EmailDto) {
+    await this.emailVerificationService.sendVerificationEmail(emailVerificationDto.email);
     return {
       status: 'success',
       message: 'Check your email for verification code',
@@ -240,15 +268,32 @@ export class AuthController {
   @Public()
   @ApiOperation({
     summary: 'Resend the verification OTP',
-    description: "Resends a new verification OTP to the user's email.",
+    description:
+      'Resends a new OTP to the same email. Applies same validation and rate-limit rules(wait for 1 min between each resend).',
   })
   @ApiResponse({
     status: 200,
     description: 'Verification OTP resent successfully',
     type: ApiResponseDto,
   })
-  public async resendVerificationEmail(@Body('email') email: string) {
-    await this.emailVerificationService.resendVerificationEmail(email);
+  @ApiBadRequestResponse({
+    description: 'Invalid email or malformed request',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'User not found',
+    type: ErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description: 'Account already verified',
+    type: ErrorResponseDto,
+  })
+  @ApiTooManyRequestsResponse({
+    description: 'Too many OTP requests in a short time',
+    type: ErrorResponseDto,
+  })
+  public async resendVerificationEmail(@Body() emailVerificationDto: EmailDto) {
+    await this.emailVerificationService.resendVerificationEmail(emailVerificationDto.email);
     return {
       status: 'success',
       message: 'Check your email for verification code',
@@ -259,20 +304,32 @@ export class AuthController {
   @Public()
   @ApiOperation({
     summary: 'Verify the email OTP',
-    description: 'Verifies the provided OTP for the given email address.',
+    description:
+      'Verifies the provided OTP for the given email. Throws 422 if invalid or expired, 409 if already verified, and 404 if user not found.',
   })
   @ApiResponse({
     status: 200,
     description: 'Email verified successfully',
     type: ApiResponseDto,
   })
-  @ApiResponse({
-    status: 400,
+  @ApiBadRequestResponse({
+    description: 'Invalid email or OTP format',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'User not found',
+    type: ErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description: 'Account already verified',
+    type: ErrorResponseDto,
+  })
+  @ApiUnprocessableEntityResponse({
     description: 'Invalid or expired OTP',
     type: ErrorResponseDto,
   })
-  public async verifyEmailOtp(@Body('otp') otp: string, @Body('email') email: string) {
-    const result = await this.emailVerificationService.verifyEmail(email, otp);
+  public async verifyEmailOtp(@Body() verifyOtpDto: VerifyOtpDto) {
+    const result = await this.emailVerificationService.verifyEmail(verifyOtpDto);
 
     return {
       status: result ? 'success' : 'fail',
