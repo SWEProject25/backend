@@ -16,6 +16,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
       useClass: PrismaService,
     },
   ],
-  exports: [Services.PROFILE],
+  exports: [
+    {
+      provide: Services.PROFILE,
+      useClass: ProfileService,
+    },
+  ],
 })
 export class ProfileModule {}

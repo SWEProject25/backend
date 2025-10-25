@@ -18,6 +18,9 @@ import { OtpService } from './services/otp/otp.service';
 import { Services } from 'src/utils/constants';
 import { GoogleStrategy } from './strategies/google.strategy';
 import googleOauthConfig from './config/google-oauth.config';
+import { GithubStrategy } from './strategies/github.strategy';
+import githubOauthConfig from './config/github-oauth.config';
+import { RedisService } from 'src/redis/redis.service';
 
 @Module({
   controllers: [AuthController],
@@ -50,9 +53,14 @@ import googleOauthConfig from './config/google-oauth.config';
       provide: Services.OTP,
       useClass: OtpService,
     },
+    {
+      provide: Services.REDIS,
+      useClass: RedisService,
+    },
     LocalStrategy,
     JwtStrategy,
     GoogleStrategy,
+    GithubStrategy,
   ],
   imports: [
     UserModule,
@@ -61,6 +69,7 @@ import googleOauthConfig from './config/google-oauth.config';
     JwtModule.registerAsync(jwtConfig.asProvider()),
     ConfigModule.forFeature(mailerConfig),
     ConfigModule.forFeature(googleOauthConfig),
+    ConfigModule.forFeature(githubOauthConfig),
   ],
   exports: [
     {

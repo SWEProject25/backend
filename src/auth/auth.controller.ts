@@ -6,10 +6,12 @@ import {
   HttpStatus,
   Inject,
   Post,
+  Query,
   Req,
   Request,
   Res,
   UseGuards,
+  Patch,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../user/dto/create-user.dto';
@@ -32,9 +34,13 @@ import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { Recaptcha } from '@nestlab/google-recaptcha';
 import { RecaptchaDto } from './dto/recaptcha.dto';
 import { GoogleAuthGuard } from './guards/google-auth/google-auth.guard';
+import { GithubAuthGuard } from './guards/github-auth/github-auth.guard';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { PasswordService } from './services/password/password.service';
+import { VerifyResetTokenDto } from './dto/verify-token-reset.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateEmailDto } from 'src/user/dto/update-email.dto';
 import { UpdateUsernameDto } from 'src/user/dto/update-username.dto';
-import { Patch } from '@nestjs/common';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -45,6 +51,8 @@ export class AuthController {
     private readonly emailVerificationService: EmailVerificationService,
     @Inject(Services.JWT_TOKEN)
     private readonly jwtTokenService: JwtTokenService,
+    @Inject(Services.PASSWORD)
+    private readonly passwordService: PasswordService,
   ) {}
 
   @Post('register')
@@ -90,13 +98,7 @@ export class AuthController {
           role: newUser.role,
           email: newUser.email,
           name: userProfile.name,
-          birth_date: userProfile.birth_date,
-          profile_image_url: userProfile.profile_image_url,
-          banner_image_url: userProfile.banner_image_url,
-          bio: userProfile.bio,
-          location: userProfile.location,
-          website: userProfile.website,
-          created_at: newUser.created_at,
+          profileImageUrl: userProfile.profile_image_url,
         },
       },
     };
@@ -135,10 +137,13 @@ export class AuthController {
     return {
       status: 'success',
       message: 'Logged in successfully',
-      date: {
+      data: {
         user: {
-          id: result.user.id,
-          name: result.user.username,
+          username: req.user.username,
+          role: req.user.role,
+          email: req.user.email,
+          name: req.user.name,
+          profileImageUrl: req.user.profileImageUrl,
         },
       },
     };
@@ -295,6 +300,89 @@ export class AuthController {
     };
   }
 
+  @Post('forgotPassword')
+  @HttpCode(HttpStatus.OK)
+  @Public()
+  @ApiOperation({ summary: 'Request a password reset link' })
+  @ApiResponse({
+    status: 200,
+    description: 'Reset link successfully sent to the provided email',
+    schema: {
+      example: {
+        status: 'success',
+        message: 'Check your email for password reset instructions',
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 400, description: 'Invalid email format' })
+  async requestPasswordReset(@Body() requestPasswordResetDto: RequestPasswordResetDto) {
+    await this.passwordService.requestPasswordReset(requestPasswordResetDto);
+
+    return {
+      status: 'success',
+      message: 'Check your email, you will receive password reset instructions',
+    };
+  }
+
+  @Get('verifyResetToken')
+  @HttpCode(HttpStatus.OK)
+  @Public()
+  @ApiOperation({ summary: 'Verify if a reset token is valid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Token is valid',
+    schema: {
+      example: {
+        status: 'success',
+        message: 'Token is valid',
+        data: { valid: true },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Token invalid or expired' })
+  async verifyResetToken(@Query() verifyResetTokenDto: VerifyResetTokenDto) {
+    const isValid = await this.passwordService.verifyResetToken(
+      verifyResetTokenDto.userId,
+      verifyResetTokenDto.token,
+    );
+
+    return {
+      status: 'success',
+      message: 'Token is valid',
+      data: { valid: isValid },
+    };
+  }
+
+  @Post('resetPassword')
+  @HttpCode(HttpStatus.OK)
+  @Public()
+  @ApiOperation({ summary: 'Reset password using valid token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password successfully reset',
+    schema: {
+      example: {
+        status: 'success',
+        message: 'Password has been reset successfully',
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Token invalid or expired' })
+  @ApiResponse({ status: 400, description: 'Invalid password format' })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    // First verify the token is valid
+    await this.passwordService.verifyResetToken(resetPasswordDto.userId, resetPasswordDto.token);
+
+    // Then reset the password
+    await this.passwordService.resetPassword(resetPasswordDto.userId, resetPasswordDto.newPassword);
+
+    return {
+      status: 'success',
+      message: 'Password has been reset successfully. You can now login with your new password.',
+    };
+  }
+
   @Get('google/login')
   @Public()
   @UseGuards(GoogleAuthGuard)
@@ -306,15 +394,82 @@ export class AuthController {
   @Get('google/redirect')
   @Public()
   @UseGuards(GoogleAuthGuard)
-  public async googleRedirect(@Req() req, @Res() res: Response) {
-    console.log(req.user, 'user in controller', req.user.id);
-    const { accessToken, ...response } = await this.authService.login(
-      req.user.id,
-      req.user.username,
-    );
-    console.log(response);
+  public async googleRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
+    const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
     this.jwtTokenService.setAuthCookies(res, accessToken);
-    res.redirect(`${process.env.FRONTEND_URL}/home`);
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+        <body>
+          <script>
+            window.opener.postMessage(
+              {
+                status: 'success',
+                data: {
+                  url: '${
+                    process.env.NODE_ENV === 'dev'
+                      ? process.env.FRONTEND_URL
+                      : process.env.FRONTEND_URL_PROD
+                  }'/home',
+                  user: ${JSON.stringify(req.user)}
+                }
+              },
+              '${
+                process.env.NODE_ENV === 'dev'
+                  ? process.env.FRONTEND_URL
+                  : process.env.FRONTEND_URL_PROD
+              }'
+            );
+            window.close();
+          </script>
+        </body>
+      </html>
+    `;
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  }
+
+  @Get('github/login')
+  @Public()
+  @UseGuards(GithubAuthGuard)
+  public githubLogin() {}
+
+  @Get('github/redirect')
+  @Public()
+  @UseGuards(GithubAuthGuard)
+  public async githubRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
+    const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
+    this.jwtTokenService.setAuthCookies(res, accessToken);
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+        <body>
+          <script>
+            window.opener.postMessage(
+              {
+                status: 'success',
+                data: {
+                  url: '${
+                    process.env.NODE_ENV === 'dev'
+                      ? process.env.FRONTEND_URL
+                      : process.env.FRONTEND_URL_PROD
+                  }'/home',
+                  user: ${JSON.stringify(req.user)}
+                }
+              },
+              '${
+                process.env.NODE_ENV === 'dev'
+                  ? process.env.FRONTEND_URL
+                  : process.env.FRONTEND_URL_PROD
+              }'
+            );
+            window.close();
+          </script>
+        </body>
+      </html>
+    `;
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
   }
 
   @ApiCookieAuth()

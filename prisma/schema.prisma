@@ -15,48 +15,46 @@ datasource db {
 }
 
 model User {
-  id           Int                 @id @default(autoincrement())
-  email        String              @unique @map("email")
-  username     String              @map("username") @db.VarChar(50) // should be uniquely identifer
-  password     String              @map("password") @db.VarChar(255)
-  is_verified  Boolean             @default(false) @map("is_verifed")
-  provider_id  String?             @map("provider_id")
-  role         Role                @default(USER) @map("role")
-  created_at   DateTime            @default(now()) @map("created_at")
-  updated_at   DateTime            @updatedAt() @map("updated_at")
-  deleted_at   DateTime?           @map("deleted_at")
-  Profile      Profile?
-  // Verification EmailVerification[]
-  Posts        Post[]
-  Followers    Follow[]            @relation("Following")
-  Following    Follow[]            @relation("Follower")
-  reposts  Repost[]
-  likes    Like[]
-  mentions   Mention[]
-  Blockers     Block[]             @relation("Blocked")
-  Blocked Block[]             @relation("Blocker")
-  Muters       Mute[]              @relation("Muted")
-  Muted       Mute[]              @relation("Muter")
+  id          Int       @id @default(autoincrement())
+  email       String    @unique @map("email")
+  username    String    @unique() @map("username") @db.VarChar(50)
+  password    String    @map("password") @db.VarChar(255)
+  is_verified Boolean   @default(false) @map("is_verifed")
+  provider_id String?   @map("provider_id")
+  role        Role      @default(USER) @map("role")
+  created_at  DateTime  @default(now()) @map("created_at")
+  updated_at  DateTime  @updatedAt() @map("updated_at")
+  deleted_at  DateTime? @map("deleted_at")
+  Profile     Profile?
+  Posts       Post[]
+  Followers   Follow[]  @relation("Following")
+  Following   Follow[]  @relation("Follower")
+  reposts     Repost[]
+  likes       Like[]
+  mentions    Mention[]
+  Blockers    Block[]   @relation("Blocked")
+  Blocked     Block[]   @relation("Blocker")
+  Muters      Mute[]    @relation("Muted")
+  Muted       Mute[]    @relation("Muter")
 }
 
 model Profile {
-  id               Int       @id @default(autoincrement())
-  user_id          Int       @unique
-  name             String    @db.VarChar(100)
-  birth_date       DateTime
-  profile_image_url String?  @db.VarChar(255)
-  banner_image_url  String?  @db.VarChar(255)
-  bio               String?  @db.VarChar(160)
-  location          String?  @db.VarChar(100)
-  website           String?  @db.VarChar(100)
-  is_deactivated    Boolean? @default(false)
-  created_at        DateTime @default(now())
-  updated_at        DateTime @updatedAt
+  id                Int       @id @default(autoincrement())
+  user_id           Int       @unique
+  name              String    @db.VarChar(100)
+  birth_date        DateTime?
+  profile_image_url String?   @db.VarChar(255)
+  banner_image_url  String?   @db.VarChar(255)
+  bio               String?   @db.VarChar(160)
+  location          String?   @db.VarChar(100)
+  website           String?   @db.VarChar(100)
+  is_deactivated    Boolean?  @default(false)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  User              User      @relation(fields: [user_id], references: [id])
 
-  User              User     @relation(fields: [user_id], references: [id])
   @@map("profiles")
 }
-
 
 model EmailVerification {
   id         Int      @id @default(autoincrement())
@@ -78,22 +76,23 @@ enum Role {
 }
 
 model Post {
-  id          Int          @id @default(autoincrement())
-  user_id      Int
-  content     String
-  type        PostType
-  parent_id    Int? 
-  visibility  PostVisibility
-  created_at   DateTime      @default(now())
-  is_deleted   Boolean        @default(false)
+  id         Int            @id @default(autoincrement())
+  user_id    Int
+  content    String
+  type       PostType
+  parent_id  Int?
+  visibility PostVisibility
+  created_at DateTime       @default(now())
+  is_deleted Boolean        @default(false)
 
-  User        User         @relation(fields: [user_id], references: [id])
-  ParentPost  Post?         @relation("PostToReplies", fields: [parent_id], references: [id])
-  Replies     Post[]        @relation("PostToReplies")
+  User       User      @relation(fields: [user_id], references: [id])
+  ParentPost Post?     @relation("PostToReplies", fields: [parent_id], references: [id])
+  Replies    Post[]    @relation("PostToReplies")
   repostedBy Repost[]
-  likes    Like[]
+  likes      Like[]
   mentions   Mention[]
-  hashtags  Hashtag[] @relation("PostHashtags")
+  hashtags   Hashtag[] @relation("PostHashtags")
+
   @@map("posts")
 }
 
@@ -102,32 +101,32 @@ model Follow {
   followingId Int
   createdAt   DateTime @default(now())
 
-  Follower    User     @relation("Follower", fields: [followerId], references: [id])
-  Following   User     @relation("Following", fields: [followingId], references: [id])
+  Follower  User @relation("Follower", fields: [followerId], references: [id])
+  Following User @relation("Following", fields: [followingId], references: [id])
 
   @@id([followerId, followingId])
   @@map("follows")
 }
 
 model Block {
-  blockerId   Int
-  blockedId   Int
-  createdAt   DateTime @default(now())
+  blockerId Int
+  blockedId Int
+  createdAt DateTime @default(now())
 
-  Blocker     User     @relation("Blocker", fields: [blockerId], references: [id])
-  Blocked     User     @relation("Blocked", fields: [blockedId], references: [id])
+  Blocker User @relation("Blocker", fields: [blockerId], references: [id])
+  Blocked User @relation("Blocked", fields: [blockedId], references: [id])
 
   @@id([blockerId, blockedId])
   @@map("blocks")
 }
 
 model Mute {
-  muterId     Int
-  mutedId     Int
-  createdAt   DateTime @default(now())
+  muterId   Int
+  mutedId   Int
+  createdAt DateTime @default(now())
 
-  Muter       User     @relation("Muter", fields: [muterId], references: [id])
-  Muted       User     @relation("Muted", fields: [mutedId], references: [id])
+  Muter User @relation("Muter", fields: [muterId], references: [id])
+  Muted User @relation("Muted", fields: [mutedId], references: [id])
 
   @@id([muterId, mutedId])
   @@map("mutes")
@@ -146,41 +145,41 @@ enum PostVisibility {
 }
 
 model Repost {
-  post_id     Int
-  user_id     Int
-  created_at   DateTime      @default(now())
+  post_id    Int
+  user_id    Int
+  created_at DateTime @default(now())
 
-  post        Post    @relation(fields: [post_id], references: [id])
-  user        User    @relation(fields: [user_id], references: [id])
+  post Post @relation(fields: [post_id], references: [id])
+  user User @relation(fields: [user_id], references: [id])
 
   @@id([post_id, user_id])
 }
 
 model Hashtag {
-  id      Int          @id @default(autoincrement())
-  tag     String       @unique
-  created_at   DateTime      @default(now())
+  id         Int      @id @default(autoincrement())
+  tag        String   @unique
+  created_at DateTime @default(now())
 
-  posts   Post[]       @relation("PostHashtags")
+  posts Post[] @relation("PostHashtags")
 }
 
 model Like {
-  post_id     Int
-  user_id     Int
-  created_at   DateTime      @default(now())
+  post_id    Int
+  user_id    Int
+  created_at DateTime @default(now())
 
-  post        Post    @relation(fields: [post_id], references: [id])
-  user        User    @relation(fields: [user_id], references: [id])
+  post Post @relation(fields: [post_id], references: [id])
+  user User @relation(fields: [user_id], references: [id])
 
   @@id([post_id, user_id])
 }
 
 model Mention {
-  id      Int          @id @default(autoincrement())
-  post_id     Int
-  user_id     Int
-  created_at   DateTime      @default(now())
+  id         Int      @id @default(autoincrement())
+  post_id    Int
+  user_id    Int
+  created_at DateTime @default(now())
 
-  post        Post    @relation(fields: [post_id], references: [id])
-  user        User    @relation(fields: [user_id], references: [id])
+  post Post @relation(fields: [post_id], references: [id])
+  user User @relation(fields: [user_id], references: [id])
 }

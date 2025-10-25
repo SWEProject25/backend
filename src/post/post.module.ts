@@ -33,4 +33,4 @@ import { MentionService } from './services/mention.service';
     },
   ],
 })
-export class PostModule { }
+export class PostModule {}

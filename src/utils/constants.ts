@@ -20,4 +20,10 @@ export enum Services {
   MENTION = 'MENTION_SERVICE',
   PROFILE = 'PROFILE_SERVICE',
   USERS = 'USERS_SERVICE',
+  REDIS = 'REDIS_SERVICE',
+}
+
+export enum RequestType {
+  WEB = 'WEB',
+  MOBILE = 'MOBILE',
 }

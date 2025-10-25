@@ -94,9 +94,7 @@ export class ProfileController {
     description: 'Profile not found',
     type: ErrorResponseDto,
   })
-  public async getProfileByUserId(
-    @Param('userId', ParseIntPipe) userId: number,
-  ) {
+  public async getProfileByUserId(@Param('userId', ParseIntPipe) userId: number) {
     const profile = await this.profileService.getProfileByUserId(userId);
     return {
       status: 'success',
@@ -202,10 +200,7 @@ export class ProfileController {
 
     return {
       status: 'success',
-      message:
-        result.profiles.length > 0
-          ? 'Profiles found successfully'
-          : 'No profiles found',
+      message: result.profiles.length > 0 ? 'Profiles found successfully' : 'No profiles found',
       data: result.profiles,
       metadata: {
         total: result.total,
@@ -243,10 +238,7 @@ export class ProfileController {
     @CurrentUser() user: any,
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
-    const updatedProfile = await this.profileService.updateProfile(
-      user.id,
-      updateProfileDto,
-    );
+    const updatedProfile = await this.profileService.updateProfile(user.id, updateProfileDto);
     return {
       status: 'success',
       message: 'Profile updated successfully',

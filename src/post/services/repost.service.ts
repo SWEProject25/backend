@@ -1,18 +1,16 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { PrismaService } from "src/prisma/prisma.service";
-import { Services } from "src/utils/constants";
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { Services } from 'src/utils/constants';
 
 @Injectable()
 export class RepostService {
-
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
-  ) { }
+  ) {}
 
   async toggleRepost(postId: number, userId: number) {
     return this.prismaService.$transaction(async (tx) => {
-
       const repost = await tx.repost.findUnique({
         where: { post_id_user_id: { post_id: postId, user_id: userId } },
       });
@@ -30,12 +28,12 @@ export class RepostService {
 
         return { message: 'Post reposted' };
       }
-    })
+    });
   }
 
   async getReposters(postId: number, page: number, limit: number) {
     return this.prismaService.repost.findMany({
-      where:{
+      where: {
         post_id: postId,
       },
       select: {
@@ -44,13 +42,12 @@ export class RepostService {
             id: true,
             username: true,
             email: true,
-            is_verified: true
+            is_verified: true,
           },
         },
       },
       skip: (page - 1) * limit,
       take: limit,
     });
-
   }
 }

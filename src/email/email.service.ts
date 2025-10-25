@@ -3,6 +3,8 @@ import { ConfigType } from '@nestjs/config';
 import { createTransport, SendMailOptions, Transporter } from 'nodemailer';
 import mailerConfig from './../common/config/mailer.config';
 import { SendEmailDto } from './dto/send-email.dto';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 @Injectable()
 export class EmailService {
@@ -20,9 +22,7 @@ export class EmailService {
     });
   }
 
-  public async sendEmail(
-    data: SendEmailDto,
-  ): Promise<{ success: boolean } | null> {
+  public async sendEmail(data: SendEmailDto): Promise<{ success: boolean } | null> {
     const { recipients, subject, html, text } = data;
 
     const mailOptions: SendMailOptions = {
@@ -41,5 +41,11 @@ export class EmailService {
       console.error(error);
       return null;
     }
+  }
+  public renderTemplate(otp: string, path: string): string {
+    const templatePath = join(process.cwd(), 'src', 'email', 'templates', path);
+
+    const template = readFileSync(templatePath, 'utf-8');
+    return template.replace('{{verificationCode}}', otp);
   }
 }

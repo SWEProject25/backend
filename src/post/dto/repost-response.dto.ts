@@ -42,7 +42,7 @@ export class ToggleRepostResponseDto {
   @ApiProperty({
     description: 'The toggle repost result',
     example: {
-      message: 'Post reposted'
+      message: 'Post reposted',
     },
   })
   data: {

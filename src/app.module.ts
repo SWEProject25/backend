@@ -9,6 +9,7 @@ import { EmailModule } from './email/email.module';
 import { Services } from './utils/constants';
 import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
 import { Request } from 'express';
+import { RedisService } from './redis/redis.service';
 import { PostModule } from './post/post.module';
 import { UsersModule } from './users/users.module';
 import { ProfileModule } from './profile/profile.module';
@@ -42,6 +43,10 @@ const envFilePath = '.env';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: Services.REDIS,
+      useClass: RedisService,
     },
   ],
 })
