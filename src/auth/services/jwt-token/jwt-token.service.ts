@@ -19,8 +19,8 @@ export class JwtTokenService {
 
     const cookieOptions = {
       httpOnly: true,
-      sameSite: 'lax' as const,
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none' as const,
+      secure: true,
       maxAge: ms(expiresIn),
       path: '/',
     };
