@@ -22,12 +22,13 @@ export class JwtTokenService {
       sameSite: 'lax' as const,
       secure: process.env.NODE_ENV === 'production',
       maxAge: ms(expiresIn),
+      path: '/',
     };
 
     res.cookie('access_token', accessToken, cookieOptions);
   }
 
   clearAuthCookies(res: Response): void {
-    res.clearCookie('access_token');
+    res.clearCookie('access_token', { path: '/' });
   }
 }
