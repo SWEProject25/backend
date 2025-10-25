@@ -44,17 +44,15 @@ export class MessagesService {
 
   async isUserInConversation(createMessageDto: CreateMessageDto): Promise<boolean> {
     const { conversationId, senderId: userId } = createMessageDto;
-    console.log('Checking if user is in conversation:', { conversationId, userId });
     const conversation = await this.prismaService.conversation.findUnique({
       where: { id: conversationId },
       select: { user1Id: true, user2Id: true },
     });
 
     if (!conversation) {
-      console.log('Conversation not found');
+      console.error('Conversation not found');
       return false;
     }
-    console.log('Conversation found:', conversation);
 
     return conversation.user1Id === userId || conversation.user2Id === userId;
   }
@@ -95,6 +93,7 @@ export class MessagesService {
           id: true,
           text: true,
           senderId: true,
+          isSeen: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -180,5 +179,48 @@ export class MessagesService {
         },
       });
     });
+  }
+
+  async markMessagesAsSeen(conversationId: number, userId: number) {
+    // Get the conversation to verify user is a participant
+    const conversation = await this.prismaService.conversation.findUnique({
+      where: { id: conversationId },
+      select: { user1Id: true, user2Id: true },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    // Verify user is part of the conversation
+    if (conversation.user1Id !== userId && conversation.user2Id !== userId) {
+      throw new ForbiddenException('You are not part of this conversation');
+    }
+
+    // Mark all unseen messages sent by the other user as seen
+    const result = await this.prismaService.message.updateMany({
+      where: {
+        conversationId,
+        senderId: { not: userId },
+        isSeen: false,
+      },
+      data: {
+        isSeen: true,
+      },
+    });
+
+    return result;
+  }
+
+  async getUnseenMessagesCount(conversationId: number, userId: number) {
+    const count = await this.prismaService.message.count({
+      where: {
+        conversationId,
+        senderId: { not: userId },
+        isSeen: false,
+      },
+    });
+
+    return count;
   }
 }

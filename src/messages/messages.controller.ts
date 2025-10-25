@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Delete,
+  Put,
   Param,
   ParseIntPipe,
   Query,
@@ -140,6 +141,84 @@ export class MessagesController {
     return {
       status: 'success',
       message: 'Message deleted successfully',
+    };
+  }
+
+  @Put(':conversationId/mark-seen')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Mark messages as seen',
+    description: 'Marks all messages in a conversation as seen for the authenticated user',
+  })
+  @ApiParam({
+    name: 'conversationId',
+    type: Number,
+    description: 'The ID of the conversation',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Messages marked as seen successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Conversation not found',
+    schema: ErrorResponseDto.schemaExample('Conversation not found', 'Not Found'),
+  })
+  async markSeen(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('conversationId', ParseIntPipe) conversationId: number,
+  ) {
+    const result = await this.messagesService.markMessagesAsSeen(conversationId, user.id);
+
+    return {
+      status: 'success',
+      message: 'Messages marked as seen',
+      count: result.count,
+    };
+  }
+
+  @Get(':conversationId/unseen-count')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get unseen messages count',
+    description: 'Returns the count of unseen messages in a conversation',
+  })
+  @ApiParam({
+    name: 'conversationId',
+    type: Number,
+    description: 'The ID of the conversation',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Unseen messages count retrieved successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  async getUnseenCount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('conversationId', ParseIntPipe) conversationId: number,
+  ) {
+    const count = await this.messagesService.getUnseenMessagesCount(conversationId, user.id);
+
+    return {
+      status: 'success',
+      count,
     };
   }
 }
