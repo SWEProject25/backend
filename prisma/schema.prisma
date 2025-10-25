@@ -15,9 +15,9 @@ datasource db {
 }
 
 model User {
-  id          String    @id @default(uuid()) @map("id") @db.Uuid()
-  email       String?   @unique @map("email")
-  username    String    @unique() @map("username") @db.VarChar(50) // should be uniquely identifer
+  id          Int       @id @default(autoincrement())
+  email       String    @unique @map("email")
+  username    String    @unique() @map("username") @db.VarChar(50)
   password    String    @map("password") @db.VarChar(255)
   is_verified Boolean   @default(false) @map("is_verifed")
   provider_id String?   @map("provider_id")
@@ -26,26 +26,34 @@ model User {
   updated_at  DateTime  @updatedAt() @map("updated_at")
   deleted_at  DateTime? @map("deleted_at")
   Profile     Profile?
-  // Verification EmailVerification[]
+  Posts       Post[]
+  Followers   Follow[]  @relation("Following")
+  Following   Follow[]  @relation("Follower")
+  reposts     Repost[]
+  likes       Like[]
+  mentions    Mention[]
+  Blockers    Block[]   @relation("Blocked")
+  Blocked     Block[]   @relation("Blocker")
+  Muters      Mute[]    @relation("Muted")
+  Muted       Mute[]    @relation("Muter")
 }
 
 model Profile {
-  profile_id        String    @default(uuid()) @map("profile_id") @db.Uuid
-  user_id           String    @unique() @db.Uuid()
-  name              String    @map("name") @db.VarChar(100)
-  birth_date        DateTime? @map("birth_date")
-  profile_image_url String?   @map("profile_image_url") @db.VarChar(255)
-  banner_image_url  String?   @map("banner_image_url") @db.VarChar(255)
-  bio               String?   @map("bio") @db.VarChar(160)
-  location          String?   @map("location") @db.VarChar(100)
-  website           String?   @map("website") @db.VarChar(100)
-  is_deactivated    Boolean?  @default(false) @map("is_deactivated")
-  created_at        DateTime  @default(now()) @map("created_at")
-  updated_at        DateTime  @updatedAt() @map("updated_at")
-  User              User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id                Int       @id @default(autoincrement())
+  user_id           Int       @unique
+  name              String    @db.VarChar(100)
+  birth_date        DateTime?
+  profile_image_url String?   @db.VarChar(255)
+  banner_image_url  String?   @db.VarChar(255)
+  bio               String?   @db.VarChar(160)
+  location          String?   @db.VarChar(100)
+  website           String?   @db.VarChar(100)
+  is_deactivated    Boolean?  @default(false)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  User              User      @relation(fields: [user_id], references: [id])
 
-  @@id([user_id, profile_id])
-  @@map("Profile")
+  @@map("profiles")
 }
 
 model EmailVerification {
@@ -65,4 +73,113 @@ model EmailVerification {
 enum Role {
   USER
   ADMIN
+}
+
+model Post {
+  id         Int            @id @default(autoincrement())
+  user_id    Int
+  content    String
+  type       PostType
+  parent_id  Int?
+  visibility PostVisibility
+  created_at DateTime       @default(now())
+  is_deleted Boolean        @default(false)
+
+  User       User      @relation(fields: [user_id], references: [id])
+  ParentPost Post?     @relation("PostToReplies", fields: [parent_id], references: [id])
+  Replies    Post[]    @relation("PostToReplies")
+  repostedBy Repost[]
+  likes      Like[]
+  mentions   Mention[]
+  hashtags   Hashtag[] @relation("PostHashtags")
+
+  @@map("posts")
+}
+
+model Follow {
+  followerId  Int
+  followingId Int
+  createdAt   DateTime @default(now())
+
+  Follower  User @relation("Follower", fields: [followerId], references: [id])
+  Following User @relation("Following", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+  @@map("follows")
+}
+
+model Block {
+  blockerId Int
+  blockedId Int
+  createdAt DateTime @default(now())
+
+  Blocker User @relation("Blocker", fields: [blockerId], references: [id])
+  Blocked User @relation("Blocked", fields: [blockedId], references: [id])
+
+  @@id([blockerId, blockedId])
+  @@map("blocks")
+}
+
+model Mute {
+  muterId   Int
+  mutedId   Int
+  createdAt DateTime @default(now())
+
+  Muter User @relation("Muter", fields: [muterId], references: [id])
+  Muted User @relation("Muted", fields: [mutedId], references: [id])
+
+  @@id([muterId, mutedId])
+  @@map("mutes")
+}
+
+enum PostType {
+  POST
+  REPLY
+  QUOTE
+}
+
+enum PostVisibility {
+  EVERY_ONE
+  FOLLOWERS
+  MENTIONED
+}
+
+model Repost {
+  post_id    Int
+  user_id    Int
+  created_at DateTime @default(now())
+
+  post Post @relation(fields: [post_id], references: [id])
+  user User @relation(fields: [user_id], references: [id])
+
+  @@id([post_id, user_id])
+}
+
+model Hashtag {
+  id         Int      @id @default(autoincrement())
+  tag        String   @unique
+  created_at DateTime @default(now())
+
+  posts Post[] @relation("PostHashtags")
+}
+
+model Like {
+  post_id    Int
+  user_id    Int
+  created_at DateTime @default(now())
+
+  post Post @relation(fields: [post_id], references: [id])
+  user User @relation(fields: [user_id], references: [id])
+
+  @@id([post_id, user_id])
+}
+
+model Mention {
+  id         Int      @id @default(autoincrement())
+  post_id    Int
+  user_id    Int
+  created_at DateTime @default(now())
+
+  post Post @relation(fields: [post_id], references: [id])
+  user User @relation(fields: [user_id], references: [id])
 }

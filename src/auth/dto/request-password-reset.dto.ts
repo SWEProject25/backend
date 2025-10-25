@@ -14,8 +14,7 @@ export class RequestPasswordResetDto {
   @ApiProperty({
     enum: RequestType,
     default: RequestType.WEB,
-    description:
-      'Device type (e.g. web or mobile) to determine redirect URL, default is web',
+    description: 'Device type (e.g. web or mobile) to determine redirect URL, default is web',
   })
   @IsEnum(RequestType)
   @IsOptional()

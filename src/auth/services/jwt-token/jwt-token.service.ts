@@ -8,14 +8,9 @@ import * as ms from 'ms';
 export class JwtTokenService {
   constructor(private readonly jwtService: JwtService) {}
 
-  public async generateAccessToken(
-    userId: string,
-    username: string,
-  ): Promise<string> {
+  public async generateAccessToken(userId: number, username: string): Promise<string> {
     const payload: AuthJwtPayload = { sub: userId, username };
-    const [accessToken] = await Promise.all([
-      this.jwtService.signAsync(payload),
-    ]);
+    const [accessToken] = await Promise.all([this.jwtService.signAsync(payload)]);
     return accessToken;
   }
 

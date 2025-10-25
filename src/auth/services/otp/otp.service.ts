@@ -93,10 +93,7 @@ export class OtpService {
     const cooldownKey = `${COOLDOWN_CACHE_PREFIX}${email}`;
 
     try {
-      await Promise.all([
-        this.redisService.del(otpKey),
-        this.redisService.del(cooldownKey),
-      ]);
+      await Promise.all([this.redisService.del(otpKey), this.redisService.del(cooldownKey)]);
       console.log(`[OTP] 🗑️ Cleared OTP and cooldown for ${email}`);
     } catch (error) {
       console.error('[OTP] ❌ Error clearing OTP:', error.message);

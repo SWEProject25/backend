@@ -36,10 +36,7 @@ export class PasswordService {
     return argon2.hash(password);
   }
 
-  public async verify(
-    hashedPassword: string,
-    plainPassword: string,
-  ): Promise<boolean> {
+  public async verify(hashedPassword: string, plainPassword: string): Promise<boolean> {
     try {
       return await argon2.verify(hashedPassword, plainPassword);
     } catch (error) {
@@ -48,20 +45,14 @@ export class PasswordService {
     }
   }
 
-  public async requestPasswordReset(
-    requestPasswordResetDto: RequestPasswordResetDto,
-  ) {
+  public async requestPasswordReset(requestPasswordResetDto: RequestPasswordResetDto) {
     await this.checkResetAttempts(requestPasswordResetDto.email);
 
-    const user = await this.userService.findByEmail(
-      requestPasswordResetDto.email,
-    );
+    const user = await this.userService.findByEmail(requestPasswordResetDto.email);
 
     if (!user) {
-      console.log(
-        `[PasswordReset] No user found for email: ${requestPasswordResetDto.email}`,
-      );
-      return;
+      console.log(`[PasswordReset] No user found for email: ${requestPasswordResetDto.email}`);
+      throw new NotFoundException('Invalid email');
     }
 
     const { resetToken, tokenHash } = this.generateTokens();
@@ -75,10 +66,7 @@ export class PasswordService {
         ? `${process.env.CROSS_URL}/reset-password?token=${resetToken}&id=${user.id}`
         : `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&id=${user.id}`;
 
-    const html = this.emailService.renderTemplate(
-      resetUrl,
-      'email-verification.html',
-    );
+    const html = this.emailService.renderTemplate(resetUrl, 'reset-password.html');
     await this.emailService.sendEmail({
       subject: 'Password Reset Request',
       recipients: [requestPasswordResetDto.email],
@@ -88,10 +76,7 @@ export class PasswordService {
     console.log(`[PasswordReset] Token stored in Redis: ${redisKey}`);
   }
 
-  public async verifyResetToken(
-    userId: string,
-    token: string,
-  ): Promise<boolean> {
+  public async verifyResetToken(userId: number, token: string): Promise<boolean> {
     if (!userId || !token) {
       throw new BadRequestException('User ID and token are required');
     }
@@ -100,18 +85,11 @@ export class PasswordService {
     const storedHash = await this.redisService.get(redisKey);
 
     if (!storedHash) {
-      console.warn(
-        `[PasswordReset] No token found or token expired for ${userId}`,
-      );
-      throw new UnauthorizedException(
-        'Password reset token is invalid or has expired',
-      );
+      console.warn(`[PasswordReset] No token found or token expired for ${userId}`);
+      throw new UnauthorizedException('Password reset token is invalid or has expired');
     }
 
-    const providedHash = crypto
-      .createHash('sha256')
-      .update(token)
-      .digest('hex');
+    const providedHash = crypto.createHash('sha256').update(token).digest('hex');
     const isMatch = providedHash === storedHash;
 
     if (!isMatch) {
@@ -123,16 +101,11 @@ export class PasswordService {
     return true;
   }
 
-  public async resetPassword(
-    userId: string,
-    newPassword: string,
-  ): Promise<void> {
+  public async resetPassword(userId: number, newPassword: string): Promise<void> {
     const redisKey = `${RESET_TOKEN_PREFIX}${userId}`;
     const storedHash = await this.redisService.get(redisKey);
     if (!storedHash) {
-      throw new UnauthorizedException(
-        'Password reset token is invalid or has expired',
-      );
+      throw new UnauthorizedException('Password reset token is invalid or has expired');
     }
 
     const user = await this.userService.findById(userId);
@@ -149,10 +122,7 @@ export class PasswordService {
 
   private generateTokens() {
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto
-      .createHash('sha256')
-      .update(resetToken)
-      .digest('hex');
+    const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
     return { resetToken, tokenHash };
   }
 
@@ -164,9 +134,7 @@ export class PasswordService {
     const attempts = await this.redisService.get(key);
 
     if (attempts && parseInt(attempts) >= MAX_ATTEMPTS) {
-      throw new BadRequestException(
-        'Too many password reset requests. Please try again later.',
-      );
+      throw new BadRequestException('Too many password reset requests. Please try again later.');
     }
   }
 

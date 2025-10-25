@@ -31,9 +31,7 @@ describe('PrismaService', () => {
 
   describe('onModuleDestroy', () => {
     it('should disconnect from the datebase', async () => {
-      const disconnectSpy = jest
-        .spyOn(service, '$disconnect')
-        .mockResolvedValue();
+      const disconnectSpy = jest.spyOn(service, '$disconnect').mockResolvedValue();
       await service.onModuleDestroy();
       expect(disconnectSpy).toHaveBeenCalled();
     });

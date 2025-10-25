@@ -1,8 +1,5 @@
 // src/auth/utils/oauth-profile.mapper.ts
-import {
-  GithubProfile,
-  GoogleProfile,
-} from 'src/common/interfaces/oauth-providers.interface';
+import { GithubProfile, GoogleProfile } from 'src/common/interfaces/oauth-providers.interface';
 import { OAuthProfileDto } from '../dto/oauth-profile.dto';
 
 export function mapGoogleProfile(profile: GoogleProfile): OAuthProfileDto {

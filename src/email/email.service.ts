@@ -22,9 +22,7 @@ export class EmailService {
     });
   }
 
-  public async sendEmail(
-    data: SendEmailDto,
-  ): Promise<{ success: boolean } | null> {
+  public async sendEmail(data: SendEmailDto): Promise<{ success: boolean } | null> {
     const { recipients, subject, html, text } = data;
 
     const mailOptions: SendMailOptions = {

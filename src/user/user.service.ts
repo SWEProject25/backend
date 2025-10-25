@@ -47,7 +47,7 @@ export class UserService {
     });
   }
 
-  public async findOne(userId: string) {
+  public async findOne(userId: number) {
     return await this.prismaService.user.findUnique({ where: { id: userId } });
   }
 
@@ -77,14 +77,17 @@ export class UserService {
   }
 
   public async findByUsername(username: string) {
-    return await this.prismaService.user.findUnique({ where: { username } });
+    return await this.prismaService.user.findFirst({
+      where: {
+        username,
+      },
+    });
   }
 
   public async createOAuthUser(oauthProfileDto: OAuthProfileDto) {
     const newUser = await this.prismaService.user.create({
       data: {
-        email:
-          oauthProfileDto.provider === 'google' ? oauthProfileDto.email : '',
+        email: oauthProfileDto.provider === 'google' ? oauthProfileDto.email! : '',
         password: '',
         username: oauthProfileDto.username!,
         is_verified: true,
@@ -95,7 +98,7 @@ export class UserService {
       data: {
         user_id: newUser.id,
         name: oauthProfileDto.displayName,
-        profile_image_url: oauthProfileDto.profileImageUrl,
+        profile_image_url: oauthProfileDto?.profileImageUrl,
       },
     });
     return {
@@ -107,9 +110,7 @@ export class UserService {
   public async getUserData(uniqueIdentifier: string) {
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(uniqueIdentifier);
     const user = await this.prismaService.user.findUnique({
-      where: isEmail
-        ? { email: uniqueIdentifier }
-        : { username: uniqueIdentifier },
+      where: isEmail ? { email: uniqueIdentifier } : { username: uniqueIdentifier },
     });
     if (user) {
       const profile = await this.prismaService.profile.findUnique({
@@ -125,13 +126,36 @@ export class UserService {
     return null;
   }
 
-  public async updatePassword(userId: string, hashed: string) {
+  public async updatePassword(userId: number, hashed: string) {
     return await this.prismaService.user.update({
       where: { id: userId },
       data: { password: hashed },
     });
   }
-  async findById(id: string) {
+  async findById(id: number) {
     return await this.prismaService.user.findFirst({ where: { id } });
+  }
+
+  public async updateEmail(userId: number, email: string) {
+    return await this.prismaService.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        email,
+        is_verified: false,
+      },
+    });
+  }
+
+  public async updateUsername(userId: number, username: string) {
+    return await this.prismaService.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        username,
+      },
+    });
   }
 }

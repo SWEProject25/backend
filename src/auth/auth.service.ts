@@ -1,9 +1,4 @@
-import {
-  ConflictException,
-  Inject,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { CreateUserDto } from '../user/dto/create-user.dto';
 import { UserService } from '../user/user.service';
 import { AuthJwtPayload } from 'src/types/jwtPayload';
@@ -24,9 +19,7 @@ export class AuthService {
   ) {}
 
   public async registerUser(createUserDto: CreateUserDto) {
-    const existingUser = await this.userService.findByEmail(
-      createUserDto.email,
-    );
+    const existingUser = await this.userService.findByEmail(createUserDto.email);
     if (existingUser) {
       throw new ConflictException('User is already exists');
     }
@@ -41,11 +34,8 @@ export class AuthService {
     }
   }
 
-  public async login(userId: string, username: string) {
-    const accessToken = await this.jwtTokenService.generateAccessToken(
-      userId,
-      username,
-    );
+  public async login(userId: number, username: string) {
+    const accessToken = await this.jwtTokenService.generateAccessToken(userId, username);
 
     return {
       user: {
@@ -56,20 +46,14 @@ export class AuthService {
     };
   }
 
-  public async validateLocalUser(
-    email: string,
-    password: string,
-  ): Promise<AuthJwtPayload> {
+  public async validateLocalUser(email: string, password: string): Promise<AuthJwtPayload> {
     const user = await this.userService.findByEmail(email);
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await this.passwordService.verify(
-      user.password,
-      password,
-    );
+    const isPasswordValid = await this.passwordService.verify(user.password, password);
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -94,7 +78,7 @@ export class AuthService {
     };
   }
 
-  public async validateUserJwt(userId: string) {
+  public async validateUserJwt(userId: number) {
     const user = await this.userService.findOne(userId);
 
     if (!user) {
@@ -128,9 +112,7 @@ export class AuthService {
   }
 
   public async validateGithubUser(githubUserData: OAuthProfileDto) {
-    const existingUser = await this.userService.getUserData(
-      githubUserData.username!,
-    );
+    const existingUser = await this.userService.getUserData(githubUserData.username!);
     // if (existingUser) {
     //   // @TODO check for provider
     //   return existingUser;
@@ -152,5 +134,24 @@ export class AuthService {
       name: newUser.proflie.name,
       profileImageUrl: newUser.proflie.profile_image_url,
     };
+  }
+  public async updateEmail(userId: number, email: string): Promise<void> {
+    const existingUser = await this.userService.findByEmail(email);
+
+    if (existingUser && existingUser.id !== userId) {
+      throw new ConflictException('Email is already in use by another user');
+    }
+
+    await this.userService.updateEmail(userId, email);
+  }
+
+  public async updateUsername(userId: number, username: string): Promise<void> {
+    const existingUser = await this.userService.findByUsername(username);
+
+    if (existingUser && existingUser.id !== userId) {
+      throw new ConflictException('Username is already taken');
+    }
+
+    await this.userService.updateUsername(userId, username);
   }
 }

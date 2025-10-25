@@ -18,8 +18,7 @@ export class OAuthProfileDto {
   providerId: string;
 
   @ApiPropertyOptional({
-    description:
-      'Username or handle (GitHub uses this; Google may not have one)',
+    description: 'Username or handle (GitHub uses this; Google may not have one)',
     example: 'mohamed-sameh-albaz',
   })
   @IsOptional()

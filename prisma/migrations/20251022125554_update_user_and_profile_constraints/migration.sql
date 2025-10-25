@@ -5,7 +5,7 @@
 
 */
 -- AlterTable
-ALTER TABLE "Profile" ALTER COLUMN "birth_date" DROP NOT NULL;
+ALTER TABLE "profiles" ALTER COLUMN "birth_date" DROP NOT NULL;
 
 -- AlterTable
 ALTER TABLE "User" ALTER COLUMN "email" DROP NOT NULL;

@@ -12,9 +12,7 @@ import { OAuthProfileDto } from '../dto/oauth-profile.dto';
 export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
   constructor(
     @Inject(githubOauthConfig.KEY)
-    private readonly githubOauthConfiguration: ConfigType<
-      typeof githubOauthConfig
-    >,
+    private readonly githubOauthConfiguration: ConfigType<typeof githubOauthConfig>,
     @Inject(Services.AUTH)
     private readonly authService: AuthService,
   ) {

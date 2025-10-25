@@ -2,6 +2,7 @@ export enum Routes {
   AUTH = 'auth',
   USER = 'user',
   EMAIL = 'email',
+  PROFILE = 'profile',
 }
 
 export enum Services {
@@ -13,6 +14,12 @@ export enum Services {
   EMAIL_VERIFICATION = 'EMAIL_VERIFICATION_SERVICE',
   JWT_TOKEN = 'JWT_TOKEN_SERVICE',
   OTP = 'OTP_SERVICE',
+  POST = 'POST_SERVICE',
+  LIKE = 'LIKE_SERVICE',
+  REPOST = 'REPOST_SERVICE',
+  MENTION = 'MENTION_SERVICE',
+  PROFILE = 'PROFILE_SERVICE',
+  USERS = 'USERS_SERVICE',
   REDIS = 'REDIS_SERVICE',
 }
 
