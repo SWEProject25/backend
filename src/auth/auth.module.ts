@@ -20,7 +20,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import googleOauthConfig from './config/google-oauth.config';
 import { GithubStrategy } from './strategies/github.strategy';
 import githubOauthConfig from './config/github-oauth.config';
-import { RedisService } from 'src/redis/redis.service';
+import { RedisModule } from 'src/redis/redis.module';
 
 @Module({
   controllers: [AuthController],
@@ -53,10 +53,6 @@ import { RedisService } from 'src/redis/redis.service';
       provide: Services.OTP,
       useClass: OtpService,
     },
-    {
-      provide: Services.REDIS,
-      useClass: RedisService,
-    },
     LocalStrategy,
     JwtStrategy,
     GoogleStrategy,
@@ -65,6 +61,7 @@ import { RedisService } from 'src/redis/redis.service';
   imports: [
     UserModule,
     PassportModule,
+    RedisModule,
     ConfigModule.forFeature(jwtConfig),
     JwtModule.registerAsync(jwtConfig.asProvider()),
     ConfigModule.forFeature(mailerConfig),

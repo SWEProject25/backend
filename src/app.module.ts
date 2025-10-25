@@ -13,6 +13,7 @@ import { RedisService } from './redis/redis.service';
 import { PostModule } from './post/post.module';
 import { UsersModule } from './users/users.module';
 import { ProfileModule } from './profile/profile.module';
+import { RedisModule } from './redis/redis.module';
 
 const envFilePath = '.env';
 
@@ -33,6 +34,7 @@ const envFilePath = '.env';
     }),
     PostModule,
     ProfileModule,
+    RedisModule,
   ],
   controllers: [],
   providers: [
@@ -43,10 +45,6 @@ const envFilePath = '.env';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
-    },
-    {
-      provide: Services.REDIS,
-      useClass: RedisService,
     },
   ],
 })
