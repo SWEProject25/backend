@@ -7,7 +7,7 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Inject, UnauthorizedException, UseFilters, Logger } from '@nestjs/common';
+import { Inject, UnauthorizedException, UseFilters } from '@nestjs/common';
 import { Services } from 'src/utils/constants';
 import { Server, Socket } from 'socket.io';
 import { MessagesService } from './messages.service';
@@ -23,7 +23,6 @@ import { WebSocketExceptionFilter } from './exceptions/ws-exception.filter';
 })
 @UseFilters(new WebSocketExceptionFilter())
 export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  private readonly logger = new Logger(MessagesGateway.name);
   private readonly connectedUsers = new Map<number, Set<string>>(); // userId -> Set of socketIds
 
   constructor(
@@ -39,7 +38,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       const userId = client.data.userId;
 
       if (!userId) {
-        this.logger.warn(`Client ${client.id} connected without authentication`);
+        console.warn(`Client ${client.id} connected without authentication`);
         client.disconnect();
         return;
       }
@@ -50,12 +49,10 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       }
       this.connectedUsers.get(userId)!.add(client.id);
 
-      this.logger.log(`User ${userId} connected with socket ${client.id}`);
-
       // Join user's personal room for notifications
       client.join(`user_${userId}`);
     } catch (error) {
-      this.logger.error(`Connection error: ${error.message}`);
+      console.error(`Connection error: ${error.message}`);
       client.disconnect();
     }
   }
@@ -72,10 +69,9 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
             this.connectedUsers.delete(userId);
           }
         }
-        this.logger.log(`User ${userId} disconnected (socket ${client.id})`);
       }
     } catch (error) {
-      this.logger.error(`Disconnect error: ${error.message}`);
+      console.error(`Disconnect error: ${error.message}`);
     }
   }
 
@@ -105,15 +101,12 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       }
 
       socket.join(`conversation_${parsedConversationId}`);
-      this.logger.log(
-        `User ${userId} (socket ${socket.id}) joined conversation_${parsedConversationId}`,
-      );
 
       // Automatically mark messages as seen when joining
       try {
         await this.messagesService.markMessagesAsSeen(parsedConversationId, userId);
       } catch (error) {
-        this.logger.warn(`Could not mark messages as seen: ${error.message}`);
+        console.warn(`Could not mark messages as seen: ${error.message}`);
       }
 
       return {
@@ -122,7 +115,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         message: 'Joined conversation successfully',
       };
     } catch (error) {
-      this.logger.error(`Error joining conversation: ${error.message}`);
+      console.error(`Error joining conversation: ${error.message}`);
       throw error;
     }
   }
@@ -155,10 +148,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         throw new UnauthorizedException('Cannot send message as another user');
       }
 
-      this.logger.log(
-        `User ${userId} creating message in conversation ${createMessageDto.conversationId}`,
-      );
-
       const isParticipant = await this.messagesService.isUserInConversation(createMessageDto);
 
       if (!isParticipant) {
@@ -177,7 +166,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         data: message,
       };
     } catch (error) {
-      this.logger.error(`Error creating message: ${error.message}`);
+      console.error(`Error creating message: ${error.message}`);
       throw error;
     }
   }
@@ -205,7 +194,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       }
 
       const message = await this.messagesService.update(updateMessageDto);
-      this.logger.log(`User ${userId} updated message ${message.id}`);
 
       // Emit updated message to users in that conversation room
       this.server.to(`conversation_${message.conversationId}`).emit('messageUpdated', message);
@@ -215,7 +203,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         data: message,
       };
     } catch (error) {
-      this.logger.error(`Error updating message: ${error.message}`);
+      console.error(`Error updating message: ${error.message}`);
       throw error;
     }
   }
@@ -242,10 +230,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         markSeenDto.userId,
       );
 
-      this.logger.log(
-        `User ${userId} marked ${result.count} messages as seen in conversation ${markSeenDto.conversationId}`,
-      );
-
       // Notify other participants in the conversation
       socket.to(`conversation_${markSeenDto.conversationId}`).emit('messagesSeen', {
         conversationId: markSeenDto.conversationId,
@@ -259,7 +243,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         count: result.count,
       };
     } catch (error) {
-      this.logger.error(`Error marking messages as seen: ${error.message}`);
+      console.error(`Error marking messages as seen: ${error.message}`);
       throw error;
     }
   }
@@ -286,7 +270,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       return { status: 'success' };
     } catch (error) {
-      this.logger.error(`Error handling typing event: ${error.message}`);
+      console.error(`Error handling typing event: ${error.message}`);
       throw error;
     }
   }
@@ -313,7 +297,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       return { status: 'success' };
     } catch (error) {
-      this.logger.error(`Error handling stop typing event: ${error.message}`);
+      console.error(`Error handling stop typing event: ${error.message}`);
       throw error;
     }
   }
