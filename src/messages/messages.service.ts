@@ -15,6 +15,7 @@ export class MessagesService {
 
   async create(createMessageDto: CreateMessageDto) {
     const { conversationId, senderId, text } = createMessageDto;
+    console.log('Creating message with data:', createMessageDto);
 
     // Ensure the conversation exists
     const conversation = await this.prismaService.conversation.findUnique({
@@ -32,18 +33,28 @@ export class MessagesService {
         senderId,
         conversationId,
       },
+      select: {
+        id: true,
+        senderId: true,
+        text: true,
+        createdAt: true,
+      },
     });
   }
 
-  async isUserInConversation(conversationId: number, userId: number): Promise<boolean> {
+  async isUserInConversation(createMessageDto: CreateMessageDto): Promise<boolean> {
+    const { conversationId, senderId: userId } = createMessageDto;
+    console.log('Checking if user is in conversation:', { conversationId, userId });
     const conversation = await this.prismaService.conversation.findUnique({
       where: { id: conversationId },
       select: { user1Id: true, user2Id: true },
     });
 
     if (!conversation) {
+      console.log('Conversation not found');
       return false;
     }
+    console.log('Conversation found:', conversation);
 
     return conversation.user1Id === userId || conversation.user2Id === userId;
   }
