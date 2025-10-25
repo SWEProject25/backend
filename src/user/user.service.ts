@@ -124,4 +124,14 @@ export class UserService {
     }
     return null;
   }
+
+  public async updatePassword(userId: string, hashed: string) {
+    return await this.prismaService.user.update({
+      where: { id: userId },
+      data: { password: hashed },
+    });
+  }
+  async findById(id: string) {
+    return await this.prismaService.user.findFirst({ where: { id } });
+  }
 }

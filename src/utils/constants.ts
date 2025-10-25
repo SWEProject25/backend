@@ -15,3 +15,8 @@ export enum Services {
   OTP = 'OTP_SERVICE',
   REDIS = 'REDIS_SERVICE',
 }
+
+export enum RequestType {
+  WEB = 'WEB',
+  MOBILE = 'MOBILE',
+}
