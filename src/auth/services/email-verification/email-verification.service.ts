@@ -29,11 +29,11 @@ export class EmailVerificationService {
   async sendVerificationEmail(email: string): Promise<void> {
     const user = await this.userService.findByEmail(email);
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    // if (!user) {
+    //   throw new NotFoundException('User not found');
+    // }
 
-    if (user.is_verified) {
+    if (user?.is_verified) {
       throw new ConflictException('Account already verified');
     }
 
