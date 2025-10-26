@@ -5,6 +5,8 @@ import mailerConfig from './../common/config/mailer.config';
 import { SendEmailDto } from './dto/send-email.dto';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import * as SendGrid from '@sendgrid/mail';
+import { MailDataRequired } from '@sendgrid/mail';
 
 @Injectable()
 export class EmailService {
@@ -14,32 +16,41 @@ export class EmailService {
     @Inject(mailerConfig.KEY)
     private readonly mailerConfiguration: ConfigType<typeof mailerConfig>,
   ) {
-    this.mailTransport = createTransport({
-      host: this.mailerConfiguration.transport.host,
-      port: this.mailerConfiguration.transport.port,
-      secure: this.mailerConfiguration.transport.secure,
-      auth: this.mailerConfiguration.transport.auth,
-    });
+    SendGrid.setApiKey(process.env.SENDGRID_API_KEY!);
+    // console.log(process.env.SENDGRID_API_KEY);
+    // this.mailTransport = createTransport({
+    //   host: this.mailerConfiguration.transport.host,
+    //   port: this.mailerConfiguration.transport.port,
+    //   secure: this.mailerConfiguration.transport.secure,
+    //   auth: this.mailerConfiguration.transport.auth,
+    // });
   }
 
   public async sendEmail(data: SendEmailDto): Promise<{ success: boolean } | null> {
     const { recipients, subject, html, text } = data;
 
-    const mailOptions: SendMailOptions = {
-      from: this.mailerConfiguration.transport.auth.user,
+    const mailOptions: MailDataRequired = {
+      from: { name: 'Hankers', email: process.env.SENDGRID_FROM_EMAIL! },
       to: recipients,
       subject,
       html,
       text,
     };
 
+    // try {
+    //   await this.mailTransport.sendMail(mailOptions);
+    //   return { success: true };
+    // } catch (error) {
+    //   // handle error
+    //   console.error(error);
+    //   return null;
+    // }
     try {
-      await this.mailTransport.sendMail(mailOptions);
+      await SendGrid.send(mailOptions);
       return { success: true };
     } catch (error) {
-      // handle error
-      console.error(error);
-      return null;
+      console.error('Error sending email:', error);
+      throw new Error('Failed to send email');
     }
   }
   public renderTemplate(otp: string, path: string): string {
