@@ -117,6 +117,29 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
   }
 
+  @SubscribeMessage('leaveConversation')
+  async handleLeave(@MessageBody() conversationId: number, @ConnectedSocket() socket: Socket) {
+    try {
+      const userId = socket.data.userId;
+      const parsedConversationId = Number(conversationId);
+
+      if (!userId) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+
+      socket.leave(`conversation_${parsedConversationId}`);
+
+      return {
+        status: 'success',
+        parsedConversationId,
+        message: 'Left conversation successfully',
+      };
+    } catch (error) {
+      console.error(`Error leaving conversation: ${error.message}`);
+      throw error;
+    }
+  }
+
   @SubscribeMessage('createMessage')
   async create(
     @MessageBody() createMessageDto: CreateMessageDto,
