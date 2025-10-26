@@ -51,6 +51,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       // Join user's personal room for notifications
       client.join(`user_${userId}`);
+      console.log(`User ${userId} connected with socket ID ${client.id}`);
     } catch (error) {
       console.error(`Connection error: ${error.message}`);
       client.disconnect();
@@ -73,10 +74,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     } catch (error) {
       console.error(`Disconnect error: ${error.message}`);
     }
-  }
-
-  private isUserOnline(userId: number): boolean {
-    return this.connectedUsers.has(userId) && this.connectedUsers.get(userId)!.size > 0;
   }
 
   @SubscribeMessage('joinConversation')
@@ -121,7 +118,10 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   @SubscribeMessage('createMessage')
-  async create(@MessageBody() data: any, @ConnectedSocket() socket: Socket) {
+  async create(
+    @MessageBody() createMessageDto: CreateMessageDto,
+    @ConnectedSocket() socket: Socket,
+  ) {
     try {
       const userId = socket.data.userId;
 
@@ -129,30 +129,24 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         throw new UnauthorizedException('User not authenticated');
       }
 
-      // Parse the data
-      let createMessageDto: CreateMessageDto;
-
-      if (typeof data === 'string') {
-        try {
-          createMessageDto = eval('(' + data + ')');
-        } catch {
-          const jsonString = data.replace(/(\w+):/g, '"$1":').replace(/'/g, '"');
-          createMessageDto = JSON.parse(jsonString);
-        }
-      } else {
-        createMessageDto = data;
-      }
-
       // Verify the sender ID matches authenticated user
       if (createMessageDto.senderId !== userId) {
+        console.log(
+          `Unauthorized message send attempt by user ${userId}, trying to send as ${createMessageDto.senderId}`,
+        );
         throw new UnauthorizedException('Cannot send message as another user');
       }
 
-      const isParticipant = await this.messagesService.isUserInConversation(createMessageDto);
+      const participants = await this.messagesService.getConversationUsers(
+        createMessageDto.conversationId,
+      );
 
-      if (!isParticipant) {
+      if (userId !== participants.user1Id && userId !== participants.user2Id) {
         throw new UnauthorizedException('You are not part of this conversation');
       }
+
+      const recipientId =
+        userId === participants.user1Id ? participants.user2Id : participants.user1Id;
 
       const message = await this.messagesService.create(createMessageDto);
 
@@ -160,6 +154,20 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       this.server
         .to(`conversation_${createMessageDto.conversationId}`)
         .emit('messageCreated', message);
+
+      const conversationRoom = this.server.sockets.adapter.rooms.get(
+        `conversation_${createMessageDto.conversationId}`,
+      );
+      const recipientRoom = this.server.sockets.adapter.rooms.get(`user_${recipientId}`);
+
+      const isRecipientInConversation =
+        conversationRoom &&
+        recipientRoom &&
+        [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
+
+      if (!isRecipientInConversation) {
+        this.server.to(`user_${recipientId}`).emit('newMessageNotification', message);
+      }
 
       return {
         status: 'success',
@@ -172,7 +180,10 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   @SubscribeMessage('updateMessage')
-  async update(@MessageBody() data: any, @ConnectedSocket() socket: Socket) {
+  async update(
+    @MessageBody() updateMessageDto: UpdateMessageDto,
+    @ConnectedSocket() socket: Socket,
+  ) {
     try {
       const userId = socket.data.userId;
 
@@ -180,23 +191,30 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         throw new UnauthorizedException('User not authenticated');
       }
 
-      let updateMessageDto: UpdateMessageDto;
-
-      if (typeof data === 'string') {
-        try {
-          updateMessageDto = eval('(' + data + ')');
-        } catch {
-          const jsonString = data.replace(/(\w+):/g, '"$1":').replace(/'/g, '"');
-          updateMessageDto = JSON.parse(jsonString);
-        }
-      } else {
-        updateMessageDto = data;
-      }
-
-      const message = await this.messagesService.update(updateMessageDto);
+      const message = await this.messagesService.update(updateMessageDto, userId);
 
       // Emit updated message to users in that conversation room
       this.server.to(`conversation_${message.conversationId}`).emit('messageUpdated', message);
+
+      const participants = await this.messagesService.getConversationUsers(message.conversationId);
+
+      const recipientId =
+        userId === participants.user1Id ? participants.user2Id : participants.user1Id;
+
+      const conversationRoom = this.server.sockets.adapter.rooms.get(
+        `conversation_${message.conversationId}`,
+      );
+
+      const recipientRoom = this.server.sockets.adapter.rooms.get(`user_${recipientId}`);
+
+      const isRecipientInConversation =
+        conversationRoom &&
+        recipientRoom &&
+        [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
+
+      if (!isRecipientInConversation) {
+        this.server.to(`user_${recipientId}`).emit('editMessageNotification', message);
+      }
 
       return {
         status: 'success',
@@ -225,22 +243,17 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         throw new UnauthorizedException('Cannot mark messages for another user');
       }
 
-      const result = await this.messagesService.markMessagesAsSeen(
-        markSeenDto.conversationId,
-        markSeenDto.userId,
-      );
+      await this.messagesService.markMessagesAsSeen(markSeenDto.conversationId, markSeenDto.userId);
 
       // Notify other participants in the conversation
       socket.to(`conversation_${markSeenDto.conversationId}`).emit('messagesSeen', {
         conversationId: markSeenDto.conversationId,
         userId: markSeenDto.userId,
-        count: result.count,
         timestamp: new Date().toISOString(),
       });
 
       return {
         status: 'success',
-        count: result.count,
       };
     } catch (error) {
       console.error(`Error marking messages as seen: ${error.message}`);
@@ -255,7 +268,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   ) {
     try {
       const userId = socket.data.userId;
-      const username = socket.data.username;
 
       if (!userId) {
         throw new UnauthorizedException('User not authenticated');
@@ -265,7 +277,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       socket.to(`conversation_${data.conversationId}`).emit('userTyping', {
         conversationId: data.conversationId,
         userId,
-        username,
       });
 
       return { status: 'success' };
@@ -282,17 +293,14 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
   ) {
     try {
       const userId = socket.data.userId;
-      const username = socket.data.username;
 
       if (!userId) {
         throw new UnauthorizedException('User not authenticated');
       }
 
-      // Notify others in the conversation
       socket.to(`conversation_${data.conversationId}`).emit('userStoppedTyping', {
         conversationId: data.conversationId,
         userId,
-        username,
       });
 
       return { status: 'success' };

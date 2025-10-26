@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsNumber, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { LargeNumberLike } from 'crypto';
 
 export class UpdateMessageDto {
   @ApiProperty({
@@ -9,6 +10,12 @@ export class UpdateMessageDto {
   @IsNumber()
   @IsNotEmpty()
   id: number;
+
+  @ApiProperty({
+    description: 'The sender ID',
+    example: 3,
+  })
+  senderId: number;
 
   @ApiProperty({
     description: 'The updated message text',

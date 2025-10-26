@@ -144,48 +144,6 @@ export class MessagesController {
     };
   }
 
-  @Put(':conversationId/mark-seen')
-  @UseGuards(JwtAuthGuard)
-  @ApiCookieAuth()
-  @ApiOperation({
-    summary: 'Mark messages as seen',
-    description: 'Marks all messages in a conversation as seen for the authenticated user',
-  })
-  @ApiParam({
-    name: 'conversationId',
-    type: Number,
-    description: 'The ID of the conversation',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Messages marked as seen successfully',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Unauthorized - Token missing or invalid',
-    schema: ErrorResponseDto.schemaExample(
-      'Authentication token is missing or invalid',
-      'Unauthorized',
-    ),
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Conversation not found',
-    schema: ErrorResponseDto.schemaExample('Conversation not found', 'Not Found'),
-  })
-  async markSeen(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('conversationId', ParseIntPipe) conversationId: number,
-  ) {
-    const result = await this.messagesService.markMessagesAsSeen(conversationId, user.id);
-
-    return {
-      status: 'success',
-      message: 'Messages marked as seen',
-      count: result.count,
-    };
-  }
-
   @Get(':conversationId/unseen-count')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()

@@ -3502,85 +3502,6 @@
         ]
       }
     },
-    "/api/v1.0/messages/{conversationId}/mark-seen": {
-      "put": {
-        "description": "Marks all messages in a conversation as seen for the authenticated user",
-        "operationId": "MessagesController_markSeen",
-        "parameters": [
-          {
-            "name": "conversationId",
-            "required": true,
-            "in": "path",
-            "description": "The ID of the conversation",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Messages marked as seen successfully"
-          },
-          "401": {
-            "description": "Unauthorized - Token missing or invalid",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "example": "error"
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "Authentication token is missing or invalid"
-                    },
-                    "error": {
-                      "type": "string",
-                      "example": "Unauthorized"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Conversation not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "example": "error"
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "Conversation not found"
-                    },
-                    "error": {
-                      "type": "string",
-                      "example": "Not Found"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "Mark messages as seen",
-        "tags": [
-          "messages"
-        ]
-      }
-    },
     "/api/v1.0/messages/{conversationId}/unseen-count": {
       "get": {
         "description": "Returns the count of unseen messages in a conversation",
@@ -5055,7 +4976,7 @@
             "format": "date-time",
             "type": "string",
             "description": "The creation date of the conversation",
-            "example": "2025-10-25T11:51:18.555Z"
+            "example": "2025-10-26T18:02:03.842Z"
           }
         },
         "required": [

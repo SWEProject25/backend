@@ -3,6 +3,7 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
@@ -15,7 +16,6 @@ export class MessagesService {
 
   async create(createMessageDto: CreateMessageDto) {
     const { conversationId, senderId, text } = createMessageDto;
-    console.log('Creating message with data:', createMessageDto);
 
     // Ensure the conversation exists
     const conversation = await this.prismaService.conversation.findUnique({
@@ -42,8 +42,25 @@ export class MessagesService {
     });
   }
 
+  async getConversationUsers(
+    conversationId: number,
+  ): Promise<{ user1Id: number; user2Id: number }> {
+    const conversation = await this.prismaService.conversation.findUnique({
+      where: { id: conversationId },
+      select: { user1Id: true, user2Id: true },
+    });
+
+    if (!conversation) {
+      console.error('Conversation not found');
+      return { user1Id: 0, user2Id: 0 };
+    }
+
+    return { user1Id: conversation.user1Id, user2Id: conversation.user2Id };
+  }
+
   async isUserInConversation(createMessageDto: CreateMessageDto): Promise<boolean> {
-    const { conversationId, senderId: userId } = createMessageDto;
+    const { conversationId, senderId } = createMessageDto;
+
     const conversation = await this.prismaService.conversation.findUnique({
       where: { id: conversationId },
       select: { user1Id: true, user2Id: true },
@@ -54,7 +71,7 @@ export class MessagesService {
       return false;
     }
 
-    return conversation.user1Id === userId || conversation.user2Id === userId;
+    return senderId === conversation.user1Id || senderId === conversation.user2Id;
   }
 
   async getConversationMessages(
@@ -117,7 +134,7 @@ export class MessagesService {
     };
   }
 
-  async update(updateMessageDto: UpdateMessageDto) {
+  async update(updateMessageDto: UpdateMessageDto, senderId: number) {
     const { id, text } = updateMessageDto;
 
     // Check if message exists
@@ -127,6 +144,10 @@ export class MessagesService {
 
     if (!message) {
       throw new NotFoundException('Message not found');
+    }
+
+    if (message.senderId !== senderId) {
+      throw new UnauthorizedException('You are not the owner of this message');
     }
 
     // Update and return the message
