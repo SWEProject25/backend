@@ -17,8 +17,25 @@ async function bootstrap() {
 
   app.use(cookieParser());
   app.setGlobalPrefix(`api/${process.env.APP_VERSION}`);
+  
+  // Support both production frontend and local development
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'https://hankers-frontend.myaddr.tools', // Production
+    'http://localhost:3000', // Local development
+    'http://localhost:3001', // Local development (alternative port)
+  ];
+  
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'https://hankers-frontend.myaddr.tools',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   });
 
