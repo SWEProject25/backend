@@ -18,7 +18,7 @@ async function bootstrap() {
   app.use(cookieParser());
   app.setGlobalPrefix(`api/${process.env.APP_VERSION}`);
   app.enableCors({
-    origin: true,
+    origin: process.env.FRONTEND_URL || 'https://hankers-frontend.myaddr.tools',
     credentials: true,
   });
 
