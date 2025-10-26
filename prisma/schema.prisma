@@ -54,7 +54,7 @@ model Profile {
   is_deactivated    Boolean?  @default(false)
   created_at        DateTime  @default(now())
   updated_at        DateTime  @updatedAt
-  User              User      @relation(fields: [user_id], references: [id])
+  User              User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("profiles")
 }
