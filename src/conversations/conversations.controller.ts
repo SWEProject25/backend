@@ -174,48 +174,4 @@ export class ConversationsController {
       unseenCount,
     };
   }
-
-  // @Get('/:conversationId')
-  // @UseGuards(JwtAuthGuard)
-  // @ApiCookieAuth()
-  // @ApiOperation({
-  //   summary: 'Get a specific conversation by ID',
-  //   description: 'Retrieves a conversation by its ID for the authenticated user',
-  // })
-  // @ApiParam({
-  //   name: 'conversationId',
-  //   type: Number,
-  //   description: 'The ID of the conversation to retrieve',
-  // })
-  // @ApiResponse({
-  //   status: HttpStatus.OK,
-  //   description: 'Conversation retrieved successfully',
-  //   type: CreateConversationResponseDto,
-  // })
-  // @ApiResponse({
-  //   status: HttpStatus.UNAUTHORIZED,
-  //   description: 'Unauthorized - Token missing or invalid',
-  //   schema: ErrorResponseDto.schemaExample(
-  //     'Authentication token is missing or invalid',
-  //     'Unauthorized',
-  //   ),
-  // })
-  // @ApiResponse({
-  //   status: HttpStatus.NOT_FOUND,
-  //   description: 'Conversation not found',
-  //   schema: ErrorResponseDto.schemaExample('Conversation not found', 'Not Found'),
-  // })
-  // async getConversationMessages(
-  //   @CurrentUser() user: AuthenticatedUser,
-  //   @Param('conversationId', ParseIntPipe) conversationId: number,
-  // ) {
-  //   const messages = await this.conversationsService.getConversationMessages(
-  //     conversationId,
-  //     user.id,
-  //   );
-  //   return {
-  //     status: 'success',
-  //     messages,
-  //   };
-  // }
 }
