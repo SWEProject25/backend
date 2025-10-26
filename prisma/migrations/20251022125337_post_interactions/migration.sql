@@ -8,10 +8,10 @@
 
 */
 -- DropForeignKey
-ALTER TABLE "public"."posts" DROP CONSTRAINT "posts_parentId_fkey";
+ALTER TABLE "posts" DROP CONSTRAINT "posts_parentId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "public"."posts" DROP CONSTRAINT "posts_userId_fkey";
+ALTER TABLE "posts" DROP CONSTRAINT "posts_userId_fkey";
 
 -- AlterTable
 ALTER TABLE "posts" DROP COLUMN "createdAt",

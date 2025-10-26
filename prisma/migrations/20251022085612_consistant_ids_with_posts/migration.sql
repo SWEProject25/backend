@@ -13,16 +13,16 @@ CREATE TYPE "PostType" AS ENUM ('POST', 'REPLY', 'QUOTE');
 CREATE TYPE "PostVisibility" AS ENUM ('EVERY_ONE', 'FOLLOWERS', 'MENTIONED');
 
 -- DropForeignKey
-ALTER TABLE "public"."Profile" DROP CONSTRAINT "Profile_user_id_fkey";
+ALTER TABLE "Profile" DROP CONSTRAINT "Profile_user_id_fkey";
 
 -- AlterTable
-ALTER TABLE "User" DROP CONSTRAINT "User_pkey",
+ALTER TABLE "User" DROP CONSTRAINT "User_pkey" CASCADE,
 DROP COLUMN "id",
 ADD COLUMN     "id" SERIAL NOT NULL,
 ADD CONSTRAINT "User_pkey" PRIMARY KEY ("id");
 
 -- DropTable
-DROP TABLE "public"."Profile";
+DROP TABLE "Profile";
 
 -- CreateTable
 CREATE TABLE "profiles" (
