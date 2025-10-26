@@ -23,6 +23,7 @@ RUN npm ci --only=production && npx prisma generate
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/generated ./generated
 COPY --from=builder /app/docs ./docs
+COPY --from=builder /app/src/email/templates ./src/email/templates
 
 EXPOSE 3000
 
