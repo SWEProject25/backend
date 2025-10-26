@@ -34,6 +34,7 @@
     "@nestjs/websockets": "^11.1.7",
     "@nestlab/google-recaptcha": "^3.10.0",
     "@prisma/client": "^6.17.0",
+    "@sendgrid/mail": "^8.1.6",
     "argon2": "^0.44.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
