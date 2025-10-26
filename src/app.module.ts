@@ -9,9 +9,11 @@ import { EmailModule } from './email/email.module';
 import { Services } from './utils/constants';
 import { GoogleRecaptchaModule } from '@nestlab/google-recaptcha';
 import { Request } from 'express';
+import { RedisService } from './redis/redis.service';
 import { PostModule } from './post/post.module';
 import { UsersModule } from './users/users.module';
 import { ProfileModule } from './profile/profile.module';
+import { RedisModule } from './redis/redis.module';
 import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
 
@@ -34,6 +36,7 @@ const envFilePath = '.env';
     }),
     PostModule,
     ProfileModule,
+    RedisModule,
     MessagesModule,
     ConversationsModule,
   ],

@@ -11,9 +11,7 @@ import { CreateUserDto } from 'src/user/dto/create-user.dto';
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(
     @Inject(googleOauthConfig.KEY)
-    private readonly googleOauthConfiguration: ConfigType<
-      typeof googleOauthConfig
-    >,
+    private readonly googleOauthConfiguration: ConfigType<typeof googleOauthConfig>,
     @Inject(Services.AUTH)
     private readonly authService: AuthService,
   ) {

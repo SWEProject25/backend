@@ -1,85 +1,102 @@
-import {
-  Inject,
-  Injectable,
-  UnprocessableEntityException,
-} from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { generateOtp } from 'src/utils/otp.util';
-import { hash, verify } from 'argon2';
+import { Inject, Injectable } from '@nestjs/common';
+import { RedisService } from 'src/redis/redis.service';
 import { Services } from 'src/utils/constants';
+import { generateOtp } from 'src/utils/otp.util';
+
+const OTP_CACHE_PREFIX = 'otp:';
+const OTP_TTL_SECONDS = 15 * 60; // 15 minutes in seconds
+
+const COOLDOWN_CACHE_PREFIX = 'cooldown:otp:';
+const COOLDOWN_TTL_SECONDS = 60; // 1 minute in seconds
 
 @Injectable()
 export class OtpService {
-  private readonly minRequestIntervalMinutes = 1;
-  private readonly tokenExpirationMinutes = 15;
-
   constructor(
-    @Inject(Services.PRISMA)
-    private readonly prismaService: PrismaService,
+    @Inject(Services.REDIS)
+    private readonly redisService: RedisService,
   ) {}
 
-  async generate(email: string, size = 6): Promise<string> {
-    await this.checkRateLimit(email);
+  async generateAndRateLimit(email: string, size = 6): Promise<string> {
+    console.log(`\n[OTP] Generating OTP for: ${email}`);
 
     const otp = generateOtp(size);
-    const hashedToken = await hash(otp);
+    const otpKey = `${OTP_CACHE_PREFIX}${email}`;
+    const cooldownKey = `${COOLDOWN_CACHE_PREFIX}${email}`;
 
-    await this.prismaService.emailVerification.create({
-      data: {
-        user_email: email,
-        token: hashedToken,
-        expires_at: new Date(
-          Date.now() + this.tokenExpirationMinutes * 60 * 1000,
-        ),
-      },
-    });
+    try {
+      await this.redisService.set(otpKey, otp, OTP_TTL_SECONDS);
+      console.log(`[OTP] ✅ Stored OTP: ${otpKey}`);
+
+      await this.redisService.set(cooldownKey, 'true', COOLDOWN_TTL_SECONDS);
+      console.log(`[OTP] ✅ Stored cooldown: ${cooldownKey}`);
+
+      const storedOtp = await this.redisService.get(otpKey);
+      const storedCooldown = await this.redisService.get(cooldownKey);
+
+      if (storedOtp && storedCooldown) {
+        console.log(`[OTP] ✅ Verification passed - OTP stored successfully`);
+      } else {
+        console.warn(
+          `[OTP] ⚠️ Verification warning - OTP: ${storedOtp}, Cooldown: ${storedCooldown}`,
+        );
+      }
+    } catch (error) {
+      console.error('[OTP] ❌ Failed to store OTP:', error.message);
+      throw error;
+    }
 
     return otp;
   }
 
-  async validate(email: string, token: string): Promise<boolean> {
-    const validToken = await this.prismaService.emailVerification.findFirst({
-      where: {
-        user_email: email,
-        expires_at: { gt: new Date() },
-      },
-    });
+  async isRateLimited(email: string): Promise<boolean> {
+    const cooldownKey = `${COOLDOWN_CACHE_PREFIX}${email}`;
 
-    if (!validToken) {
+    try {
+      const result = await this.redisService.get(cooldownKey);
+      const isLimited = !!result;
+      console.log(`[OTP] Rate limit check for ${email}: ${isLimited}`);
+      return isLimited;
+    } catch (error) {
+      console.error('[OTP] ❌ Error checking rate limit:', error.message);
       return false;
     }
+  }
 
-    const isValid = await verify(validToken.token, token);
+  async validate(email: string, otp: string): Promise<boolean> {
+    const otpKey = `${OTP_CACHE_PREFIX}${email}`;
 
-    if (isValid) {
-      await this.prismaService.emailVerification.delete({
-        where: { id: validToken.id },
-      });
+    try {
+      const storedOtp = await this.redisService.get(otpKey);
+      console.log(`[OTP] Validating - Provided: ${otp}, Stored: ${storedOtp}`);
+
+      if (!storedOtp) {
+        console.log(`[OTP] ❌ No OTP found for ${email}`);
+        return false;
+      }
+
+      if (storedOtp !== otp) {
+        console.log(`[OTP] ❌ OTP mismatch for ${email}`);
+        return false;
+      }
+
+      await this.redisService.del(otpKey);
+      console.log(`[OTP] ✅ OTP validated and deleted for ${email}`);
+      return true;
+    } catch (error) {
+      console.error('[OTP] ❌ Error validating OTP:', error.message);
+      return false;
     }
-
-    return isValid;
   }
 
-  async deleteExisting(email: string): Promise<void> {
-    await this.prismaService.emailVerification.deleteMany({
-      where: { user_email: email },
-    });
-  }
+  async clearOtp(email: string): Promise<void> {
+    const otpKey = `${OTP_CACHE_PREFIX}${email}`;
+    const cooldownKey = `${COOLDOWN_CACHE_PREFIX}${email}`;
 
-  private async checkRateLimit(email: string): Promise<void> {
-    const recentToken = await this.prismaService.emailVerification.findFirst({
-      where: {
-        user_email: email,
-        created_at: {
-          gt: new Date(Date.now() - this.minRequestIntervalMinutes * 60 * 1000),
-        },
-      },
-    });
-
-    if (recentToken) {
-      throw new UnprocessableEntityException(
-        'Please wait a minute before requesting a new token.',
-      );
+    try {
+      await Promise.all([this.redisService.del(otpKey), this.redisService.del(cooldownKey)]);
+      console.log(`[OTP] 🗑️ Cleared OTP and cooldown for ${email}`);
+    } catch (error) {
+      console.error('[OTP] ❌ Error clearing OTP:', error.message);
     }
   }
 }

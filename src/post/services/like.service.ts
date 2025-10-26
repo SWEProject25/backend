@@ -1,14 +1,13 @@
-import { Inject, Injectable } from "@nestjs/common";
-import { PrismaService } from "src/prisma/prisma.service";
-import { Services } from "src/utils/constants";
+import { Inject, Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { Services } from 'src/utils/constants';
 
 @Injectable()
 export class LikeService {
-
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
-  ) { }
+  ) {}
 
   async togglePostLike(postId: number, userId: number) {
     const existingLike = await this.prismaService.like.findUnique({
@@ -53,7 +52,7 @@ export class LikeService {
             id: true,
             username: true,
             email: true,
-            is_verified: true
+            is_verified: true,
           },
         },
       },
@@ -61,7 +60,7 @@ export class LikeService {
       take: limit,
     });
 
-    return likers.map(like => like.user);
+    return likers.map((like) => like.user);
   }
 
   async getLikedPostsByUser(userId: number, page: number, limit: number) {
@@ -73,10 +72,9 @@ export class LikeService {
       take: limit,
     });
 
-    return likes.map(like => ({
+    return likes.map((like) => ({
       ...like.post,
       liked_at: like.created_at,
     }));
-
   }
 }

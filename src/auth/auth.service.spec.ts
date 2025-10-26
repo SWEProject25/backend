@@ -12,6 +12,7 @@ describe('AuthService', () => {
     email: 'test@example.com',
     password: 'password123',
     name: 'Test User',
+    birth_date: new Date(),
   };
 
   const mockUser = {
@@ -62,9 +63,7 @@ describe('AuthService', () => {
     it('should throw an error when user already exists', async () => {
       mockUserService.findByEmail.mockResolvedValue(mockUser);
 
-      await expect(authService.registerUser(createUserDto)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(authService.registerUser(createUserDto)).rejects.toThrow(BadRequestException);
     });
   });
 });

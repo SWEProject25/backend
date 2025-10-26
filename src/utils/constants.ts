@@ -22,4 +22,10 @@ export enum Services {
   USERS = 'USERS_SERVICE',
   CONVERSATIONS = 'CONVERSATIONS_SERVICE',
   MESSAGES = 'MESSAGES_SERVICE',
+  REDIS = 'REDIS_SERVICE',
+}
+
+export enum RequestType {
+  WEB = 'WEB',
+  MOBILE = 'MOBILE',
 }

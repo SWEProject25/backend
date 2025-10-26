@@ -220,9 +220,19 @@
     },
     "/api/v1.0/auth/verification-otp": {
       "post": {
-        "description": "Generates a new OTP and sends it to the user's email for verification.",
+        "description": "Generates a new One-Time Password (OTP) and sends it to the user's email. Throws 409 if already verified, 429 if rate-limited, and 404 if user not found.",
         "operationId": "AuthController_generateVerificationEmail",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Verification OTP sent successfully",
@@ -230,6 +240,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email or malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Account already verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many OTP requests in a short time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
                 }
               }
             }
@@ -243,9 +293,19 @@
     },
     "/api/v1.0/auth/resend-otp": {
       "post": {
-        "description": "Resends a new verification OTP to the user's email.",
+        "description": "Resends a new OTP to the same email. Applies same validation and rate-limit rules(wait for 1 min between each resend).",
         "operationId": "AuthController_resendVerificationEmail",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Verification OTP resent successfully",
@@ -253,6 +313,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email or malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Account already verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many OTP requests in a short time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
                 }
               }
             }
@@ -266,9 +366,19 @@
     },
     "/api/v1.0/auth/verify-otp": {
       "post": {
-        "description": "Verifies the provided OTP for the given email address.",
+        "description": "Verifies the provided OTP for the given email. Throws 422 if invalid or expired, 409 if already verified, and 404 if user not found.",
         "operationId": "AuthController_verifyEmailOtp",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Email verified successfully",
@@ -281,6 +391,36 @@
             }
           },
           "400": {
+            "description": "Invalid email or OTP format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Account already verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Invalid or expired OTP",
             "content": {
               "application/json": {
@@ -326,6 +466,138 @@
         ]
       }
     },
+    "/api/v1.0/auth/forgotPassword": {
+      "post": {
+        "operationId": "AuthController_requestPasswordReset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPasswordResetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reset link successfully sent to the provided email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "success",
+                    "message": "Check your email for password reset instructions"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email format"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "summary": "Request a password reset link",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/verifyResetToken": {
+      "get": {
+        "operationId": "AuthController_verifyResetToken",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "1",
+              "type": "number"
+            }
+          },
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "reset-token-from-email",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token is valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "success",
+                    "message": "Token is valid",
+                    "data": {
+                      "valid": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token invalid or expired"
+          }
+        },
+        "summary": "Verify if a reset token is valid",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/resetPassword": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password successfully reset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "success",
+                    "message": "Password has been reset successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid password format"
+          },
+          "401": {
+            "description": "Token invalid or expired"
+          }
+        },
+        "summary": "Reset password using valid token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/api/v1.0/auth/google/login": {
       "get": {
         "operationId": "AuthController_googleLogin",
@@ -343,6 +615,34 @@
     "/api/v1.0/auth/google/redirect": {
       "get": {
         "operationId": "AuthController_googleRedirect",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/github/login": {
+      "get": {
+        "operationId": "AuthController_githubLogin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/github/redirect": {
+      "get": {
+        "operationId": "AuthController_githubRedirect",
         "parameters": [],
         "responses": {
           "200": {
@@ -4089,6 +4389,38 @@
           "email"
         ]
       },
+      "EmailDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "mohamedalbaz@gmail.com",
+            "description": "The user's email address to which the OTP will be sent."
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "VerifyOtpDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "mohamedalbaz@gmail.com",
+            "description": "The user's email address to which the OTP will be sent."
+          },
+          "otp": {
+            "type": "string",
+            "example": "458321",
+            "description": "The 6-digit One-Time Password (OTP) sent to the user’s email."
+          }
+        },
+        "required": [
+          "email",
+          "otp"
+        ]
+      },
       "RecaptchaDto": {
         "type": "object",
         "properties": {
@@ -4100,6 +4432,58 @@
         },
         "required": [
           "recaptcha"
+        ]
+      },
+      "RequestPasswordResetDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "mohamdalbaz@gmail.com",
+            "description": "The email address of the user requesting password reset"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "WEB",
+              "MOBILE"
+            ],
+            "default": "WEB",
+            "description": "Device type (e.g. web or mobile) to determine redirect URL, default is web"
+          }
+        },
+        "required": [
+          "email",
+          "type"
+        ]
+      },
+      "ResetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "number",
+            "example": "1"
+          },
+          "token": {
+            "type": "string",
+            "example": "b1f5e58d9a3c43c2aefdcf57b1d8ad72",
+            "description": "The token sent to the user for password reset"
+          },
+          "newPassword": {
+            "type": "string",
+            "example": "NewSecurePassword123!"
+          },
+          "email": {
+            "type": "string",
+            "example": "mohamedalbaz@gmail.com",
+            "description": "The email of the user resetting the password"
+          }
+        },
+        "required": [
+          "userId",
+          "token",
+          "newPassword",
+          "email"
         ]
       },
       "UpdateEmailDto": {

@@ -88,7 +88,6 @@ export class GetPostsResponseDto {
   data: PostResponseDto[];
 }
 
-
 export class DeletePostResponseDto {
   @ApiProperty({
     description: 'Status of the response',
