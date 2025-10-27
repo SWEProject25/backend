@@ -105,6 +105,7 @@ export class AuthController {
       message: 'Account created successfully.',
       data: {
         user: {
+          id: newUser.id,
           username: newUser.username,
           role: newUser.role,
           email: newUser.email,
@@ -150,6 +151,7 @@ export class AuthController {
       message: 'Logged in successfully',
       data: {
         user: {
+          id: req.user.sub,
           username: req.user.username,
           role: req.user.role,
           email: req.user.email,
