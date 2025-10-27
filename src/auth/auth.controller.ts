@@ -459,25 +459,40 @@ export class AuthController {
       <html lang="en">
         <body>
           <script>
-            window.opener.postMessage(
-              {
-                status: 'success',
-                data: {
-                  url: '${
-                    process.env.NODE_ENV === 'dev'
-                      ? process.env.FRONTEND_URL
-                      : process.env.FRONTEND_URL_PROD
-                  }'/home',
-                  user: ${JSON.stringify(req.user)}
-                }
-              },
-              '${
+            (function () {
+              const frontendBase = "${
                 process.env.NODE_ENV === 'dev'
                   ? process.env.FRONTEND_URL
                   : process.env.FRONTEND_URL_PROD
-              }'
-            );
-            window.close();
+              }";
+              const url = frontendBase + '/home';
+              const user = ${JSON.stringify(req.user)};
+              const message = {
+                status: 'success',
+                data: {
+                  url: url,
+                  user: user
+                }
+              };
+
+              // Use exact origin (no wildcards) for security
+              const targetOrigin = frontendBase;
+              try {
+                if (window.opener && !window.opener.closed) {
+                  window.opener.postMessage(message, targetOrigin);
+                  // Give the opener a moment to handle the message, then close the popup
+                  setTimeout(() => window.close(), 100);
+                } else {
+                  console.warn('No opener window to receive OAuth message.');
+                  // Redirect the popup to the frontend as a fallback
+                  window.location.href = url;
+                }
+              } catch (err) {
+                console.error('Failed to postMessage to opener:', err);
+                // As a fallback we can redirect
+                window.location.href = url;
+              }
+            })();
           </script>
         </body>
       </html>
@@ -502,25 +517,32 @@ export class AuthController {
       <html lang="en">
         <body>
           <script>
-            window.opener.postMessage(
-              {
-                status: 'success',
-                data: {
-                  url: '${
-                    process.env.NODE_ENV === 'dev'
-                      ? process.env.FRONTEND_URL
-                      : process.env.FRONTEND_URL_PROD
-                  }'/home',
-                  user: ${JSON.stringify(req.user)}
-                }
-              },
-              '${
+            (function() {
+              const frontendBase = "${
                 process.env.NODE_ENV === 'dev'
                   ? process.env.FRONTEND_URL
                   : process.env.FRONTEND_URL_PROD
-              }'
-            );
-            window.close();
+              }";
+              const url = frontendBase + '/home';
+              const user = ${JSON.stringify(req.user)};
+              const message = {
+                status: 'success',
+                data: { url: url, user: user }
+              };
+
+              try {
+                if (window.opener && !window.opener.closed) {
+                  window.opener.postMessage(message, frontendBase);
+                  setTimeout(() => window.close(), 100);
+                } else {
+                  // If no opener, redirect the popup to the frontend
+                  window.location.href = url;
+                }
+              } catch (err) {
+                console.error('Failed to postMessage to opener:', err);
+                window.location.href = url;
+              }
+            })();
           </script>
         </body>
       </html>
