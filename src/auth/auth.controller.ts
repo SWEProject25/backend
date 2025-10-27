@@ -455,31 +455,47 @@ export class AuthController {
     const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
     this.jwtTokenService.setAuthCookies(res, accessToken);
     const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-        <body>
-          <script>
-            window.opener.postMessage(
-              {
-                status: 'success',
-                data: {
-                  url: '${
+      <!DOCTYPE html> 
+      <html lang="en"> 
+        <body> 
+          <script> 
+            (function () { 
+              const message = { 
+                status: 'success', 
+                data: { 
+                  url: ${
                     process.env.NODE_ENV === 'dev'
                       ? process.env.FRONTEND_URL
                       : process.env.FRONTEND_URL_PROD
-                  }'/home',
-                  user: ${JSON.stringify(req.user)}
-                }
-              },
-              '${
+                  }/home, 
+                  user: ${JSON.stringify(req.user)} 
+                } 
+              }; 
+
+              // Use exact origin (no wildcards) for security 
+              const targetOrigin = ${
                 process.env.NODE_ENV === 'dev'
                   ? process.env.FRONTEND_URL
                   : process.env.FRONTEND_URL_PROD
-              }'
-            );
-            window.close();
-          </script>
-        </body>
+              }; 
+              try { 
+                if (window.opener && !window.opener.closed) { 
+                  window.opener.postMessage(message, targetOrigin); 
+                  // Give the opener a moment to handle the message, then close the popup 
+                  setTimeout(() => window.close(), 100); 
+                } else { 
+                  console.warn('No opener window to receive OAuth message.'); 
+                  // Optionally redirect the top window instead: 
+                  // window.location.href = message.data.url; 
+                } 
+              } catch (err) { 
+                console.error('Failed to postMessage to opener:', err); 
+                // As a fallback we can redirect 
+                window.location.href = message.data.url; 
+              } 
+            })(); 
+          </script> 
+        </body> 
       </html>
     `;
     res.setHeader('Content-Type', 'text/html');
