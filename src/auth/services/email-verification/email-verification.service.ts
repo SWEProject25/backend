@@ -62,11 +62,11 @@ export class EmailVerificationService {
   async verifyEmail(verifyOtpDto: VerifyOtpDto): Promise<boolean> {
     const user = await this.userService.findByEmail(verifyOtpDto.email);
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
+    // if (!user) {
+    //   throw new NotFoundException('User not found');
+    // }
 
-    if (user.is_verified) {
+    if (user?.is_verified) {
       throw new ConflictException('Account already verified');
     }
 
