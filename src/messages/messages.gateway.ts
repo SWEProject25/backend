@@ -16,7 +16,7 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { MarkSeenDto } from './dto/mark-seen.dto';
 import { WebSocketExceptionFilter } from './exceptions/ws-exception.filter';
 
-@WebSocketGateway(3000, {
+@WebSocketGateway(8000, {
   cors: {
     origin: '*', // adjust for production
   },
