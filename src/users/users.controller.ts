@@ -26,7 +26,9 @@ import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
 import { FollowResponseDto } from './dto/follow-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { FollowerDto } from './dto/follower.dto';
+import { UserInteractionDto } from './dto/UserInteraction.dto';
+import { BlockResponseDto } from './dto/block-response.dto';
+import { MuteResponseDto } from './dto/mute-response.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -57,22 +59,30 @@ export class UsersController {
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Bad request - Invalid input data',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
   })
   @ApiResponse({
     status: HttpStatus.CONFLICT,
     description: 'Conflict - Already following this user',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('You are already following this user', 'Conflict'),
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'User to follow not found',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('User not found', 'Not Found'),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
   })
   async followUser(
     @Param('id', ParseIntPipe) followingId: number,
@@ -108,17 +118,25 @@ export class UsersController {
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Bad request - Invalid input data',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'User to unfollow not found',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('User not found', 'Not Found'),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
   })
   async unfollowUser(
     @Param('id', ParseIntPipe) unfollowingId: number,
@@ -163,18 +181,26 @@ export class UsersController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully retrieved followers',
-    type: FollowerDto,
+    type: UserInteractionDto,
     isArray: true,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Bad request - Invalid input data',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('Invalid pagination parameters', 'Bad Request'),
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
   })
   async getFollowers(
     @Param('id', ParseIntPipe) userId: number,
@@ -224,18 +250,26 @@ export class UsersController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully retrieved following users',
-    type: FollowerDto,
+    type: UserInteractionDto,
     isArray: true,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Bad request - Invalid input data',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample('Invalid pagination parameters', 'Bad Request'),
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
   })
   async getFollowing(
     @Param('id', ParseIntPipe) userId: number,
@@ -250,6 +284,340 @@ export class UsersController {
     return {
       status: 'success',
       message: 'Following users retrieved successfully',
+      data,
+      metadata,
+    };
+  }
+
+  @Post(':id/block')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Block a user',
+    description: 'Blocks the specified user for the authenticated user',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The ID of the user to block',
+    example: 123,
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Successfully blocked the user',
+    type: BlockResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - Cannot block yourself',
+    schema: ErrorResponseDto.schemaExample('You cannot block yourself', 'Conflict'),
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User to block not found',
+    schema: ErrorResponseDto.schemaExample('User to block not found', 'Not Found'),
+  })
+  async blockUser(
+    @Param('id', ParseIntPipe) blockedId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.usersService.blockUser(user.id, blockedId);
+
+    return {
+      status: 'success',
+      message: 'User blocked successfully',
+    };
+  }
+
+  @Delete(':id/block')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Unblock a user',
+    description: 'Unblocks the specified user for the authenticated user',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The ID of the user to unblock',
+    example: 123,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully unblocked the user',
+    type: BlockResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - Cannot unblock yourself',
+    schema: ErrorResponseDto.schemaExample('You cannot unblock yourself', 'Conflict'),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - User not blocked',
+    schema: ErrorResponseDto.schemaExample('You have not blocked this user', 'Conflict'),
+  })
+  async unblockUser(
+    @Param('id', ParseIntPipe) blockedId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.usersService.unblockUser(user.id, blockedId);
+
+    return {
+      status: 'success',
+      message: 'User unblocked successfully',
+    };
+  }
+
+  @Get('blocks/me')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get blocked users',
+    description: 'Retrieves a paginated list of users blocked by the authenticated user',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10, max: 100)',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully retrieved blocked users',
+    type: UserInteractionDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid pagination parameters', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
+  })
+  async getBlockedUsers(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() paginationQuery: PaginationDto,
+  ) {
+    const { data, metadata } = await this.usersService.getBlockedUsers(
+      user.id,
+      paginationQuery.page,
+      paginationQuery.limit,
+    );
+    return {
+      status: 'success',
+      message: 'Blocked users retrieved successfully',
+      data,
+      metadata,
+    };
+  }
+
+  @Post(':id/mute')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Mute a user',
+    description: 'Mutes the specified user for the authenticated user',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The ID of the user to mute',
+    example: 123,
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Successfully muted the user',
+    type: MuteResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - Cannot mute yourself',
+    schema: ErrorResponseDto.schemaExample('You cannot mute yourself', 'Conflict'),
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User to mute not found',
+    schema: ErrorResponseDto.schemaExample('User to mute not found', 'Not Found'),
+  })
+  async muteUser(
+    @Param('id', ParseIntPipe) mutedId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.usersService.muteUser(user.id, mutedId);
+
+    return {
+      status: 'success',
+      message: 'User muted successfully',
+    };
+  }
+
+  @Delete(':id/mute')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Unmute a user',
+    description: 'Unmutes the specified user for the authenticated user',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The ID of the user to unmute',
+    example: 123,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully unmuted the user',
+    type: MuteResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid user ID provided', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - Cannot unmute yourself',
+    schema: ErrorResponseDto.schemaExample('You cannot unmute yourself', 'Conflict'),
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User to unmute not found',
+    schema: ErrorResponseDto.schemaExample('User to unmute not found', 'Not Found'),
+  })
+  async unmuteUser(
+    @Param('id', ParseIntPipe) unmutedId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.usersService.unmuteUser(user.id, unmutedId);
+
+    return {
+      status: 'success',
+      message: 'User unmuted successfully',
+    };
+  }
+
+  @Get('mutes/me')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get muted users',
+    description: 'Retrieves a paginated list of users muted by the authenticated user',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10, max: 100)',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully retrieved muted users',
+    type: UserInteractionDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid pagination parameters', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
+  })
+  async getMutedUsers(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() paginationQuery: PaginationDto,
+  ) {
+    const { data, metadata } = await this.usersService.getMutedUsers(
+      user.id,
+      paginationQuery.page,
+      paginationQuery.limit,
+    );
+    return {
+      status: 'success',
+      message: 'Muted users retrieved successfully',
       data,
       metadata,
     };

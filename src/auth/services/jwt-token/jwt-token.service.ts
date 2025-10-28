@@ -8,14 +8,9 @@ import * as ms from 'ms';
 export class JwtTokenService {
   constructor(private readonly jwtService: JwtService) {}
 
-  public async generateAccessToken(
-    userId: number,
-    username: string,
-  ): Promise<string> {
+  public async generateAccessToken(userId: number, username: string): Promise<string> {
     const payload: AuthJwtPayload = { sub: userId, username };
-    const [accessToken] = await Promise.all([
-      this.jwtService.signAsync(payload),
-    ]);
+    const [accessToken] = await Promise.all([this.jwtService.signAsync(payload)]);
     return accessToken;
   }
 
@@ -24,15 +19,16 @@ export class JwtTokenService {
 
     const cookieOptions = {
       httpOnly: true,
-      sameSite: 'strict' as const,
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none' as const,
+      secure: true,
       maxAge: ms(expiresIn),
+      path: '/',
     };
 
     res.cookie('access_token', accessToken, cookieOptions);
   }
 
   clearAuthCookies(res: Response): void {
-    res.clearCookie('access_token');
+    res.clearCookie('access_token', { path: '/' });
   }
 }

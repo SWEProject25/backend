@@ -4,6 +4,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { hash } from 'argon2';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Services } from 'src/utils/constants';
+import { OAuthProfileDto } from 'src/auth/dto/oauth-profile.dto';
+import { generateUsername } from 'src/utils/username.util';
 
 @Injectable()
 export class UserService {
@@ -14,7 +16,7 @@ export class UserService {
   public async create(createUserDto: CreateUserDto) {
     const { password, name, birth_date, ...user } = createUserDto;
     const hashedPassword = await hash(password);
-    const username = 'temp'; // @TODO changed to unique identifer for each user
+    const username = generateUsername(name);
     const newUser = await this.prismaService.user.create({
       data: {
         ...user,
@@ -80,6 +82,58 @@ export class UserService {
         username,
       },
     });
+  }
+
+  public async createOAuthUser(oauthProfileDto: OAuthProfileDto) {
+    const newUser = await this.prismaService.user.create({
+      data: {
+        email: oauthProfileDto.provider === 'google' ? oauthProfileDto.email! : '',
+        password: '',
+        username: oauthProfileDto.username!,
+        is_verified: true,
+        provider_id: oauthProfileDto.providerId,
+      },
+    });
+    const proflie = await this.prismaService.profile.create({
+      data: {
+        user_id: newUser.id,
+        name: oauthProfileDto.displayName,
+        profile_image_url: oauthProfileDto?.profileImageUrl,
+      },
+    });
+    return {
+      newUser,
+      proflie,
+    };
+  }
+
+  public async getUserData(uniqueIdentifier: string) {
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(uniqueIdentifier);
+    const user = await this.prismaService.user.findUnique({
+      where: isEmail ? { email: uniqueIdentifier } : { username: uniqueIdentifier },
+    });
+    if (user) {
+      const profile = await this.prismaService.profile.findUnique({
+        where: {
+          user_id: user.id,
+        },
+      });
+      return {
+        user,
+        profile,
+      };
+    }
+    return null;
+  }
+
+  public async updatePassword(userId: number, hashed: string) {
+    return await this.prismaService.user.update({
+      where: { id: userId },
+      data: { password: hashed },
+    });
+  }
+  async findById(id: number) {
+    return await this.prismaService.user.findFirst({ where: { id } });
   }
 
   public async updateEmail(userId: number, email: string) {

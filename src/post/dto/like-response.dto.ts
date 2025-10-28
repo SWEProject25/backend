@@ -37,7 +37,7 @@ export class ToggleLikeResponseDto {
     description: 'The toggle like result',
     example: {
       liked: true,
-      message: 'Post liked'
+      message: 'Post liked',
     },
   })
   data: {

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class FollowerDto {
+export class UserInteractionDto {
   @ApiProperty({
     description: 'User ID',
     example: 123,

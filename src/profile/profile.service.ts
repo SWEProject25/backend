@@ -64,10 +64,7 @@ export class ProfileService {
     return profile;
   }
 
-  public async updateProfile(
-    userId: number,
-    updateProfileDto: UpdateProfileDto,
-  ) {
+  public async updateProfile(userId: number, updateProfileDto: UpdateProfileDto) {
     const existingProfile = await this.prismaService.profile.findUnique({
       where: {
         user_id: userId,
@@ -109,11 +106,7 @@ export class ProfileService {
     return !!profile;
   }
 
-  public async searchProfiles(
-    query: string,
-    page: number = 1,
-    limit: number = 10,
-  ) {
+  public async searchProfiles(query: string, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
 
     const total = await this.prismaService.profile.count({

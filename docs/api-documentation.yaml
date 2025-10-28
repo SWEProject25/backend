@@ -220,9 +220,19 @@
     },
     "/api/v1.0/auth/verification-otp": {
       "post": {
-        "description": "Generates a new OTP and sends it to the user's email for verification.",
+        "description": "Generates a new One-Time Password (OTP) and sends it to the user's email. Throws 409 if already verified, 429 if rate-limited, and 404 if user not found.",
         "operationId": "AuthController_generateVerificationEmail",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Verification OTP sent successfully",
@@ -230,6 +240,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email or malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Account already verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many OTP requests in a short time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
                 }
               }
             }
@@ -243,9 +293,19 @@
     },
     "/api/v1.0/auth/resend-otp": {
       "post": {
-        "description": "Resends a new verification OTP to the user's email.",
+        "description": "Resends a new OTP to the same email. Applies same validation and rate-limit rules(wait for 1 min between each resend).",
         "operationId": "AuthController_resendVerificationEmail",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Verification OTP resent successfully",
@@ -253,6 +313,46 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email or malformed request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Account already verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many OTP requests in a short time",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
                 }
               }
             }
@@ -266,9 +366,19 @@
     },
     "/api/v1.0/auth/verify-otp": {
       "post": {
-        "description": "Verifies the provided OTP for the given email address.",
+        "description": "Verifies the provided OTP for the given email. Throws 422 if invalid or expired, 409 if already verified, and 404 if user not found.",
         "operationId": "AuthController_verifyEmailOtp",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Email verified successfully",
@@ -281,6 +391,36 @@
             }
           },
           "400": {
+            "description": "Invalid email or OTP format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Account already verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Invalid or expired OTP",
             "content": {
               "application/json": {
@@ -326,6 +466,138 @@
         ]
       }
     },
+    "/api/v1.0/auth/forgotPassword": {
+      "post": {
+        "operationId": "AuthController_requestPasswordReset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPasswordResetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reset link successfully sent to the provided email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "success",
+                    "message": "Check your email for password reset instructions"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email format"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "summary": "Request a password reset link",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/verifyResetToken": {
+      "get": {
+        "operationId": "AuthController_verifyResetToken",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "1",
+              "type": "number"
+            }
+          },
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "reset-token-from-email",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token is valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "success",
+                    "message": "Token is valid",
+                    "data": {
+                      "valid": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token invalid or expired"
+          }
+        },
+        "summary": "Verify if a reset token is valid",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/resetPassword": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password successfully reset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "success",
+                    "message": "Password has been reset successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid password format"
+          },
+          "401": {
+            "description": "Token invalid or expired"
+          }
+        },
+        "summary": "Reset password using valid token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/api/v1.0/auth/google/login": {
       "get": {
         "operationId": "AuthController_googleLogin",
@@ -343,6 +615,34 @@
     "/api/v1.0/auth/google/redirect": {
       "get": {
         "operationId": "AuthController_googleRedirect",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/github/login": {
+      "get": {
+        "operationId": "AuthController_githubLogin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1.0/auth/github/redirect": {
+      "get": {
+        "operationId": "AuthController_githubRedirect",
         "parameters": [],
         "responses": {
           "200": {
@@ -530,7 +830,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid user ID provided"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
                 }
               }
             }
@@ -540,7 +854,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
                 }
               }
             }
@@ -550,7 +878,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
                 }
               }
             }
@@ -560,7 +902,45 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "You are already following this user"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Conflict"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "fail"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Internal server error"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "500"
+                    }
+                  }
                 }
               }
             }
@@ -607,7 +987,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid user ID provided"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
                 }
               }
             }
@@ -617,7 +1011,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
                 }
               }
             }
@@ -627,7 +1035,45 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "fail"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Internal server error"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "500"
+                    }
+                  }
                 }
               }
             }
@@ -694,7 +1140,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/FollowerDto"
+                    "$ref": "#/components/schemas/UserInteractionDto"
                   }
                 }
               }
@@ -705,7 +1151,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid pagination parameters"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
                 }
               }
             }
@@ -715,7 +1175,45 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "fail"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Internal server error"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "500"
+                    }
+                  }
                 }
               }
             }
@@ -782,7 +1280,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/FollowerDto"
+                    "$ref": "#/components/schemas/UserInteractionDto"
                   }
                 }
               }
@@ -793,7 +1291,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid pagination parameters"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
                 }
               }
             }
@@ -803,7 +1315,45 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "fail"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Internal server error"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "500"
+                    }
+                  }
                 }
               }
             }
@@ -815,6 +1365,772 @@
           }
         ],
         "summary": "Get users followed by a user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1.0/users/{id}/block": {
+      "post": {
+        "description": "Blocks the specified user for the authenticated user",
+        "operationId": "UsersController_blockUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user to block",
+            "schema": {
+              "example": 123,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successfully blocked the user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid user ID provided"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User to block not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User to block not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Cannot block yourself",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "You cannot block yourself"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Conflict"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Block a user",
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "description": "Unblocks the specified user for the authenticated user",
+        "operationId": "UsersController_unblockUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user to unblock",
+            "schema": {
+              "example": 123,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully unblocked the user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid user ID provided"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Cannot unblock yourself",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "You cannot unblock yourself"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Conflict"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Unblock a user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1.0/users/blocks/me": {
+      "get": {
+        "description": "Retrieves a paginated list of users blocked by the authenticated user",
+        "operationId": "UsersController_getBlockedUsers",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 10, max: 100)",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "example": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved blocked users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserInteractionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid pagination parameters"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "fail"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Internal server error"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "500"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get blocked users",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1.0/users/{id}/mute": {
+      "post": {
+        "description": "Mutes the specified user for the authenticated user",
+        "operationId": "UsersController_muteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user to mute",
+            "schema": {
+              "example": 123,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successfully muted the user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MuteResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid user ID provided"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User to mute not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User to mute not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Cannot mute yourself",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "You cannot mute yourself"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Conflict"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Mute a user",
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "description": "Unmutes the specified user for the authenticated user",
+        "operationId": "UsersController_unmuteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the user to unmute",
+            "schema": {
+              "example": 123,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully unmuted the user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MuteResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid user ID provided"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User to unmute not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User to unmute not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Cannot unmute yourself",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "You cannot unmute yourself"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Conflict"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Unmute a user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1.0/users/mutes/me": {
+      "get": {
+        "description": "Retrieves a paginated list of users muted by the authenticated user",
+        "operationId": "UsersController_getMutedUsers",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page (default: 10, max: 100)",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "example": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved muted users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserInteractionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid pagination parameters"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "fail"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Internal server error"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "500"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get muted users",
         "tags": [
           "Users"
         ]
@@ -897,6 +2213,32 @@
         "operationId": "PostController_getPosts",
         "parameters": [
           {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number for pagination",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of posts per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "example": 10,
+              "type": "number"
+            }
+          },
+          {
             "name": "userId",
             "required": false,
             "in": "query",
@@ -924,26 +2266,6 @@
             "schema": {
               "example": "REPLY",
               "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Number of posts per page",
-            "schema": {
-              "example": 10,
-              "type": "number"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "Page number for pagination",
-            "schema": {
-              "example": 1,
-              "type": "number"
             }
           }
         ],
@@ -1974,6 +3296,65 @@
         ]
       }
     },
+    "/api/v1.0/posts/timeline": {
+      "get": {
+        "description": "Retrieves a paginated list of posts for the authenticated user timeline",
+        "operationId": "PostController_getUserTimeline",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number for pagination",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of posts per page",
+            "schema": {
+              "example": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Timeline posts retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get user timeline posts",
+        "tags": [
+          "Posts"
+        ]
+      }
+    },
     "/api/v1.0/profile/me": {
       "get": {
         "description": "Returns the profile of the currently authenticated user.",
@@ -2233,6 +3614,509 @@
         "summary": "Search profiles by username or name",
         "tags": [
           "Profile"
+        ]
+      }
+    },
+    "/api/v1.0/messages/{conversationId}": {
+      "get": {
+        "description": "Retrieves paginated messages for a specific conversation",
+        "operationId": "MessagesController_getMessages",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of messages per page (default: 20)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Messages retrieved successfully"
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Conversation not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Conversation not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get messages for a conversation",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/v1.0/messages/{conversationId}/{messageId}": {
+      "delete": {
+        "description": "Soft deletes a message for the authenticated user",
+        "operationId": "MessagesController_removeMessage",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "messageId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the message to delete",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message deleted successfully"
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Message or conversation not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Message not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Delete a message",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/v1.0/messages/{conversationId}/unseen-count": {
+      "get": {
+        "description": "Returns the count of unseen messages in a conversation",
+        "operationId": "MessagesController_getUnseenCount",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the conversation",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unseen messages count retrieved successfully"
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get unseen messages count",
+        "tags": [
+          "messages"
+        ]
+      }
+    },
+    "/api/v1.0/conversations/{userId}": {
+      "post": {
+        "description": "Creates a new conversation between the authenticated user and another user",
+        "operationId": "ConversationsController_createConversation",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the other user to start a conversation with",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Conversation created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateConversationResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Invalid user ID provided"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Bad Request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User not found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Not Found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Conversation already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "A conversation between these users already exists"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Conflict"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Create a conversation between two users",
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
+    "/api/v1.0/conversations": {
+      "get": {
+        "description": "Retrieves all conversations involving the authenticated user",
+        "operationId": "ConversationsController_getUserConversations",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Number of conversations per page (default: 20)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversations retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CreateConversationResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get all conversations for the authenticated user",
+        "tags": [
+          "conversations"
+        ]
+      }
+    },
+    "/api/v1.0/conversations/unseen": {
+      "get": {
+        "description": "Retrieves the total number of unseen messages across all conversations",
+        "operationId": "ConversationsController_getUnseenMessagesCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Unseen messages count retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "success",
+                    "unseenCount": 5
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Authentication token is missing or invalid"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Unauthorized"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get count of unseen messages for the authenticated user",
+        "tags": [
+          "conversations"
         ]
       }
     }
@@ -2505,6 +4389,38 @@
           "email"
         ]
       },
+      "EmailDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "mohamedalbaz@gmail.com",
+            "description": "The user's email address to which the OTP will be sent."
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "VerifyOtpDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "mohamedalbaz@gmail.com",
+            "description": "The user's email address to which the OTP will be sent."
+          },
+          "otp": {
+            "type": "string",
+            "example": "458321",
+            "description": "The 6-digit One-Time Password (OTP) sent to the user’s email."
+          }
+        },
+        "required": [
+          "email",
+          "otp"
+        ]
+      },
       "RecaptchaDto": {
         "type": "object",
         "properties": {
@@ -2516,6 +4432,58 @@
         },
         "required": [
           "recaptcha"
+        ]
+      },
+      "RequestPasswordResetDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "mohamdalbaz@gmail.com",
+            "description": "The email address of the user requesting password reset"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "WEB",
+              "MOBILE"
+            ],
+            "default": "WEB",
+            "description": "Device type (e.g. web or mobile) to determine redirect URL, default is web"
+          }
+        },
+        "required": [
+          "email",
+          "type"
+        ]
+      },
+      "ResetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "number",
+            "example": "1"
+          },
+          "token": {
+            "type": "string",
+            "example": "b1f5e58d9a3c43c2aefdcf57b1d8ad72",
+            "description": "The token sent to the user for password reset"
+          },
+          "newPassword": {
+            "type": "string",
+            "example": "NewSecurePassword123!"
+          },
+          "email": {
+            "type": "string",
+            "example": "mohamedalbaz@gmail.com",
+            "description": "The email of the user resetting the password"
+          }
+        },
+        "required": [
+          "userId",
+          "token",
+          "newPassword",
+          "email"
         ]
       },
       "UpdateEmailDto": {
@@ -2573,7 +4541,7 @@
           "createdAt"
         ]
       },
-      "FollowerDto": {
+      "UserInteractionDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -2618,6 +4586,58 @@
           "bio",
           "profileImageUrl",
           "followedAt"
+        ]
+      },
+      "BlockResponseDto": {
+        "type": "object",
+        "properties": {
+          "blockerId": {
+            "type": "number",
+            "description": "The ID of the user who is blocking",
+            "example": 456
+          },
+          "blockedId": {
+            "type": "number",
+            "description": "The ID of the user being blocked",
+            "example": 123
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "The date and time when the block was created",
+            "example": "2025-10-22T10:30:00.000Z"
+          }
+        },
+        "required": [
+          "blockerId",
+          "blockedId",
+          "createdAt"
+        ]
+      },
+      "MuteResponseDto": {
+        "type": "object",
+        "properties": {
+          "muterId": {
+            "type": "number",
+            "description": "The ID of the user who is muting",
+            "example": 456
+          },
+          "mutedId": {
+            "type": "number",
+            "description": "The ID of the user being muted",
+            "example": 123
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "The date and time when the mute was created",
+            "example": "2025-10-22T10:30:00.000Z"
+          }
+        },
+        "required": [
+          "muterId",
+          "mutedId",
+          "createdAt"
         ]
       },
       "CreatePostDto": {
@@ -3316,6 +5336,38 @@
           "status",
           "message",
           "data"
+        ]
+      },
+      "CreateConversationResponseDto": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "number",
+            "description": "The ID of the conversation",
+            "example": 1
+          },
+          "user1Id": {
+            "type": "number",
+            "description": "The ID of the first user",
+            "example": 1
+          },
+          "user2Id": {
+            "type": "number",
+            "description": "The ID of the second user",
+            "example": 2
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "The creation date of the conversation",
+            "example": "2025-10-28T16:34:55.847Z"
+          }
+        },
+        "required": [
+          "conversationId",
+          "user1Id",
+          "user2Id",
+          "createdAt"
         ]
       }
     }

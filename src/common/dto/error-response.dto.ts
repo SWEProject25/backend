@@ -17,4 +17,15 @@ export class ErrorResponseDto {
     description: 'Optional error details or the type of error',
   })
   error?: any;
+
+  static schemaExample(message: string, error?: string, status: 'error' | 'fail' = 'error') {
+    return {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: status },
+        message: { type: 'string', example: message },
+        error: { type: 'string', example: error || null },
+      },
+    };
+  }
 }

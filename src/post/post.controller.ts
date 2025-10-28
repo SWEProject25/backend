@@ -1,12 +1,39 @@
-import { Body, Controller, Delete, FileTypeValidator, Get, HttpStatus, Inject, MaxFileSizeValidator, Param, ParseFilePipe, Post, Query, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete, FileTypeValidator,
+  Get,
+  HttpStatus,
+  Inject, MaxFileSizeValidator,
+  Param, ParseFilePipe,
+  Post,
+  Query, UploadedFiles,
+  UseGuards, UseInterceptors,
+} from '@nestjs/common';
 import { PostService } from './services/post.service';
 import { LikeService } from './services/like.service';
 import { RepostService } from './services/repost.service';
 import { Services } from 'src/utils/constants';
-import { ApiBody, ApiCookieAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiCookieAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CreatePostDto } from './dto/create-post.dto';
-import { CreatePostResponseDto, GetPostsResponseDto, DeletePostResponseDto } from './dto/post-response.dto';
-import { ToggleLikeResponseDto, GetLikersResponseDto, GetLikedPostsResponseDto } from './dto/like-response.dto';
+import {
+  CreatePostResponseDto,
+  GetPostsResponseDto,
+  DeletePostResponseDto,
+} from './dto/post-response.dto';
+import {
+  ToggleLikeResponseDto,
+  GetLikersResponseDto,
+  GetLikedPostsResponseDto,
+} from './dto/like-response.dto';
 import { ToggleRepostResponseDto, GetRepostersResponseDto } from './dto/repost-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
@@ -32,7 +59,7 @@ export class PostController {
     private readonly repostService: RepostService,
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
-  ) { }
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -126,10 +153,7 @@ export class PostController {
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
   })
-  async getPosts(
-    @Query() filters: PostFiltersDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async getPosts(@Query() filters: PostFiltersDto, @CurrentUser() user: AuthenticatedUser) {
     const posts = await this.postService.getPostsWithFilters(filters);
 
     return {
@@ -167,10 +191,7 @@ export class PostController {
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
   })
-  async togglePostLike(
-    @Param('postId') postId: number,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async togglePostLike(@Param('postId') postId: number, @CurrentUser() user: AuthenticatedUser) {
     const result = await this.likeService.togglePostLike(+postId, user.id);
 
     return {
@@ -320,10 +341,7 @@ export class PostController {
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
   })
-  async toggleRepost(
-    @Param('postId') postId: number,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async toggleRepost(@Param('postId') postId: number, @CurrentUser() user: AuthenticatedUser) {
     const result = await this.repostService.toggleRepost(+postId, user.id);
 
     return {
@@ -383,7 +401,7 @@ export class PostController {
   ) {
     const reposters = await this.repostService.getReposters(+postId, +page, +limit);
 
-    const users = reposters.map(repost => repost.user);
+    const users = reposters.map((repost) => repost.user);
 
     return {
       status: 'success',
@@ -481,9 +499,7 @@ export class PostController {
     description: 'Post not found',
     type: ErrorResponseDto,
   })
-  async deletePost(
-    @Param('postId') postId: number,
-  ) {
+  async deletePost(@Param('postId') postId: number) {
     await this.postService.deletePost(+postId);
 
     return {
@@ -520,15 +536,12 @@ export class PostController {
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
   })
-  async mentionInPost(
-    @Param('postId') postId: number,
-    @Param('userId') userId: number,
-  ) {
+  async mentionInPost(@Param('postId') postId: number, @Param('userId') userId: number) {
     const result = await this.mentionService.mentionUser(userId, postId);
 
     return {
       status: 'success',
-      message: "User mentioned successfully",
+      message: 'User mentioned successfully',
       data: result,
     };
   }
@@ -538,7 +551,8 @@ export class PostController {
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Get posts mentioned by a user',
-    description: 'Retrieves a paginated list of posts that the specified user has been mentioned in',
+    description:
+      'Retrieves a paginated list of posts that the specified user has been mentioned in',
   })
   @ApiParam({
     name: 'userId',
@@ -777,7 +791,12 @@ export class PostController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    const posts = await this.postService.getUserPosts(userId, +page, +limit, PostVisibility.EVERY_ONE);
+    const posts = await this.postService.getUserPosts(
+      userId,
+      +page,
+      +limit,
+      PostVisibility.EVERY_ONE,
+    );
 
     return {
       status: 'success',
@@ -828,7 +847,12 @@ export class PostController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    const replies = await this.postService.getUserReplies(userId, +page, +limit, PostVisibility.EVERY_ONE);
+    const replies = await this.postService.getUserReplies(
+      userId,
+      +page,
+      +limit,
+      PostVisibility.EVERY_ONE,
+    );
 
     return {
       status: 'success',
@@ -837,4 +861,48 @@ export class PostController {
     };
   }
 
+  @Get('timeline')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get user timeline posts',
+    description: 'Retrieves a paginated list of posts for the authenticated user timeline',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Timeline posts retrieved successfully',
+    type: ApiResponseDto<PostModel[]>,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getUserTimeline(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const posts = await this.postService.getUserTimeline(user.id, page, limit);
+
+    return {
+      status: 'success',
+      message: 'Timeline posts retrieved successfully',
+      data: posts,
+    };
+  }
 }

@@ -38,4 +38,4 @@ import { StorageService } from 'src/storage/storage.service';
     },
   ],
 })
-export class PostModule { }
+export class PostModule {}

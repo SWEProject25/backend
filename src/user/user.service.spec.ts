@@ -14,6 +14,7 @@ describe('UserService', () => {
     email: 'test@example.com',
     password: 'password123',
     name: 'Test User',
+    birth_date: new Date(),
   };
 
   const mockUser = {
