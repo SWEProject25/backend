@@ -26,6 +26,7 @@ import {
 import { CreatePostDto } from './dto/create-post.dto';
 import {
   CreatePostResponseDto,
+  GetPostResponseDto,
   GetPostsResponseDto,
   DeletePostResponseDto,
 } from './dto/post-response.dto';
@@ -161,6 +162,39 @@ export class PostController {
       status: 'success',
       message: 'Posts retrieved successfully',
       data: posts,
+    };
+  }
+
+  @Get(':postId')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get a post by ID',
+    description: 'Retrieves a single post by its ID',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to retrieve',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Post retrieved successfully',
+    type: GetPostResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Post not found',
+    type: ErrorResponseDto,
+  })
+  async getPostById(@Param('postId') postId: number) {
+    const post = await this.postService.getPostById(postId);
+
+    return {
+      status: 'success',
+      message: 'Post retrieved successfully',
+      data: post,
     };
   }
 

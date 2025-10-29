@@ -13,7 +13,7 @@ export class PostService {
     private readonly prismaService: PrismaService,
     @Inject(Services.STORAGE)
     private readonly storageService: StorageService
-  ) {}
+  ) { }
 
   private extractHashtags(content: string): string[] {
     if (!content) return [];
@@ -26,7 +26,7 @@ export class PostService {
   }
 
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
-    if(urls.length === 0) return [];
+    if (urls.length === 0) return [];
     return urls.map((url, index) => ({
       url, type: media?.[index]?.mimetype.startsWith('video')
         ? MediaType.VIDEO
@@ -111,16 +111,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-          ...(userId && { user_id: userId }),
-          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-          ...(type && { type }),
-          is_deleted: false,
-        }
+        ...(userId && { user_id: userId }),
+        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+        ...(type && { type }),
+        is_deleted: false,
+      }
       : {
-          // TODO: improve this fallback
-          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-          is_deleted: false,
-        };
+        // TODO: improve this fallback
+        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+        is_deleted: false,
+      };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -348,5 +348,38 @@ export class PostService {
   `);
 
     return posts;
+  }
+
+  async getPostById(postId: number) {
+    const post = await this.prismaService.post.findUnique({
+      where: { id: postId, is_deleted: false },
+      include: {
+        _count: {
+          select: {
+            likes: true,
+            repostedBy: true,
+            Replies: true,
+          }
+        },
+        User: {
+          select: {
+            id: true,
+            username: true,
+          }
+        },
+        media: {
+          select: {
+            media_url: true,
+            type: true,
+          }
+        }
+      }
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    return post
   }
 }

@@ -1,5 +1,54 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PostType, PostVisibility } from 'generated/prisma';
+import { PostType, PostVisibility, MediaType } from 'generated/prisma';
+
+class PostCountsDto {
+  @ApiProperty({
+    description: 'Number of likes on the post',
+    example: 1,
+  })
+  likes: number;
+
+  @ApiProperty({
+    description: 'Number of reposts',
+    example: 1,
+  })
+  repostedBy: number;
+
+  @ApiProperty({
+    description: 'Number of replies',
+    example: 0,
+  })
+  Replies: number;
+}
+
+class PostUserDto {
+  @ApiProperty({
+    description: 'User ID',
+    example: 1,
+  })
+  id: number;
+
+  @ApiProperty({
+    description: 'Username',
+    example: 'mostafayo597',
+  })
+  username: string;
+}
+
+class PostMediaDto {
+  @ApiProperty({
+    description: 'Media URL',
+    example: 'https://stsimpleappiee20o.blob.core.windows.net/media/d679f207-9248-49e7-917b-9cdc358217ed.png',
+  })
+  media_url: string;
+
+  @ApiProperty({
+    description: 'Media type',
+    enum: MediaType,
+    example: MediaType.IMAGE,
+  })
+  type: MediaType;
+}
 
 export class PostResponseDto {
   @ApiProperty({
@@ -10,13 +59,13 @@ export class PostResponseDto {
 
   @ApiProperty({
     description: 'The ID of the user who created the post',
-    example: 123,
+    example: 1,
   })
   user_id: number;
 
   @ApiProperty({
     description: 'The textual content of the post',
-    example: 'Excited to share my new project today!',
+    example: 'hey',
   })
   content: string;
 
@@ -29,7 +78,7 @@ export class PostResponseDto {
 
   @ApiProperty({
     description: 'The ID of the parent post (if this is a reply or quote)',
-    example: 42,
+    example: null,
     nullable: true,
   })
   parent_id: number | null;
@@ -42,23 +91,34 @@ export class PostResponseDto {
   visibility: PostVisibility;
 
   @ApiProperty({
-    description: 'The media URLs associated with the post',
-    type: [String],
-  })
-  mediaUrls: string[];
-
-  @ApiProperty({
-    description: 'The hashtags included in the post',
-    type: [String],
-  })
-  hashtags: string[];
-
-
-  @ApiProperty({
     description: 'The date and time when the post was created',
-    example: '2023-10-22T10:30:00.000Z',
+    example: '2025-10-29T20:42:08.132Z',
   })
-  createdAt: Date;
+  created_at: Date;
+
+  @ApiProperty({
+    description: 'Whether the post is deleted',
+    example: false,
+  })
+  is_deleted: boolean;
+
+  @ApiProperty({
+    description: 'Post interaction counts',
+    type: PostCountsDto,
+  })
+  _count: PostCountsDto;
+
+  @ApiProperty({
+    description: 'User who created the post',
+    type: PostUserDto,
+  })
+  User: PostUserDto;
+
+  @ApiProperty({
+    description: 'Media attached to the post',
+    type: [PostMediaDto],
+  })
+  media: PostMediaDto[];
 }
 
 export class CreatePostResponseDto {
@@ -76,6 +136,26 @@ export class CreatePostResponseDto {
 
   @ApiProperty({
     description: 'The created post data',
+    type: PostResponseDto,
+  })
+  data: PostResponseDto;
+}
+
+export class GetPostResponseDto {
+  @ApiProperty({
+    description: 'Status of the response',
+    example: 'success',
+  })
+  status: string;
+
+  @ApiProperty({
+    description: 'Response message',
+    example: 'Post retrieved successfully',
+  })
+  message: string;
+
+  @ApiProperty({
+    description: 'The post data',
     type: PostResponseDto,
   })
   data: PostResponseDto;
