@@ -94,7 +94,8 @@ export class PostController {
     @UploadedFiles( ImageVideoUploadPipe ) media: Express.Multer.File[]
   ) {
     createPostDto.userId = user.id;
-    const post = await this.postService.createPost(createPostDto, media);
+    createPostDto.media = media;
+    const post = await this.postService.createPost(createPostDto);
 
     return {
       status: 'success',

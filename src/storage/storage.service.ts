@@ -15,7 +15,8 @@ export class StorageService {
 		this.blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
 	}
 
-	async uploadFiles(files: Express.Multer.File[]): Promise<string[]> {
+	async uploadFiles(files?: Express.Multer.File[]): Promise<string[]> {
+		if (!files || files.length === 0) return [];
 		const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
 		await containerClient.createIfNotExists({ access: 'container' });
 
@@ -51,6 +52,8 @@ export class StorageService {
 	}
 
 	async deleteFiles(blobUrlsOrNames: string[]): Promise<void> {
+		if (!blobUrlsOrNames || blobUrlsOrNames.length === 0) return;
+
 		await Promise.all(blobUrlsOrNames.map((url) => this.deleteFile(url)));
 	}
 }

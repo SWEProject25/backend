@@ -4674,6 +4674,14 @@
               "MENTIONED"
             ],
             "example": "EVERY_ONE"
+          },
+          "media": {
+            "type": "array",
+            "description": "Media files (images/videos) to attach to the post",
+            "items": {
+              "type": "string",
+              "format": "binary"
+            }
           }
         },
         "required": [
@@ -4690,7 +4698,7 @@
             "description": "The unique identifier of the post",
             "example": 1
           },
-          "userId": {
+          "user_id": {
             "type": "number",
             "description": "The ID of the user who created the post",
             "example": 123
@@ -4710,7 +4718,7 @@
             ],
             "example": "POST"
           },
-          "parentId": {
+          "parent_id": {
             "type": "object",
             "description": "The ID of the parent post (if this is a reply or quote)",
             "example": 42,
@@ -4726,6 +4734,20 @@
             ],
             "example": "EVERY_ONE"
           },
+          "mediaUrls": {
+            "description": "The media URLs associated with the post",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hashtags": {
+            "description": "The hashtags included in the post",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string",
@@ -4735,11 +4757,13 @@
         },
         "required": [
           "id",
-          "userId",
+          "user_id",
           "content",
           "type",
-          "parentId",
+          "parent_id",
           "visibility",
+          "mediaUrls",
+          "hashtags",
           "createdAt"
         ]
       },
@@ -5360,7 +5384,7 @@
             "format": "date-time",
             "type": "string",
             "description": "The creation date of the conversation",
-            "example": "2025-10-28T16:34:55.847Z"
+            "example": "2025-10-29T08:42:55.975Z"
           }
         },
         "required": [

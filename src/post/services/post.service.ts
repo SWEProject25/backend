@@ -25,9 +25,10 @@ export class PostService {
     return [...new Set(matches.map((tag) => tag.slice(1).toLowerCase()))];
   }
 
-  private getMediaWithType(urls: string[], media: Express.Multer.File[]) {
+  private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
+    if(urls.length === 0) return [];
     return urls.map((url, index) => ({
-      url, type: media[index].mimetype.startsWith('video')
+      url, type: media?.[index]?.mimetype.startsWith('video')
         ? MediaType.VIDEO
         : MediaType.IMAGE
     }))
@@ -79,10 +80,10 @@ export class PostService {
   }
 
 
-  async createPost(createPostDto: CreatePostDto, media: Express.Multer.File[]) {
+  async createPost(createPostDto: CreatePostDto) {
     let urls: string[] = [];
     try {
-      const { content } = createPostDto;
+      const { content, media } = createPostDto;
       urls = await this.storageService.uploadFiles(media)
 
       const hashtags = this.extractHashtags(content)
