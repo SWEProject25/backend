@@ -152,22 +152,22 @@ describe('MessagesService', () => {
   });
 
   describe('getConversationMessages', () => {
-    it('should return paginated messages for user1', async () => {
+    it('should return messages for user1 without cursor', async () => {
       const mockConversation = { user1Id: 1, user2Id: 2 };
       const mockMessages = [
-        {
-          id: 1,
-          text: 'Message 1',
-          senderId: 1,
-          isSeen: false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
         {
           id: 2,
           text: 'Message 2',
           senderId: 2,
           isSeen: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: 1,
+          text: 'Message 1',
+          senderId: 1,
+          isSeen: false,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -177,28 +177,27 @@ describe('MessagesService', () => {
       mockPrismaService.message.findMany.mockResolvedValue(mockMessages);
       mockPrismaService.message.count.mockResolvedValue(2);
 
-      const result = await service.getConversationMessages(1, 1, 1, 20);
+      const result = await service.getConversationMessages(1, 1, undefined, 20);
 
       expect(result.data).toEqual(mockMessages.reverse());
       expect(result.metadata).toEqual({
         totalItems: 2,
-        page: 1,
         limit: 20,
-        totalPages: 1,
+        hasMore: false,
+        oldestMessageId: 1,
       });
       expect(mockPrismaService.message.findMany).toHaveBeenCalledWith({
         where: {
           conversationId: 1,
           isDeletedU1: false,
         },
-        orderBy: { createdAt: 'desc' },
-        skip: 0,
+        orderBy: { id: 'desc' },
         take: 20,
         select: expect.any(Object),
       });
     });
 
-    it('should return paginated messages for user2', async () => {
+    it('should return messages for user2 with cursor', async () => {
       const mockConversation = { user1Id: 1, user2Id: 2 };
       const mockMessages = [
         {
@@ -213,26 +212,29 @@ describe('MessagesService', () => {
 
       mockPrismaService.conversation.findUnique.mockResolvedValue(mockConversation);
       mockPrismaService.message.findMany.mockResolvedValue(mockMessages);
-      mockPrismaService.message.count.mockResolvedValue(1);
+      mockPrismaService.message.count.mockResolvedValue(10);
 
-      const result = await service.getConversationMessages(1, 2, 1, 20);
+      const result = await service.getConversationMessages(1, 2, 5, 20);
 
       expect(mockPrismaService.message.findMany).toHaveBeenCalledWith({
         where: {
           conversationId: 1,
           isDeletedU2: false,
+          id: { lt: 5 },
         },
-        orderBy: { createdAt: 'desc' },
-        skip: 0,
+        orderBy: { id: 'desc' },
         take: 20,
         select: expect.any(Object),
       });
+      expect(result.metadata.hasMore).toBe(false);
     });
 
     it('should throw ConflictException if conversation not found', async () => {
       mockPrismaService.conversation.findUnique.mockResolvedValue(null);
 
-      await expect(service.getConversationMessages(1, 1, 1, 20)).rejects.toThrow(ConflictException);
+      await expect(service.getConversationMessages(1, 1, undefined, 20)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 

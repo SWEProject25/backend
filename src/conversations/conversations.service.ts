@@ -42,7 +42,7 @@ export class ConversationsService {
             [deletedField]: false,
           },
           orderBy: {
-            createdAt: 'desc',
+            id: 'desc',
           },
           take: 20,
           select: {
@@ -65,17 +65,18 @@ export class ConversationsService {
       });
 
       const { Messages, ...conversationData } = oldConversation;
+      const reversedMessages = Messages.reverse(); // Reverse to show oldest first
 
       return {
         data: {
           ...conversationData,
-          messages: Messages.reverse(), // Reverse to show oldest first
+          messages: reversedMessages,
         },
         metadata: {
           totalItems: totalMessages,
-          page: 1,
           limit: 20,
-          totalPages: Math.ceil(totalMessages / 20),
+          hasMore: Messages.length === 20,
+          oldestMessageId: reversedMessages.length > 0 ? reversedMessages[0].id : null,
         },
       };
     }
@@ -99,9 +100,10 @@ export class ConversationsService {
       },
       metadata: {
         totalItems: 0,
-        page: 1,
         limit: 20,
-        totalPages: 0,
+        hasMore: false,
+        oldestMessageId: null,
+        newestMessageId: null,
       },
     };
   }
