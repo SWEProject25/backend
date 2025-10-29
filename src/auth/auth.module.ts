@@ -21,6 +21,7 @@ import googleOauthConfig from './config/google-oauth.config';
 import { GithubStrategy } from './strategies/github.strategy';
 import githubOauthConfig from './config/github-oauth.config';
 import { RedisModule } from 'src/redis/redis.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
 
 @Module({
   controllers: [AuthController],
@@ -28,10 +29,6 @@ import { RedisModule } from 'src/redis/redis.module';
     {
       provide: Services.AUTH,
       useClass: AuthService,
-    },
-    {
-      provide: Services.PRISMA,
-      useClass: PrismaService,
     },
     {
       provide: Services.EMAIL,
@@ -62,6 +59,7 @@ import { RedisModule } from 'src/redis/redis.module';
     UserModule,
     PassportModule,
     RedisModule,
+    PrismaModule,
     ConfigModule.forFeature(jwtConfig),
     JwtModule.registerAsync(jwtConfig.asProvider()),
     ConfigModule.forFeature(mailerConfig),

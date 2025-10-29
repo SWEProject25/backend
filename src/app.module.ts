@@ -17,6 +17,7 @@ import { StorageModule } from './storage/storage.module';
 import { RedisModule } from './redis/redis.module';
 import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 const envFilePath = '.env';
 
@@ -41,13 +42,10 @@ const envFilePath = '.env';
     RedisModule,
     MessagesModule,
     ConversationsModule,
+    PrismaModule,
   ],
   controllers: [],
   providers: [
-    {
-      provide: Services.PRISMA,
-      useClass: PrismaService,
-    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
