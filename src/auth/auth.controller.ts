@@ -204,8 +204,7 @@ export class AuthController {
     type: ApiResponseDto,
   })
   logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie('access_token');
-    response.clearCookie('refresh_token');
+    this.jwtTokenService.clearAuthCookies(response);
     return { message: 'Logout successful' };
   }
 
@@ -488,8 +487,9 @@ export class AuthController {
               try {
                 if (window.opener && !window.opener.closed) {
                   window.opener.postMessage(message, targetOrigin);
-                  // Give the opener a moment to handle the message, then close the popup
-                  setTimeout(() => window.close(), 100);
+                  // Give browser time to sync cookies between popup and main window
+                  // This is especially important for Firefox and Safari
+                  setTimeout(() => window.close(), 500);
                 } else {
                   console.warn('No opener window to receive OAuth message.');
                   // Redirect the popup to the frontend as a fallback
@@ -541,7 +541,9 @@ export class AuthController {
               try {
                 if (window.opener && !window.opener.closed) {
                   window.opener.postMessage(message, frontendBase);
-                  setTimeout(() => window.close(), 100);
+                  // Give browser time to sync cookies between popup and main window
+                  // This is especially important for Firefox and Safari
+                  setTimeout(() => window.close(), 500);
                 } else {
                   // If no opener, redirect the popup to the frontend
                   window.location.href = url;
