@@ -1,12 +1,6 @@
 import { Request } from 'express';
+import { AuthJwtPayload } from 'src/types/jwtPayload';
 
 export interface RequestWithUser extends Request {
-  user: {
-    sub: number; //userId
-    username: string;
-    email?: string;
-    role?: string;
-    name?: string;
-    profileImageUrl?: string;
-  };
+  user: AuthJwtPayload;
 }

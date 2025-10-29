@@ -56,8 +56,8 @@ export class CreateUserDto {
   @ApiProperty({
     description: 'The birth date of the user',
     example: '2004-01-01',
-    type: String,
+    type: Date,
     format: 'date',
   })
-  birth_date: Date;
+  birthDate: Date;
 }

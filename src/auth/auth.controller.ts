@@ -28,7 +28,6 @@ import {
 } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth/local-auth.guard';
 import { Response } from 'express';
-import { JwtAuthGuard } from './guards/jwt-auth/jwt-auth.guard';
 import { RequestWithUser } from 'src/common/interfaces/request-with-user.interface';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
@@ -52,6 +51,9 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateEmailDto } from 'src/user/dto/update-email.dto';
 import { UpdateUsernameDto } from 'src/user/dto/update-username.dto';
 import { EmailDto, VerifyOtpDto } from './dto/email-verification.dto';
+import { AuthJwtPayload } from 'src/types/jwtPayload';
+import { AuthenticatedUser } from './interfaces/user.interface';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -164,7 +166,6 @@ export class AuthController {
 
   @Get('me')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Get current user information',
@@ -180,9 +181,14 @@ export class AuthController {
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
   })
-  getMe(@CurrentUser() user: any) {
+  getMe(@CurrentUser() user: AuthJwtPayload) {
     // @TODO add user interface
-    return { user };
+    return {
+      status: 'success',
+      data: {
+        user,
+      },
+    };
   }
 
   @Post('logout')
@@ -553,9 +559,8 @@ export class AuthController {
     res.send(html);
   }
 
-  @ApiCookieAuth()
   @Get('test')
-  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
   @ApiOperation({
     summary: 'Test endpoint',
     description: 'A protected test endpoint to verify JWT authentication.',
@@ -565,14 +570,12 @@ export class AuthController {
     description: 'Successful test',
     type: ApiResponseDto,
   })
-  @UseGuards(JwtAuthGuard)
   public test() {
     return 'hello';
   }
 
   @Patch('update-email')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Update user email',
@@ -603,7 +606,6 @@ export class AuthController {
 
   @Patch('update-username')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Update username',
@@ -632,6 +634,52 @@ export class AuthController {
     return {
       status: 'success',
       message: 'Username updated successfully',
+    };
+  }
+
+  @Post('changePassword')
+  @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Change user password (requires authentication)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password updated successfully',
+    schema: {
+      example: {
+        status: 'success',
+        message: 'Password updated successfully',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Old password is incorrect or same as new password',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Old password is incorrect',
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized (invalid or missing JWT token)',
+    schema: {
+      example: {
+        statusCode: 401,
+        message: 'Unauthorized',
+      },
+    },
+  })
+  public async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    await this.passwordService.changePassword(user.id, changePasswordDto);
+    return {
+      status: 'success',
+      message: 'Password updated successfully',
     };
   }
 }

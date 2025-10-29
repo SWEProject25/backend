@@ -1,11 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsOptional,
-  IsString,
-  MaxLength,
-  IsUrl,
-  IsDate,
-} from 'class-validator';
+import { IsOptional, IsString, MaxLength, IsUrl, IsDate } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateProfileDto {
@@ -28,7 +22,7 @@ export class UpdateProfileDto {
     type: String,
     format: 'date',
   })
-  birth_date?: Date;
+  birthDate?: Date;
 
   @IsOptional()
   @IsUrl({}, { message: 'Invalid profile image URL format' })
@@ -40,7 +34,7 @@ export class UpdateProfileDto {
     example: 'https://example.com/profile.jpg',
     maxLength: 255,
   })
-  profile_image_url?: string;
+  profileImageUrl?: string;
 
   @IsOptional()
   @IsUrl({}, { message: 'Invalid banner image URL format' })
@@ -52,7 +46,7 @@ export class UpdateProfileDto {
     example: 'https://example.com/banner.jpg',
     maxLength: 255,
   })
-  banner_image_url?: string;
+  bannerImageUrl?: string;
 
   @IsOptional()
   @IsString()
