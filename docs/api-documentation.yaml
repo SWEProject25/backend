@@ -2312,6 +2312,122 @@
         ]
       }
     },
+    "/api/v1.0/posts/{postId}": {
+      "get": {
+        "description": "Retrieves a single post by its ID",
+        "operationId": "PostController_getPostById",
+        "parameters": [
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the post to retrieve",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPostResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Post not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Get a post by ID",
+        "tags": [
+          "Posts"
+        ]
+      },
+      "delete": {
+        "description": "Soft deletes a post and all its replies and quotes",
+        "operationId": "PostController_deletePost",
+        "parameters": [
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "description": "The ID of the post to delete",
+            "schema": {
+              "example": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletePostResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid post ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Token missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Post not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookie": []
+          }
+        ],
+        "summary": "Delete a post",
+        "tags": [
+          "Posts"
+        ]
+      }
+    },
     "/api/v1.0/posts/{postId}/like": {
       "post": {
         "description": "Likes a post if not already liked, or unlikes it if already liked",
@@ -2741,75 +2857,6 @@
           }
         ],
         "summary": "Get posts liked by a user",
-        "tags": [
-          "Posts"
-        ]
-      }
-    },
-    "/api/v1.0/posts/{postId}": {
-      "delete": {
-        "description": "Soft deletes a post and all its replies and quotes",
-        "operationId": "PostController_deletePost",
-        "parameters": [
-          {
-            "name": "postId",
-            "required": true,
-            "in": "path",
-            "description": "The ID of the post to delete",
-            "schema": {
-              "example": 1,
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Post deleted successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeletePostResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - Invalid post ID",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Token missing or invalid",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Post not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "cookie": []
-          }
-        ],
-        "summary": "Delete a post",
         "tags": [
           "Posts"
         ]
@@ -4690,6 +4737,73 @@
           "visibility"
         ]
       },
+      "PostCountsDto": {
+        "type": "object",
+        "properties": {
+          "likes": {
+            "type": "number",
+            "description": "Number of likes on the post",
+            "example": 1
+          },
+          "repostedBy": {
+            "type": "number",
+            "description": "Number of reposts",
+            "example": 1
+          },
+          "Replies": {
+            "type": "number",
+            "description": "Number of replies",
+            "example": 0
+          }
+        },
+        "required": [
+          "likes",
+          "repostedBy",
+          "Replies"
+        ]
+      },
+      "PostUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "description": "User ID",
+            "example": 1
+          },
+          "username": {
+            "type": "string",
+            "description": "Username",
+            "example": "mostafayo597"
+          }
+        },
+        "required": [
+          "id",
+          "username"
+        ]
+      },
+      "PostMediaDto": {
+        "type": "object",
+        "properties": {
+          "media_url": {
+            "type": "string",
+            "description": "Media URL",
+            "example": "https://stsimpleappiee20o.blob.core.windows.net/media/d679f207-9248-49e7-917b-9cdc358217ed.png"
+          },
+          "type": {
+            "type": "string",
+            "description": "Media type",
+            "enum": [
+              "VIDEO",
+              "IMAGE"
+            ],
+            "example": "IMAGE"
+          }
+        },
+        "required": [
+          "media_url",
+          "type"
+        ]
+      },
       "PostResponseDto": {
         "type": "object",
         "properties": {
@@ -4701,12 +4815,12 @@
           "user_id": {
             "type": "number",
             "description": "The ID of the user who created the post",
-            "example": 123
+            "example": 1
           },
           "content": {
             "type": "string",
             "description": "The textual content of the post",
-            "example": "Excited to share my new project today!"
+            "example": "hey"
           },
           "type": {
             "type": "string",
@@ -4721,7 +4835,7 @@
           "parent_id": {
             "type": "object",
             "description": "The ID of the parent post (if this is a reply or quote)",
-            "example": 42,
+            "example": null,
             "nullable": true
           },
           "visibility": {
@@ -4734,25 +4848,39 @@
             ],
             "example": "EVERY_ONE"
           },
-          "mediaUrls": {
-            "description": "The media URLs associated with the post",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "hashtags": {
-            "description": "The hashtags included in the post",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "createdAt": {
+          "created_at": {
             "format": "date-time",
             "type": "string",
             "description": "The date and time when the post was created",
-            "example": "2023-10-22T10:30:00.000Z"
+            "example": "2025-10-29T20:42:08.132Z"
+          },
+          "is_deleted": {
+            "type": "boolean",
+            "description": "Whether the post is deleted",
+            "example": false
+          },
+          "_count": {
+            "description": "Post interaction counts",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PostCountsDto"
+              }
+            ]
+          },
+          "User": {
+            "description": "User who created the post",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PostUserDto"
+              }
+            ]
+          },
+          "media": {
+            "description": "Media attached to the post",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PostMediaDto"
+            }
           }
         },
         "required": [
@@ -4762,9 +4890,11 @@
           "type",
           "parent_id",
           "visibility",
-          "mediaUrls",
-          "hashtags",
-          "createdAt"
+          "created_at",
+          "is_deleted",
+          "_count",
+          "User",
+          "media"
         ]
       },
       "CreatePostResponseDto": {
@@ -4814,6 +4944,34 @@
             "items": {
               "$ref": "#/components/schemas/PostResponseDto"
             }
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "data"
+        ]
+      },
+      "GetPostResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Status of the response",
+            "example": "success"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Post retrieved successfully"
+          },
+          "data": {
+            "description": "The post data",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PostResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -5384,7 +5542,7 @@
             "format": "date-time",
             "type": "string",
             "description": "The creation date of the conversation",
-            "example": "2025-10-29T08:42:55.975Z"
+            "example": "2025-10-29T20:45:57.727Z"
           }
         },
         "required": [
