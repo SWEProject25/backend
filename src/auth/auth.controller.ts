@@ -52,6 +52,8 @@ import { UpdateEmailDto } from 'src/user/dto/update-email.dto';
 import { UpdateUsernameDto } from 'src/user/dto/update-username.dto';
 import { EmailDto, VerifyOtpDto } from './dto/email-verification.dto';
 import { AuthJwtPayload } from 'src/types/jwtPayload';
+import { AuthenticatedUser } from './interfaces/user.interface';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -627,6 +629,52 @@ export class AuthController {
     return {
       status: 'success',
       message: 'Username updated successfully',
+    };
+  }
+
+  @Post('changePassword')
+  @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth()
+  @ApiOperation({ summary: 'Change user password (requires authentication)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password updated successfully',
+    schema: {
+      example: {
+        status: 'success',
+        message: 'Password updated successfully',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Old password is incorrect or same as new password',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'Old password is incorrect',
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized (invalid or missing JWT token)',
+    schema: {
+      example: {
+        statusCode: 401,
+        message: 'Unauthorized',
+      },
+    },
+  })
+  public async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    await this.passwordService.changePassword(user.id, changePasswordDto);
+    return {
+      status: 'success',
+      message: 'Password updated successfully',
     };
   }
 }

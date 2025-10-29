@@ -12,6 +12,7 @@ import { EmailService } from 'src/email/email.service';
 import { UserService } from 'src/user/user.service';
 import { RedisService } from 'src/redis/redis.service';
 import { RequestType, Services } from 'src/utils/constants';
+import { ChangePasswordDto } from 'src/auth/dto/change-password.dto';
 
 const RESET_TOKEN_PREFIX = 'password-reset:';
 const RESET_TOKEN_TTL_SECONDS = 15 * 60; // 15 minutes
@@ -144,5 +145,24 @@ export class PasswordService {
     const count = current ? parseInt(current) + 1 : 1;
 
     await this.redisService.set(key, count.toString(), ATTEMPT_WINDOW_SECONDS);
+  }
+
+  public async changePassword(id: number, changePasswordDto: ChangePasswordDto): Promise<void> {
+    const user = await this.userService.findById(id);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const isMatch = await this.verify(user.password, changePasswordDto.oldPassword);
+    if (!isMatch) {
+      throw new BadRequestException('Old password is incorrect');
+    }
+
+    if (changePasswordDto.oldPassword === changePasswordDto.newPassword) {
+      throw new BadRequestException('New password must be different from old password');
+    }
+
+    const hashedPassword = await this.hash(changePasswordDto.newPassword);
+    await this.userService.updatePassword(id, hashedPassword);
   }
 }
