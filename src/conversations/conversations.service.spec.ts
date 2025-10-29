@@ -74,7 +74,7 @@ describe('ConversationsService', () => {
           totalItems: 0,
           limit: 20,
           hasMore: false,
-          oldestMessageId: null,
+          lastMessageId: null,
         },
       });
       expect(mockPrismaService.conversation.create).toHaveBeenCalledWith({

@@ -139,7 +139,7 @@ export class MessagesService {
         totalItems: total,
         limit,
         hasMore: messages.length === limit,
-        oldestMessageId: reversedMessages.length > 0 ? reversedMessages[0].id : null,
+        lastMessageId: reversedMessages.length > 0 ? reversedMessages[0].id : null,
       },
     };
   }

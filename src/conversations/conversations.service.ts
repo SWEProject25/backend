@@ -76,7 +76,7 @@ export class ConversationsService {
           totalItems: totalMessages,
           limit: 20,
           hasMore: Messages.length === 20,
-          oldestMessageId: reversedMessages.length > 0 ? reversedMessages[0].id : null,
+          lastMessageId: reversedMessages.length > 0 ? reversedMessages[0].id : null,
         },
       };
     }
@@ -102,7 +102,7 @@ export class ConversationsService {
         totalItems: 0,
         limit: 20,
         hasMore: false,
-        oldestMessageId: null,
+        lastMessageId: null,
         newestMessageId: null,
       },
     };

@@ -49,6 +49,25 @@ export class ConversationsController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Conversation created successfully',
+    schema: {
+      example: {
+        status: 'success',
+        data: {
+          id: 1,
+          user1Id: 1,
+          user2Id: 2,
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+          Messages: [],
+        },
+        metadata: {
+          totalMessages: 0,
+          limit: 20,
+          hasMore: false,
+          lastMessageId: 1,
+        },
+      },
+    },
     type: CreateConversationResponseDto,
   })
   @ApiResponse({

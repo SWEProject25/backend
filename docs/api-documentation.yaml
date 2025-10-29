@@ -3267,7 +3267,41 @@
                 ],
               'responses':
                 {
-                  '200': { 'description': 'Messages retrieved successfully' },
+                  '200':
+                    {
+                      'description': 'Messages retrieved successfully',
+                      'content':
+                        {
+                          'application/json':
+                            {
+                              'schema':
+                                {
+                                  'example':
+                                    {
+                                      'status': 'success',
+                                      'data':
+                                        [
+                                          {
+                                            'id': 1,
+                                            'text': 'Hello',
+                                            'senderId': 1,
+                                            'isSeen': false,
+                                            'createdAt': '2024-01-01T00:00:00.000Z',
+                                            'updatedAt': '2024-01-01T00:00:00.000Z',
+                                          },
+                                        ],
+                                      'metadata':
+                                        {
+                                          'totalItems': 1,
+                                          'limit': 20,
+                                          'hasMore': false,
+                                          'lastMessageId': 1,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
                   '401':
                     {
                       'description': 'Unauthorized - Token missing or invalid',
@@ -4820,7 +4854,7 @@
                       'format': 'date-time',
                       'type': 'string',
                       'description': 'The creation date of the conversation',
-                      'example': '2025-10-29T08:42:55.975Z',
+                      'example': '2025-10-29T09:22:46.510Z',
                     },
                 },
               'required': ['conversationId', 'user1Id', 'user2Id', 'createdAt'],

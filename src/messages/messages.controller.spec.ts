@@ -60,7 +60,7 @@ describe('MessagesController', () => {
           totalItems: 1,
           limit: 20,
           hasMore: false,
-          oldestMessageId: 1,
+          lastMessageId: 1,
         },
       };
 
@@ -82,7 +82,7 @@ describe('MessagesController', () => {
           totalItems: 10,
           limit: 10,
           hasMore: true,
-          oldestMessageId: 5,
+          lastMessageId: 5,
         },
       };
 

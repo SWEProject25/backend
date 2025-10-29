@@ -184,7 +184,7 @@ describe('MessagesService', () => {
         totalItems: 2,
         limit: 20,
         hasMore: false,
-        oldestMessageId: 1,
+        lastMessageId: 1,
       });
       expect(mockPrismaService.message.findMany).toHaveBeenCalledWith({
         where: {

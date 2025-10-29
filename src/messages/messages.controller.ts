@@ -49,7 +49,8 @@ export class MessagesController {
     name: 'lastMessageId',
     type: Number,
     required: false,
-    description: 'ID of the last message received (for cursor-based pagination). If not provided, returns the most recent messages.',
+    description:
+      'ID of the last message received (for cursor-based pagination). If not provided, returns the most recent messages.',
   })
   @ApiQuery({
     name: 'limit',
@@ -60,6 +61,27 @@ export class MessagesController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Messages retrieved successfully',
+    schema: {
+      example: {
+        status: 'success',
+        data: [
+          {
+            id: 1,
+            text: 'Hello',
+            senderId: 1,
+            isSeen: false,
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+        metadata: {
+          totalItems: 1,
+          limit: 20,
+          hasMore: false,
+          lastMessageId: 1,
+        },
+      },
+    },
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
