@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const { PORT } = process.env;
+  const { PORT, FRONTEND_URL_PROD, FRONTEND_URL, NODE_ENV } = process.env;
   const app = await NestFactory.create(AppModule);
 
   // Configure WebSocket adapter with authentication
@@ -29,9 +29,9 @@ async function bootstrap() {
 
   // Support both production frontend and local development
   const allowedOrigins = [
-    process.env.FRONTEND_URL || 'https://hankers-frontend.myaddr.tools', // Production
-    'http://localhost:3000', // Local development
-    'http://localhost:3001', // Local development (alternative port)
+    NODE_ENV === 'dev' ? FRONTEND_URL : FRONTEND_URL_PROD, // Production
+    NODE_ENV === 'dev' ? 'http://localhost:3000' : '', // Local development
+    NODE_ENV === 'dev' ? 'http://localhost:3001' : '', // Local development (alternative port)
   ];
 
   app.enableCors({
