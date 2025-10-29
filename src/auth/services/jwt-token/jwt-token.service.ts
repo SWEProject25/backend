@@ -23,7 +23,7 @@ export class JwtTokenService {
       secure: true,
       maxAge: ms(expiresIn),
       path: '/',
-      domain: '.myaddr.toos',
+      domain: '.myaddr.tools',
     };
 
     res.cookie('access_token', accessToken, cookieOptions);
