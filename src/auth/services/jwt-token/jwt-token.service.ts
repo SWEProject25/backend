@@ -15,19 +15,19 @@ export class JwtTokenService {
   }
 
   /**
-   * Extract cookie domain from FRONTEND_URL
-   * Returns root domain for subdomains (e.g., .hankers.com from app.hankers.com)
-   * Returns undefined for localhost
+   * Get the cookie domain from OAuth callback URLs
+   * Extract domain from backend URL
    */
   private getCookieDomain(): string | undefined {
     try {
-      const frontendUrl = process.env.NODE_ENV === 'dev' 
-        ? process.env.FRONTEND_URL 
-        : process.env.FRONTEND_URL_PROD;
+      // Try to get backend URL from OAuth callback URLs
+      const backendUrl = process.env.NODE_ENV === 'dev'
+        ? process.env.GOOGLE_CALLBACK_URL
+        : process.env.GOOGLE_CALLBACK_URL_PROD;
       
-      if (!frontendUrl) return undefined;
+      if (!backendUrl) return undefined;
 
-      const url = new URL(frontendUrl);
+      const url = new URL(backendUrl);
       const hostname = url.hostname;
       
       // For localhost, don't set domain
@@ -35,7 +35,8 @@ export class JwtTokenService {
         return undefined;
       }
       
-      // For subdomains (app.hankers.com), use parent domain (.hankers.com)
+      // For production subdomains like hankers-backend.myaddr.tools
+      // Use the parent domain .myaddr.tools so it works across all subdomains
       const parts = hostname.split('.');
       if (parts.length >= 2) {
         return '.' + parts.slice(-2).join('.');
