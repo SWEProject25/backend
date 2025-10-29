@@ -35,6 +35,7 @@ export class MessagesService {
       },
       select: {
         id: true,
+        conversationId: true,
         senderId: true,
         text: true,
         createdAt: true,

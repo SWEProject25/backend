@@ -3632,10 +3632,10 @@
             }
           },
           {
-            "name": "page",
+            "name": "lastMessageId",
             "required": false,
             "in": "query",
-            "description": "Page number (default: 1)",
+            "description": "ID of the last message received (for cursor-based pagination). If not provided, returns the most recent messages.",
             "schema": {
               "type": "number"
             }
@@ -3644,7 +3644,7 @@
             "name": "limit",
             "required": false,
             "in": "query",
-            "description": "Number of messages per page (default: 20)",
+            "description": "Number of messages to fetch (default: 20)",
             "schema": {
               "type": "number"
             }
@@ -5360,7 +5360,7 @@
             "format": "date-time",
             "type": "string",
             "description": "The creation date of the conversation",
-            "example": "2025-10-27T17:34:34.244Z"
+            "example": "2025-10-29T09:07:19.893Z"
           }
         },
         "required": [
