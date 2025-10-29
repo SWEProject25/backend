@@ -105,7 +105,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid Credentials');
     }
 
-    return user;
+    return {
+      id: userId,
+      username: user.username,
+      role: user.role,
+      email: user.email,
+      name: user.Profile?.name,
+      profileImageUrl: user.Profile?.profile_image_url,
+    };
   }
 
   public async validateGoogleUser(googleUser: CreateUserDto) {
