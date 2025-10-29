@@ -183,7 +183,12 @@ export class AuthController {
   })
   getMe(@CurrentUser() user: AuthJwtPayload) {
     // @TODO add user interface
-    return { user };
+    return {
+      status: 'success',
+      data: {
+        user,
+      },
+    };
   }
 
   @Post('logout')
