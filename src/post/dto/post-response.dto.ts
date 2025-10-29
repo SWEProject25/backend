@@ -12,7 +12,7 @@ export class PostResponseDto {
     description: 'The ID of the user who created the post',
     example: 123,
   })
-  userId: number;
+  user_id: number;
 
   @ApiProperty({
     description: 'The textual content of the post',
@@ -32,7 +32,7 @@ export class PostResponseDto {
     example: 42,
     nullable: true,
   })
-  parentId: number | null;
+  parent_id: number | null;
 
   @ApiProperty({
     description: 'The visibility level of the post',
@@ -40,6 +40,19 @@ export class PostResponseDto {
     example: PostVisibility.EVERY_ONE,
   })
   visibility: PostVisibility;
+
+  @ApiProperty({
+    description: 'The media URLs associated with the post',
+    type: [String],
+  })
+  mediaUrls: string[];
+
+  @ApiProperty({
+    description: 'The hashtags included in the post',
+    type: [String],
+  })
+  hashtags: string[];
+
 
   @ApiProperty({
     description: 'The date and time when the post was created',

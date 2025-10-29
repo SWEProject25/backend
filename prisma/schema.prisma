@@ -217,3 +217,16 @@ model Message {
 
   @@map("messages")
 }
+
+model Media {
+  id      Int          @id @default(autoincrement())
+  post_id     Int
+  media_url   String  
+  created_at   DateTime      @default(now())
+  type  MediaType
+}
+
+enum MediaType {
+  VIDEO
+  IMAGE
+}
