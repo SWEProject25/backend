@@ -192,18 +192,20 @@ export class ConversationsService {
                 updatedAt: lastVisibleMessage.updatedAt,
               }
             : null,
-          user1: {
-            id: User1.id,
-            username: User1.username,
-            profile_image_url: User1.Profile?.profile_image_url ?? null,
-            displayName: User1.Profile?.name ?? null,
-          },
-          user2: {
-            id: User2.id,
-            username: User2.username,
-            profile_image_url: User2.Profile?.profile_image_url ?? null,
-            displayName: User2.Profile?.name ?? null,
-          },
+          user:
+            userId === User1.id
+              ? {
+                  id: User2.id,
+                  username: User2.username,
+                  profile_image_url: User2.Profile?.profile_image_url ?? null,
+                  displayName: User2.Profile?.name ?? null,
+                }
+              : {
+                  id: User1.id,
+                  username: User1.username,
+                  profile_image_url: User1.Profile?.profile_image_url ?? null,
+                  displayName: User1.Profile?.name ?? null,
+                },
         };
       },
     );

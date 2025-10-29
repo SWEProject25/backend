@@ -5360,7 +5360,7 @@
             "format": "date-time",
             "type": "string",
             "description": "The creation date of the conversation",
-            "example": "2025-10-26T19:30:42.980Z"
+            "example": "2025-10-27T17:34:34.244Z"
           }
         },
         "required": [
