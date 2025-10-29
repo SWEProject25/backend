@@ -44,5 +44,15 @@ export class CreatePostDto {
   visibility: PostVisibility;
 
   // assigned in the controller
+ @ApiPropertyOptional({
+    description: 'Media files (images/videos) to attach to the post',
+    type: 'array',
+    items: {
+      type: 'string',
+      format: 'binary',
+    },
+  })
+  media?: Express.Multer.File[];
+  
   userId: number;
 }
