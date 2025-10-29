@@ -36,21 +36,21 @@ export class UserResponse {
     format: 'date',
   })
   @IsOptional()
-  birth_date?: Date;
+  birthDate?: Date;
 
   @ApiPropertyOptional({
     example: null,
     description: 'Profile image URL of the user',
   })
   @IsOptional()
-  profile_image_url?: string | null;
+  profileImageUrl?: string | null;
 
   @ApiPropertyOptional({
     example: null,
     description: 'Banner image URL of the user',
   })
   @IsOptional()
-  banner_image_url?: string | null;
+  bannerImageUrl?: string | null;
 
   @ApiPropertyOptional({
     example: 'bio',
@@ -77,5 +77,5 @@ export class UserResponse {
     example: '2025-10-15T21:10:02.000Z',
     description: 'Account creation date',
   })
-  created_at: Date;
+  createdAt: Date;
 }

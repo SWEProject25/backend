@@ -56,19 +56,19 @@ export class ProfileResponseDto {
     description: 'User birth date',
     example: '1990-01-01T00:00:00.000Z',
   })
-  birth_date: Date;
+  birthDate: Date;
 
   @ApiPropertyOptional({
     description: 'Profile image URL',
     example: 'https://example.com/profile.jpg',
   })
-  profile_image_url?: string;
+  profileImageUrl?: string;
 
   @ApiPropertyOptional({
     description: 'Banner image URL',
     example: 'https://example.com/banner.jpg',
   })
-  banner_image_url?: string;
+  bannerImageUrl?: string;
 
   @ApiPropertyOptional({
     description: 'User bio',
@@ -98,13 +98,13 @@ export class ProfileResponseDto {
     description: 'Profile creation timestamp',
     example: '2025-01-01T00:00:00.000Z',
   })
-  created_at: Date;
+  createdAt: Date;
 
   @ApiProperty({
     description: 'Profile last update timestamp',
     example: '2025-01-01T00:00:00.000Z',
   })
-  updated_at: Date;
+  updatedAt: Date;
 
   @ApiProperty({
     description: 'Associated user information',
