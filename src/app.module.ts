@@ -13,6 +13,7 @@ import { RedisService } from './redis/redis.service';
 import { PostModule } from './post/post.module';
 import { UsersModule } from './users/users.module';
 import { ProfileModule } from './profile/profile.module';
+import { StorageModule } from './storage/storage.module';
 import { RedisModule } from './redis/redis.module';
 import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
@@ -37,6 +38,7 @@ const envFilePath = '.env';
     }),
     PostModule,
     ProfileModule,
+    StorageModule,
     RedisModule,
     MessagesModule,
     ConversationsModule,
