@@ -79,7 +79,7 @@ export class OtpService {
         return false;
       }
 
-      await this.redisService.del(otpKey);
+      await this.clearOtp(email);
       console.log(`[OTP] ✅ OTP validated and deleted for ${email}`);
       return true;
     } catch (error) {

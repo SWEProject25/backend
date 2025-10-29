@@ -42,7 +42,7 @@ export class ConversationsService {
             [deletedField]: false,
           },
           orderBy: {
-            createdAt: 'desc',
+            id: 'desc',
           },
           take: 20,
           select: {
@@ -65,17 +65,18 @@ export class ConversationsService {
       });
 
       const { Messages, ...conversationData } = oldConversation;
+      const reversedMessages = Messages.reverse(); // Reverse to show oldest first
 
       return {
         data: {
           ...conversationData,
-          messages: Messages.reverse(), // Reverse to show oldest first
+          messages: reversedMessages,
         },
         metadata: {
           totalItems: totalMessages,
-          page: 1,
           limit: 20,
-          totalPages: Math.ceil(totalMessages / 20),
+          hasMore: Messages.length === 20,
+          lastMessageId: reversedMessages.length > 0 ? reversedMessages[0].id : null,
         },
       };
     }
@@ -99,9 +100,10 @@ export class ConversationsService {
       },
       metadata: {
         totalItems: 0,
-        page: 1,
         limit: 20,
-        totalPages: 0,
+        hasMore: false,
+        lastMessageId: null,
+        newestMessageId: null,
       },
     };
   }
@@ -192,18 +194,20 @@ export class ConversationsService {
                 updatedAt: lastVisibleMessage.updatedAt,
               }
             : null,
-          user1: {
-            id: User1.id,
-            username: User1.username,
-            profile_image_url: User1.Profile?.profile_image_url ?? null,
-            displayName: User1.Profile?.name ?? null,
-          },
-          user2: {
-            id: User2.id,
-            username: User2.username,
-            profile_image_url: User2.Profile?.profile_image_url ?? null,
-            displayName: User2.Profile?.name ?? null,
-          },
+          user:
+            userId === User1.id
+              ? {
+                  id: User2.id,
+                  username: User2.username,
+                  profile_image_url: User2.Profile?.profile_image_url ?? null,
+                  displayName: User2.Profile?.name ?? null,
+                }
+              : {
+                  id: User1.id,
+                  username: User1.username,
+                  profile_image_url: User1.Profile?.profile_image_url ?? null,
+                  displayName: User1.Profile?.name ?? null,
+                },
         };
       },
     );

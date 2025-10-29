@@ -13,22 +13,25 @@ export class UserService {
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
   ) {}
-  public async create(createUserDto: CreateUserDto) {
-    const { password, name, birth_date, ...user } = createUserDto;
+  public async create(createUserDto: CreateUserDto, isVerified: boolean) {
+    const { password, name, birthDate, ...user } = createUserDto;
     const hashedPassword = await hash(password);
-    const username = generateUsername(name);
+    let username = generateUsername(name);
+    while (await this.checkUsername(username)) {
+      username = generateUsername(name);
+    }
     const newUser = await this.prismaService.user.create({
       data: {
         ...user,
         password: hashedPassword,
         username,
-        is_verified: true,
+        is_verified: isVerified,
       },
     });
     const userProfile = await this.prismaService.profile.create({
       data: {
         user_id: newUser.id,
-        birth_date,
+        birth_date: birthDate,
         name,
       },
     });
@@ -48,7 +51,20 @@ export class UserService {
   }
 
   public async findOne(userId: number) {
-    return await this.prismaService.user.findUnique({ where: { id: userId } });
+    return await this.prismaService.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        username: true,
+        role: true,
+        Profile: {
+          select: {
+            name: true,
+            profile_image_url: true,
+          },
+        },
+      },
+    });
   }
 
   public async updateEmailVerification(updateUserDto: UpdateUserDto) {
@@ -58,20 +74,6 @@ export class UserService {
       },
       data: {
         is_verified: updateUserDto.is_verified,
-      },
-    });
-  }
-
-  public async checkExistingOtp(email: string) {
-    return await this.prismaService.emailVerification.findFirst({
-      where: { user_email: email },
-    });
-  }
-
-  public async deleteExistingOtp(email: string) {
-    return await this.prismaService.emailVerification.delete({
-      where: {
-        user_email: email,
       },
     });
   }
@@ -157,5 +159,9 @@ export class UserService {
         username,
       },
     });
+  }
+
+  public async checkUsername(username: string) {
+    return await this.prismaService.user.findUnique({ where: { username } });
   }
 }

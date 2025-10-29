@@ -35,7 +35,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       name: googleName,
       email,
       password: '',
-      birth_date: new Date(), // to be modified
+      birthDate: new Date(), // to be modified
     };
     const user = await this.authService.validateGoogleUser(createUserDto);
     done(null, user);

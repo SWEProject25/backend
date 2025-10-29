@@ -4,15 +4,20 @@ import {
   ForbiddenException,
   NotFoundException,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RemoveMessageDto } from './dto/remove-message.dto';
+import { Services } from 'src/utils/constants';
 
 @Injectable()
 export class MessagesService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    @Inject(Services.PRISMA)
+    private readonly prismaService: PrismaService,
+  ) {}
 
   async create(createMessageDto: CreateMessageDto) {
     const { conversationId, senderId, text } = createMessageDto;
@@ -35,6 +40,7 @@ export class MessagesService {
       },
       select: {
         id: true,
+        conversationId: true,
         senderId: true,
         text: true,
         createdAt: true,
@@ -77,11 +83,9 @@ export class MessagesService {
   async getConversationMessages(
     conversationId: number,
     currentUserId: number,
-    page: number = 1,
+    lastMessageId?: number,
     limit: number = 20,
   ) {
-    const skip = (page - 1) * limit;
-
     // First get the conversation to determine if user is user1 or user2
     const conversation = await this.prismaService.conversation.findUnique({
       where: { id: conversationId },
@@ -95,16 +99,25 @@ export class MessagesService {
     const isUser1 = currentUserId === conversation.user1Id;
     const deletedField = isUser1 ? 'isDeletedU1' : 'isDeletedU2';
 
+    // Build the where clause with cursor-based pagination
+    const whereClause: any = {
+      conversationId,
+      [deletedField]: false,
+    };
+
+    // If lastMessageId is provided, fetch messages older than that message
+    if (lastMessageId) {
+      whereClause.id = {
+        lt: lastMessageId, // Less than - for loading older messages
+      };
+    }
+
     const [messages, total] = await Promise.all([
       this.prismaService.message.findMany({
-        where: {
-          conversationId,
-          [deletedField]: false,
-        },
+        where: whereClause,
         orderBy: {
-          createdAt: 'desc',
+          id: 'desc', // Order by id descending to get older messages first
         },
-        skip,
         take: limit,
         select: {
           id: true,
@@ -123,13 +136,15 @@ export class MessagesService {
       }),
     ]);
 
+    const reversedMessages = messages.reverse(); // Return oldest first for chat display
+
     return {
-      data: messages.reverse(), // Return oldest first for chat display
+      data: reversedMessages,
       metadata: {
         totalItems: total,
-        page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        hasMore: messages.length === limit,
+        lastMessageId: reversedMessages.length > 0 ? reversedMessages[0].id : null,
       },
     };
   }
