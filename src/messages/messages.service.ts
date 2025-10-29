@@ -4,15 +4,20 @@ import {
   ForbiddenException,
   NotFoundException,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RemoveMessageDto } from './dto/remove-message.dto';
+import { Services } from 'src/utils/constants';
 
 @Injectable()
 export class MessagesService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    @Inject(Services.PRISMA)
+    private readonly prismaService: PrismaService,
+  ) {}
 
   async create(createMessageDto: CreateMessageDto) {
     const { conversationId, senderId, text } = createMessageDto;
