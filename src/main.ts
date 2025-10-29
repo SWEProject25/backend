@@ -11,12 +11,12 @@ import { ConfigService } from '@nestjs/config';
 async function bootstrap() {
   const { PORT } = process.env;
   const app = await NestFactory.create(AppModule);
-  
+
   // Configure WebSocket adapter with authentication
   const jwtService = app.get(JwtService);
   const configService = app.get(ConfigService);
   app.useWebSocketAdapter(new AuthenticatedSocketAdapter(jwtService, configService));
-  
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -26,19 +26,19 @@ async function bootstrap() {
 
   app.use(cookieParser());
   app.setGlobalPrefix(`api/${process.env.APP_VERSION}`);
-  
+
   // Support both production frontend and local development
   const allowedOrigins = [
     process.env.FRONTEND_URL || 'https://hankers-frontend.myaddr.tools', // Production
     'http://localhost:3000', // Local development
     'http://localhost:3001', // Local development (alternative port)
   ];
-  
+
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
-      
+
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -52,6 +52,7 @@ async function bootstrap() {
     .setTitle('Hankers')
     .setVersion('1.0')
     .addServer(`http://localhost:${PORT}`)
+    .addServer(`${process.env.PROD_URL}`)
     .addCookieAuth('access_token', {
       type: 'apiKey',
       in: 'cookie',
