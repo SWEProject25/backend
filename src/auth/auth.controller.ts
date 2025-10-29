@@ -28,7 +28,6 @@ import {
 } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth/local-auth.guard';
 import { Response } from 'express';
-import { JwtAuthGuard } from './guards/jwt-auth/jwt-auth.guard';
 import { RequestWithUser } from 'src/common/interfaces/request-with-user.interface';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
@@ -52,6 +51,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateEmailDto } from 'src/user/dto/update-email.dto';
 import { UpdateUsernameDto } from 'src/user/dto/update-username.dto';
 import { EmailDto, VerifyOtpDto } from './dto/email-verification.dto';
+import { AuthJwtPayload } from 'src/types/jwtPayload';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -164,7 +164,6 @@ export class AuthController {
 
   @Get('me')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Get current user information',
@@ -180,7 +179,7 @@ export class AuthController {
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
   })
-  getMe(@CurrentUser() user: any) {
+  getMe(@CurrentUser() user: AuthJwtPayload) {
     // @TODO add user interface
     return { user };
   }
@@ -553,9 +552,8 @@ export class AuthController {
     res.send(html);
   }
 
-  @ApiCookieAuth()
   @Get('test')
-  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
   @ApiOperation({
     summary: 'Test endpoint',
     description: 'A protected test endpoint to verify JWT authentication.',
@@ -565,14 +563,12 @@ export class AuthController {
     description: 'Successful test',
     type: ApiResponseDto,
   })
-  @UseGuards(JwtAuthGuard)
   public test() {
     return 'hello';
   }
 
   @Patch('update-email')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Update user email',
@@ -603,7 +599,6 @@ export class AuthController {
 
   @Patch('update-username')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
     summary: 'Update username',

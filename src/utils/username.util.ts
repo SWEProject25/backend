@@ -3,5 +3,5 @@ export function generateUsername(fullName: string): string {
   const first = parts[0] || '';
   const last = parts[1] || parts[0] || '';
   const randomNum = Math.floor(Math.random() * 10000);
-  return `${last.toLowerCase()}${first.slice(0, 2).toLowerCase()}${randomNum}`;
+  return `${last.toLowerCase()}.${first.slice(0, 2).toLowerCase()}${randomNum}`;
 }

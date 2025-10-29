@@ -1,4 +1,10 @@
-import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CreateUserDto } from '../user/dto/create-user.dto';
 import { UserService } from '../user/user.service';
 import { AuthJwtPayload } from 'src/types/jwtPayload';
@@ -6,6 +12,9 @@ import { PasswordService } from './services/password/password.service';
 import { JwtTokenService } from './services/jwt-token/jwt-token.service';
 import { Services } from 'src/utils/constants';
 import { OAuthProfileDto } from './dto/oauth-profile.dto';
+import { RedisService } from 'src/redis/redis.service';
+
+const ISVERIFIED_CACHE_PREFIX = 'verified:';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +25,8 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     @Inject(Services.JWT_TOKEN)
     private readonly jwtTokenService: JwtTokenService,
+    @Inject(Services.REDIS)
+    private readonly redisService: RedisService,
   ) {}
 
   public async registerUser(createUserDto: CreateUserDto) {
@@ -23,7 +34,16 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException('User is already exists');
     }
-    return this.userService.create(createUserDto);
+    const isVerified = await this.redisService.get(
+      `${ISVERIFIED_CACHE_PREFIX}${createUserDto.email}`,
+    );
+    if (!isVerified) {
+      throw new BadRequestException('Account is not verified, please verify the email first');
+    }
+    const user = this.userService.create(createUserDto, isVerified === 'true');
+
+    await this.redisService.del(`${ISVERIFIED_CACHE_PREFIX}${createUserDto.email}`);
+    return user;
   }
 
   public async checkEmailExistence(email: string): Promise<void> {
@@ -93,6 +113,7 @@ export class AuthService {
     const existingUser = await this.userService.getUserData(email);
     if (existingUser?.user && existingUser?.profile) {
       return {
+        sub: existingUser.user.id,
         username: existingUser.user.username,
         role: existingUser.user.role,
         email: existingUser.user.email,
@@ -100,8 +121,9 @@ export class AuthService {
         profileImageUrl: existingUser.profile.profile_image_url,
       };
     }
-    const newUser = await this.userService.create(googleUser);
+    const newUser = await this.userService.create(googleUser, true);
     const user = {
+      sub: newUser.newUser.id,
       username: newUser.newUser.username,
       role: newUser.newUser.role,
       email: newUser.newUser.email,
@@ -119,6 +141,7 @@ export class AuthService {
     // }
     if (existingUser?.user && existingUser?.profile) {
       return {
+        sub: existingUser.user.id,
         username: existingUser.user.username,
         role: existingUser.user.role,
         email: existingUser.user.email,
@@ -128,6 +151,7 @@ export class AuthService {
     }
     const newUser = await this.userService.createOAuthUser(githubUserData);
     return {
+      sub: newUser.newUser.id,
       username: newUser.newUser.username,
       role: newUser.newUser.role,
       email: newUser.newUser.email,
