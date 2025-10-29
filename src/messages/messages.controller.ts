@@ -46,20 +46,42 @@ export class MessagesController {
     description: 'The ID of the conversation',
   })
   @ApiQuery({
-    name: 'page',
+    name: 'lastMessageId',
     type: Number,
     required: false,
-    description: 'Page number (default: 1)',
+    description:
+      'ID of the last message received (for cursor-based pagination). If not provided, returns the most recent messages.',
   })
   @ApiQuery({
     name: 'limit',
     type: Number,
     required: false,
-    description: 'Number of messages per page (default: 20)',
+    description: 'Number of messages to fetch (default: 20)',
   })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Messages retrieved successfully',
+    schema: {
+      example: {
+        status: 'success',
+        data: [
+          {
+            id: 1,
+            text: 'Hello',
+            senderId: 1,
+            isSeen: false,
+            createdAt: '2024-01-01T00:00:00.000Z',
+            updatedAt: '2024-01-01T00:00:00.000Z',
+          },
+        ],
+        metadata: {
+          totalItems: 1,
+          limit: 20,
+          hasMore: false,
+          lastMessageId: 1,
+        },
+      },
+    },
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
@@ -77,13 +99,13 @@ export class MessagesController {
   async getMessages(
     @CurrentUser() user: AuthenticatedUser,
     @Param('conversationId', ParseIntPipe) conversationId: number,
-    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('lastMessageId', new ParseIntPipe({ optional: true })) lastMessageId?: number,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {
     const result = await this.messagesService.getConversationMessages(
       conversationId,
       user.id,
-      page || 1,
+      lastMessageId,
       limit || 20,
     );
 

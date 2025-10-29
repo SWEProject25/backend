@@ -44,7 +44,7 @@ describe('MessagesController', () => {
   });
 
   describe('getMessages', () => {
-    it('should return paginated messages with default pagination', async () => {
+    it('should return messages with default pagination', async () => {
       const mockResult = {
         data: [
           {
@@ -58,9 +58,9 @@ describe('MessagesController', () => {
         ],
         metadata: {
           totalItems: 1,
-          page: 1,
           limit: 20,
-          totalPages: 1,
+          hasMore: false,
+          lastMessageId: 1,
         },
       };
 
@@ -72,29 +72,29 @@ describe('MessagesController', () => {
         status: 'success',
         ...mockResult,
       });
-      expect(messagesService.getConversationMessages).toHaveBeenCalledWith(1, 1, 1, 20);
+      expect(messagesService.getConversationMessages).toHaveBeenCalledWith(1, 1, undefined, 20);
     });
 
-    it('should return paginated messages with custom pagination', async () => {
+    it('should return messages with cursor-based pagination', async () => {
       const mockResult = {
         data: [],
         metadata: {
-          totalItems: 0,
-          page: 2,
+          totalItems: 10,
           limit: 10,
-          totalPages: 0,
+          hasMore: true,
+          lastMessageId: 5,
         },
       };
 
       mockMessagesService.getConversationMessages.mockResolvedValue(mockResult);
 
-      const result = await controller.getMessages(mockUser as any, 1, 2, 10);
+      const result = await controller.getMessages(mockUser as any, 1, 15, 10);
 
       expect(result).toEqual({
         status: 'success',
         ...mockResult,
       });
-      expect(messagesService.getConversationMessages).toHaveBeenCalledWith(1, 1, 2, 10);
+      expect(messagesService.getConversationMessages).toHaveBeenCalledWith(1, 1, 15, 10);
     });
   });
 
