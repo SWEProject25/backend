@@ -16,15 +16,25 @@ export class JwtTokenService {
 
   public setAuthCookies(res: Response, accessToken: string): void {
     const expiresIn = (process.env.JWT_EXPIRES_IN || '1h') as ms.StringValue;
+    const isProduction = process.env.NODE_ENV === 'prod' || process.env.NODE_ENV === 'production';
 
-    const cookieOptions = {
+    const cookieOptions: any = {
       httpOnly: true,
-      sameSite: 'none' as const,
-      secure: true,
       maxAge: ms(expiresIn),
       path: '/',
-      domain: '.myaddr.tools',
     };
+
+    if (isProduction) {
+      // Production settings for cross-domain cookies
+      cookieOptions.sameSite = 'none';
+      cookieOptions.secure = true;
+      cookieOptions.domain = '.myaddr.tools';
+    } else {
+      // Development settings for localhost
+      cookieOptions.sameSite = 'lax';
+      cookieOptions.secure = false;
+      // Don't set domain for localhost
+    }
 
     res.cookie('access_token', accessToken, cookieOptions);
   }

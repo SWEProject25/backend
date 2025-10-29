@@ -29,10 +29,12 @@ async function bootstrap() {
 
   // Support both production frontend and local development
   const allowedOrigins = [
-    NODE_ENV === 'dev' ? FRONTEND_URL : FRONTEND_URL_PROD, // Production
-    NODE_ENV === 'dev' ? 'http://localhost:3000' : '', // Local development
-    NODE_ENV === 'dev' ? 'http://localhost:3001' : '', // Local development (alternative port)
-  ];
+    FRONTEND_URL_PROD, // Production frontend
+    FRONTEND_URL,      // Could be local or production
+    'http://localhost:3000', // Local development
+    'http://localhost:3001', // Local development (alternative port)
+    'https://hankers-frontend.myaddr.tools', // Explicit production frontend
+  ].filter(Boolean); // Remove any empty strings
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -42,10 +44,14 @@ async function bootstrap() {
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.log('CORS blocked origin:', origin);
+        console.log('Allowed origins:', allowedOrigins);
         callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   const swagger = new DocumentBuilder()
