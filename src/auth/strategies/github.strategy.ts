@@ -30,11 +30,11 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     profile: Profile,
     done: VerifiedCallback,
   ) {
-    const username = profile.username!;
+    const username = profile?.username;
     const userDisplayname = profile.displayName;
     const providerId = profile.id;
     const provider = profile.provider;
-    const profileImageUrl = profile.photos![0].value;
+    const profileImageUrl = profile?.photos![0].value;
     const githubUserDto: OAuthProfileDto = {
       username,
       displayName: userDisplayname,
