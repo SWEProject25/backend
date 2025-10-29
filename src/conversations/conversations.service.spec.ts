@@ -72,9 +72,9 @@ describe('ConversationsService', () => {
         },
         metadata: {
           totalItems: 0,
-          page: 1,
           limit: 20,
-          totalPages: 0,
+          hasMore: false,
+          lastMessageId: null,
         },
       });
       expect(mockPrismaService.conversation.create).toHaveBeenCalledWith({
@@ -175,8 +175,13 @@ describe('ConversationsService', () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0]).toHaveProperty('lastMessage');
-      expect(result.data[0]).toHaveProperty('user1');
-      expect(result.data[0]).toHaveProperty('user2');
+      expect(result.data[0]).toHaveProperty('user');
+      expect(result.data[0].user).toEqual({
+        id: 2,
+        username: 'user2',
+        profile_image_url: null,
+        displayName: 'User Two',
+      });
       expect(result.metadata).toEqual({
         totalItems: 1,
         page: 1,

@@ -49,9 +49,7 @@
           }
         },
         "summary": "Register a new user",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/login": {
@@ -103,9 +101,7 @@
           }
         },
         "summary": "Login using email and password",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/me": {
@@ -141,9 +137,7 @@
           }
         ],
         "summary": "Get current user information",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/logout": {
@@ -169,9 +163,7 @@
           }
         ],
         "summary": "Logout user",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/check-email": {
@@ -213,9 +205,7 @@
           }
         },
         "summary": "Check if an email already exists",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/verification-otp": {
@@ -286,9 +276,7 @@
           }
         },
         "summary": "Generate and send a verification OTP",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/resend-otp": {
@@ -359,9 +347,7 @@
           }
         },
         "summary": "Resend the verification OTP",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/verify-otp": {
@@ -432,9 +418,7 @@
           }
         },
         "summary": "Verify the email OTP",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/verify-recaptcha": {
@@ -461,9 +445,7 @@
           }
         },
         "summary": "Verifies a Google reCAPTCHA token",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/forgotPassword": {
@@ -502,9 +484,7 @@
           }
         },
         "summary": "Request a password reset link",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/verifyResetToken": {
@@ -552,9 +532,7 @@
           }
         },
         "summary": "Verify if a reset token is valid",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/resetPassword": {
@@ -593,9 +571,7 @@
           }
         },
         "summary": "Reset password using valid token",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/google/login": {
@@ -607,9 +583,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/google/redirect": {
@@ -621,9 +595,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/github/login": {
@@ -635,9 +607,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/github/redirect": {
@@ -649,9 +619,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/test": {
@@ -677,9 +645,7 @@
           }
         ],
         "summary": "Test endpoint",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/update-email": {
@@ -735,9 +701,7 @@
           }
         ],
         "summary": "Update user email",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/auth/update-username": {
@@ -793,9 +757,7 @@
           }
         ],
         "summary": "Update username",
-        "tags": [
-          "Auth"
-        ]
+        "tags": ["Auth"]
       }
     },
     "/api/v1.0/users/{id}/follow": {
@@ -952,9 +914,7 @@
           }
         ],
         "summary": "Follow a user",
-        "tags": [
-          "Users"
-        ]
+        "tags": ["Users"]
       },
       "delete": {
         "description": "Removes the follow relationship between the authenticated user and target user",
@@ -1085,9 +1045,7 @@
           }
         ],
         "summary": "Unfollow a user",
-        "tags": [
-          "Users"
-        ]
+        "tags": ["Users"]
       }
     },
     "/api/v1.0/users/{id}/followers": {
@@ -1225,9 +1183,7 @@
           }
         ],
         "summary": "Get user followers",
-        "tags": [
-          "Users"
-        ]
+        "tags": ["Users"]
       }
     },
     "/api/v1.0/users/{id}/following": {
@@ -1365,9 +1321,7 @@
           }
         ],
         "summary": "Get users followed by a user",
-        "tags": [
-          "Users"
-        ]
+        "tags": ["Users"]
       }
     },
     "/api/v1.0/users/{id}/block": {
@@ -1500,9 +1454,7 @@
           }
         ],
         "summary": "Block a user",
-        "tags": [
-          "Users"
-        ]
+        "tags": ["Users"]
       },
       "delete": {
         "description": "Unblocks the specified user for the authenticated user",
@@ -1609,9 +1561,7 @@
           }
         ],
         "summary": "Unblock a user",
-        "tags": [
-          "Users"
-        ]
+        "tags": ["Users"]
       }
     },
     "/api/v1.0/users/blocks/me": {
@@ -1736,9 +1686,7 @@
           }
         ],
         "summary": "Get blocked users",
-        "tags": [
-          "Users"
-        ]
+        "tags": ["Users"]
       }
     },
     "/api/v1.0/users/{id}/mute": {
@@ -1871,9 +1819,7 @@
           }
         ],
         "summary": "Mute a user",
-        "tags": [
-          "Users"
-        ]
+        "tags": ["Users"]
       },
       "delete": {
         "description": "Unmutes the specified user for the authenticated user",
@@ -2004,9 +1950,7 @@
           }
         ],
         "summary": "Unmute a user",
-        "tags": [
-          "Users"
-        ]
+        "tags": ["Users"]
       }
     },
     "/api/v1.0/users/mutes/me": {
@@ -2131,9 +2075,7 @@
           }
         ],
         "summary": "Get muted users",
-        "tags": [
-          "Users"
-        ]
+        "tags": ["Users"]
       }
     },
     "/api/v1.0/email": {
@@ -2145,9 +2087,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "Email"
-        ]
+        "tags": ["Email"]
       }
     },
     "/api/v1.0/posts": {
@@ -2204,9 +2144,7 @@
           }
         ],
         "summary": "Create a new post",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       },
       "get": {
         "description": "Retrieves posts with optional filtering by user ID, hashtag, and pagination",
@@ -2307,9 +2245,7 @@
           }
         ],
         "summary": "Get posts with optional filters",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/{postId}/like": {
@@ -2366,9 +2302,7 @@
           }
         ],
         "summary": "Toggle like on a post",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/{postId}/likers": {
@@ -2445,9 +2379,7 @@
           }
         ],
         "summary": "Get list of users who liked a post",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/{postId}/replies": {
@@ -2524,9 +2456,7 @@
           }
         ],
         "summary": "Get replies to a post",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/{postId}/repost": {
@@ -2583,9 +2513,7 @@
           }
         ],
         "summary": "Toggle repost on a post",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/{postId}/reposters": {
@@ -2662,9 +2590,7 @@
           }
         ],
         "summary": "Get list of users who reposted a post",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/liked/{userId}": {
@@ -2741,9 +2667,7 @@
           }
         ],
         "summary": "Get posts liked by a user",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/{postId}": {
@@ -2810,9 +2734,7 @@
           }
         ],
         "summary": "Delete a post",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/{postId}/mention/{userId}": {
@@ -2877,9 +2799,7 @@
           }
         ],
         "summary": "Mention a user in a post",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/mentioned/{userId}": {
@@ -2956,9 +2876,7 @@
           }
         ],
         "summary": "Get posts mentioned by a user",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/{postId}/mentions": {
@@ -3035,9 +2953,7 @@
           }
         ],
         "summary": "Get list of users who mentioned a post",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/profile/me": {
@@ -3094,9 +3010,7 @@
           }
         ],
         "summary": "Get user profile posts",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/profile/me/replies": {
@@ -3153,9 +3067,7 @@
           }
         ],
         "summary": "Get user profile replies",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/profile/{userId}": {
@@ -3222,9 +3134,7 @@
           }
         ],
         "summary": "Get user profile posts",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/profile/{userId}/replies": {
@@ -3291,9 +3201,7 @@
           }
         ],
         "summary": "Get user profile replies",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/posts/timeline": {
@@ -3350,9 +3258,7 @@
           }
         ],
         "summary": "Get user timeline posts",
-        "tags": [
-          "Posts"
-        ]
+        "tags": ["Posts"]
       }
     },
     "/api/v1.0/profile/me": {
@@ -3398,9 +3304,7 @@
           }
         ],
         "summary": "Get current user profile",
-        "tags": [
-          "Profile"
-        ]
+        "tags": ["Profile"]
       },
       "patch": {
         "description": "Updates the profile of the currently authenticated user.",
@@ -3454,9 +3358,7 @@
           }
         ],
         "summary": "Update current user profile",
-        "tags": [
-          "Profile"
-        ]
+        "tags": ["Profile"]
       }
     },
     "/api/v1.0/profile/user/{userId}": {
@@ -3498,9 +3400,7 @@
           }
         },
         "summary": "Get user profile by user ID",
-        "tags": [
-          "Profile"
-        ]
+        "tags": ["Profile"]
       }
     },
     "/api/v1.0/profile/username/{username}": {
@@ -3542,9 +3442,7 @@
           }
         },
         "summary": "Get user profile by username",
-        "tags": [
-          "Profile"
-        ]
+        "tags": ["Profile"]
       }
     },
     "/api/v1.0/profile/search": {
@@ -3612,9 +3510,7 @@
           }
         },
         "summary": "Search profiles by username or name",
-        "tags": [
-          "Profile"
-        ]
+        "tags": ["Profile"]
       }
     },
     "/api/v1.0/messages/{conversationId}": {
@@ -3632,10 +3528,10 @@
             }
           },
           {
-            "name": "page",
+            "name": "lastMessageId",
             "required": false,
             "in": "query",
-            "description": "Page number (default: 1)",
+            "description": "ID of the last message received (for cursor-based pagination). If not provided, returns the most recent messages.",
             "schema": {
               "type": "number"
             }
@@ -3644,7 +3540,7 @@
             "name": "limit",
             "required": false,
             "in": "query",
-            "description": "Number of messages per page (default: 20)",
+            "description": "Number of messages to fetch (default: 20)",
             "schema": {
               "type": "number"
             }
@@ -3652,7 +3548,32 @@
         ],
         "responses": {
           "200": {
-            "description": "Messages retrieved successfully"
+            "description": "Messages retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "success",
+                    "data": [
+                      {
+                        "id": 1,
+                        "text": "Hello",
+                        "senderId": 1,
+                        "isSeen": false,
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-01T00:00:00.000Z"
+                      }
+                    ],
+                    "metadata": {
+                      "totalItems": 1,
+                      "limit": 20,
+                      "hasMore": false,
+                      "lastMessageId": 1
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized - Token missing or invalid",
@@ -3709,9 +3630,7 @@
           }
         ],
         "summary": "Get messages for a conversation",
-        "tags": [
-          "messages"
-        ]
+        "tags": ["messages"]
       }
     },
     "/api/v1.0/messages/{conversationId}/{messageId}": {
@@ -3797,9 +3716,7 @@
           }
         ],
         "summary": "Delete a message",
-        "tags": [
-          "messages"
-        ]
+        "tags": ["messages"]
       }
     },
     "/api/v1.0/messages/{conversationId}/unseen-count": {
@@ -3852,9 +3769,7 @@
           }
         ],
         "summary": "Get unseen messages count",
-        "tags": [
-          "messages"
-        ]
+        "tags": ["messages"]
       }
     },
     "/api/v1.0/conversations/{userId}": {
@@ -3986,9 +3901,7 @@
           }
         ],
         "summary": "Create a conversation between two users",
-        "tags": [
-          "conversations"
-        ]
+        "tags": ["conversations"]
       }
     },
     "/api/v1.0/conversations": {
@@ -4060,9 +3973,7 @@
           }
         ],
         "summary": "Get all conversations for the authenticated user",
-        "tags": [
-          "conversations"
-        ]
+        "tags": ["conversations"]
       }
     },
     "/api/v1.0/conversations/unseen": {
@@ -4115,9 +4026,7 @@
           }
         ],
         "summary": "Get count of unseen messages for the authenticated user",
-        "tags": [
-          "conversations"
-        ]
+        "tags": ["conversations"]
       }
     }
   },
@@ -4173,12 +4082,7 @@
             "format": "date"
           }
         },
-        "required": [
-          "name",
-          "email",
-          "password",
-          "birth_date"
-        ]
+        "required": ["name", "email", "password", "birth_date"]
       },
       "UserResponse": {
         "type": "object",
@@ -4241,10 +4145,7 @@
             "description": "Account creation date"
           }
         },
-        "required": [
-          "username",
-          "created_at"
-        ]
+        "required": ["username", "created_at"]
       },
       "RegisterDataResponseDto": {
         "type": "object",
@@ -4253,9 +4154,7 @@
             "$ref": "#/components/schemas/UserResponse"
           }
         },
-        "required": [
-          "user"
-        ]
+        "required": ["user"]
       },
       "RegisterResponseDto": {
         "type": "object",
@@ -4272,21 +4171,14 @@
             "$ref": "#/components/schemas/RegisterDataResponseDto"
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "ErrorResponseDto": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "error",
-              "fail"
-            ],
+            "enum": ["error", "fail"],
             "example": "error"
           },
           "message": {
@@ -4300,11 +4192,7 @@
             "description": "Optional error details or the type of error"
           }
         },
-        "required": [
-          "status",
-          "message",
-          "error"
-        ]
+        "required": ["status", "message", "error"]
       },
       "LoginDto": {
         "type": "object",
@@ -4320,10 +4208,7 @@
             "description": "User password (min 8 characters)"
           }
         },
-        "required": [
-          "email",
-          "password"
-        ]
+        "required": ["email", "password"]
       },
       "LoginResponseDto": {
         "type": "object",
@@ -4340,22 +4225,14 @@
             "$ref": "#/components/schemas/UserResponse"
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "ApiResponseDto": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "success",
-              "error",
-              "fail"
-            ],
+            "enum": ["success", "error", "fail"],
             "example": "success",
             "description": "The status of the response"
           },
@@ -4370,11 +4247,7 @@
             "description": "The data payload of the response"
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "CheckEmailDto": {
         "type": "object",
@@ -4385,9 +4258,7 @@
             "description": "The email address to check for existence"
           }
         },
-        "required": [
-          "email"
-        ]
+        "required": ["email"]
       },
       "EmailDto": {
         "type": "object",
@@ -4398,9 +4269,7 @@
             "description": "The user's email address to which the OTP will be sent."
           }
         },
-        "required": [
-          "email"
-        ]
+        "required": ["email"]
       },
       "VerifyOtpDto": {
         "type": "object",
@@ -4416,10 +4285,7 @@
             "description": "The 6-digit One-Time Password (OTP) sent to the user’s email."
           }
         },
-        "required": [
-          "email",
-          "otp"
-        ]
+        "required": ["email", "otp"]
       },
       "RecaptchaDto": {
         "type": "object",
@@ -4430,9 +4296,7 @@
             "example": "03AGdBq24_...-4bE"
           }
         },
-        "required": [
-          "recaptcha"
-        ]
+        "required": ["recaptcha"]
       },
       "RequestPasswordResetDto": {
         "type": "object",
@@ -4444,18 +4308,12 @@
           },
           "type": {
             "type": "string",
-            "enum": [
-              "WEB",
-              "MOBILE"
-            ],
+            "enum": ["WEB", "MOBILE"],
             "default": "WEB",
             "description": "Device type (e.g. web or mobile) to determine redirect URL, default is web"
           }
         },
-        "required": [
-          "email",
-          "type"
-        ]
+        "required": ["email", "type"]
       },
       "ResetPasswordDto": {
         "type": "object",
@@ -4479,12 +4337,7 @@
             "description": "The email of the user resetting the password"
           }
         },
-        "required": [
-          "userId",
-          "token",
-          "newPassword",
-          "email"
-        ]
+        "required": ["userId", "token", "newPassword", "email"]
       },
       "UpdateEmailDto": {
         "type": "object",
@@ -4496,9 +4349,7 @@
             "format": "email"
           }
         },
-        "required": [
-          "email"
-        ]
+        "required": ["email"]
       },
       "UpdateUsernameDto": {
         "type": "object",
@@ -4511,9 +4362,7 @@
             "maxLength": 50
           }
         },
-        "required": [
-          "username"
-        ]
+        "required": ["username"]
       },
       "FollowResponseDto": {
         "type": "object",
@@ -4535,11 +4384,7 @@
             "example": "2025-10-22T10:30:00.000Z"
           }
         },
-        "required": [
-          "followerId",
-          "followingId",
-          "createdAt"
-        ]
+        "required": ["followerId", "followingId", "createdAt"]
       },
       "UserInteractionDto": {
         "type": "object",
@@ -4579,14 +4424,7 @@
             "example": "2025-10-23T10:30:00.000Z"
           }
         },
-        "required": [
-          "id",
-          "username",
-          "displayName",
-          "bio",
-          "profileImageUrl",
-          "followedAt"
-        ]
+        "required": ["id", "username", "displayName", "bio", "profileImageUrl", "followedAt"]
       },
       "BlockResponseDto": {
         "type": "object",
@@ -4608,11 +4446,7 @@
             "example": "2025-10-22T10:30:00.000Z"
           }
         },
-        "required": [
-          "blockerId",
-          "blockedId",
-          "createdAt"
-        ]
+        "required": ["blockerId", "blockedId", "createdAt"]
       },
       "MuteResponseDto": {
         "type": "object",
@@ -4634,11 +4468,7 @@
             "example": "2025-10-22T10:30:00.000Z"
           }
         },
-        "required": [
-          "muterId",
-          "mutedId",
-          "createdAt"
-        ]
+        "required": ["muterId", "mutedId", "createdAt"]
       },
       "CreatePostDto": {
         "type": "object",
@@ -4652,11 +4482,7 @@
           "type": {
             "type": "string",
             "description": "The type of post (POST, REPLY, or QUOTE)",
-            "enum": [
-              "POST",
-              "REPLY",
-              "QUOTE"
-            ],
+            "enum": ["POST", "REPLY", "QUOTE"],
             "example": "POST"
           },
           "parentId": {
@@ -4668,11 +4494,7 @@
           "visibility": {
             "type": "string",
             "description": "The visibility level of the post (EVERY_ONE, FOLLOWERS, or MENTIONED)",
-            "enum": [
-              "EVERY_ONE",
-              "FOLLOWERS",
-              "MENTIONED"
-            ],
+            "enum": ["EVERY_ONE", "FOLLOWERS", "MENTIONED"],
             "example": "EVERY_ONE"
           },
           "media": {
@@ -4684,11 +4506,7 @@
             }
           }
         },
-        "required": [
-          "content",
-          "type",
-          "visibility"
-        ]
+        "required": ["content", "type", "visibility"]
       },
       "PostResponseDto": {
         "type": "object",
@@ -4711,11 +4529,7 @@
           "type": {
             "type": "string",
             "description": "The type of post",
-            "enum": [
-              "POST",
-              "REPLY",
-              "QUOTE"
-            ],
+            "enum": ["POST", "REPLY", "QUOTE"],
             "example": "POST"
           },
           "parent_id": {
@@ -4727,11 +4541,7 @@
           "visibility": {
             "type": "string",
             "description": "The visibility level of the post",
-            "enum": [
-              "EVERY_ONE",
-              "FOLLOWERS",
-              "MENTIONED"
-            ],
+            "enum": ["EVERY_ONE", "FOLLOWERS", "MENTIONED"],
             "example": "EVERY_ONE"
           },
           "mediaUrls": {
@@ -4789,11 +4599,7 @@
             ]
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "GetPostsResponseDto": {
         "type": "object",
@@ -4816,11 +4622,7 @@
             }
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "ToggleLikeResponseDto": {
         "type": "object",
@@ -4844,11 +4646,7 @@
             }
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "UserDto": {
         "type": "object",
@@ -4869,11 +4667,7 @@
             "example": "john@example.com"
           }
         },
-        "required": [
-          "id",
-          "username",
-          "email"
-        ]
+        "required": ["id", "username", "email"]
       },
       "GetLikersResponseDto": {
         "type": "object",
@@ -4896,11 +4690,7 @@
             }
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "ToggleRepostResponseDto": {
         "type": "object",
@@ -4923,11 +4713,7 @@
             }
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "RepostUserDto": {
         "type": "object",
@@ -4953,12 +4739,7 @@
             "example": true
           }
         },
-        "required": [
-          "id",
-          "username",
-          "email",
-          "is_verified"
-        ]
+        "required": ["id", "username", "email", "is_verified"]
       },
       "GetRepostersResponseDto": {
         "type": "object",
@@ -4981,11 +4762,7 @@
             }
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "GetLikedPostsResponseDto": {
         "type": "object",
@@ -5040,11 +4817,7 @@
             }
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "DeletePostResponseDto": {
         "type": "object",
@@ -5060,10 +4833,7 @@
             "example": "Post deleted successfully"
           }
         },
-        "required": [
-          "status",
-          "message"
-        ]
+        "required": ["status", "message"]
       },
       "UserInfoDto": {
         "type": "object",
@@ -5087,10 +4857,7 @@
             "type": "string",
             "description": "User role",
             "example": "USER",
-            "enum": [
-              "USER",
-              "ADMIN"
-            ]
+            "enum": ["USER", "ADMIN"]
           },
           "created_at": {
             "format": "date-time",
@@ -5099,13 +4866,7 @@
             "example": "2025-01-01T00:00:00.000Z"
           }
         },
-        "required": [
-          "id",
-          "username",
-          "email",
-          "role",
-          "created_at"
-        ]
+        "required": ["id", "username", "email", "role", "created_at"]
       },
       "ProfileResponseDto": {
         "type": "object",
@@ -5182,15 +4943,7 @@
             ]
           }
         },
-        "required": [
-          "id",
-          "user_id",
-          "name",
-          "birth_date",
-          "created_at",
-          "updated_at",
-          "User"
-        ]
+        "required": ["id", "user_id", "name", "birth_date", "created_at", "updated_at", "User"]
       },
       "GetProfileResponseDto": {
         "type": "object",
@@ -5214,11 +4967,7 @@
             ]
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "PaginationMetadata": {
         "type": "object",
@@ -5244,12 +4993,7 @@
             "example": 3
           }
         },
-        "required": [
-          "total",
-          "page",
-          "limit",
-          "totalPages"
-        ]
+        "required": ["total", "page", "limit", "totalPages"]
       },
       "SearchProfileResponseDto": {
         "type": "object",
@@ -5280,12 +5024,7 @@
             ]
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data",
-          "metadata"
-        ]
+        "required": ["status", "message", "data", "metadata"]
       },
       "UpdateProfileDto": {
         "type": "object",
@@ -5356,11 +5095,7 @@
             ]
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ]
+        "required": ["status", "message", "data"]
       },
       "CreateConversationResponseDto": {
         "type": "object",
@@ -5384,15 +5119,10 @@
             "format": "date-time",
             "type": "string",
             "description": "The creation date of the conversation",
-            "example": "2025-10-29T08:42:55.975Z"
+            "example": "2025-10-29T09:22:46.510Z"
           }
         },
-        "required": [
-          "conversationId",
-          "user1Id",
-          "user2Id",
-          "createdAt"
-        ]
+        "required": ["conversationId", "user1Id", "user2Id", "createdAt"]
       }
     }
   }
