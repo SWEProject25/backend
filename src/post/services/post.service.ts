@@ -5,6 +5,7 @@ import { CreatePostDto } from '../dto/create-post.dto';
 import { PostFiltersDto } from '../dto/post-filter.dto';
 import { MediaType, Post, PostType, PostVisibility } from 'generated/prisma';
 import { StorageService } from 'src/storage/storage.service';
+import { AiSummarizationService } from 'src/ai-integration/services/summarization.service';
 
 @Injectable()
 export class PostService {
@@ -12,7 +13,9 @@ export class PostService {
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
     @Inject(Services.STORAGE)
-    private readonly storageService: StorageService
+    private readonly storageService: StorageService,
+    @Inject(Services.AI_SUMMARIZATION)
+    private readonly aiSummarizationService: AiSummarizationService,
   ) { }
 
   private extractHashtags(content: string): string[] {
@@ -102,6 +105,16 @@ export class PostService {
       await this.storageService.deleteFiles(urls);
       throw error;
     }
+  }
+
+  async summarizePost(postId: number) {
+    const post = await this.prismaService.post.findUnique({
+      where: { id: postId },
+    });
+
+    if (!post) throw new NotFoundException('Post not found');
+
+    return this.aiSummarizationService.summarizePost(post.content);
   }
 
   async getPostsWithFilters(filter: PostFiltersDto) {

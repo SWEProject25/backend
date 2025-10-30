@@ -18,12 +18,14 @@ import { RedisModule } from './redis/redis.module';
 import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { AiIntegrationModule } from './ai-integration/ai-integration.module';
+import envSchema from './config/validate-config';
 
 const envFilePath = '.env';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ envFilePath, isGlobal: true }),
+    ConfigModule.forRoot({ envFilePath, isGlobal: true, validationSchema: envSchema }),
     AuthModule,
     UserModule,
     UsersModule,
@@ -43,6 +45,7 @@ const envFilePath = '.env';
     MessagesModule,
     ConversationsModule,
     PrismaModule,
+    AiIntegrationModule,
   ],
   controllers: [],
   providers: [
@@ -52,4 +55,4 @@ const envFilePath = '.env';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

@@ -7,6 +7,7 @@ import { RepostService } from './services/repost.service';
 import { MentionService } from './services/mention.service';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { StorageService } from 'src/storage/storage.service';
+import { AiSummarizationService } from 'src/ai-integration/services/summarization.service';
 
 @Module({
   controllers: [PostController],
@@ -32,6 +33,10 @@ import { StorageService } from 'src/storage/storage.service';
       provide: Services.STORAGE,
       useClass: StorageService,
     },
+    {
+      provide: Services.AI_SUMMARIZATION,
+      useClass: AiSummarizationService,
+    }
   ],
   imports: [PrismaModule],
 })

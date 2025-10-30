@@ -198,6 +198,39 @@ export class PostController {
     };
   }
 
+  @Get('summary/:postId')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get a post by ID',
+    description: 'Retrieves a post summary by its ID',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to retrieve',
+    example: 1,
+  })
+  // @ApiResponse({
+  //   status: HttpStatus.OK,
+  //   description: 'Post retrieved successfully',
+  //   type: GetPostResponseDto,
+  // })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Post not found',
+    type: ErrorResponseDto,
+  })
+  async getPostSummary(@Param('postId') postId: number) {
+    const post = await this.postService.summarizePost(postId);
+
+    return {
+      status: 'success',
+      message: 'Post summarized successfully',
+      data: post,
+    };
+  }
+
   @Post(':postId/like')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
