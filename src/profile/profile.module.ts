@@ -3,6 +3,7 @@ import { ProfileController } from './profile.controller';
 import { ProfileService } from './profile.service';
 import { Services } from 'src/utils/constants';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { StorageModule } from 'src/storage/storage.module';
 
 @Module({
   controllers: [ProfileController],
@@ -18,6 +19,6 @@ import { PrismaModule } from 'src/prisma/prisma.module';
       useClass: ProfileService,
     },
   ],
-  imports: [PrismaModule],
+  imports: [PrismaModule, StorageModule],
 })
 export class ProfileModule {}

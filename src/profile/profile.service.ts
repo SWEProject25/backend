@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Services } from 'src/utils/constants';
 
@@ -8,6 +9,8 @@ export class ProfileService {
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
+    @Inject(Services.STORAGE)
+    private readonly storageService: StorageService,
   ) {}
 
   public async getProfileByUserId(userId: number) {
@@ -185,5 +188,153 @@ export class ProfileService {
       limit,
       totalPages,
     };
+  }
+
+  public async updateProfilePicture(userId: number, file: Express.Multer.File) {
+    const profile = await this.prismaService.profile.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    if (profile.profile_image_url && !this.isDefaultImage(profile.profile_image_url)) {
+      try {
+        await this.storageService.deleteFile(profile.profile_image_url);
+      } catch (error) {
+        console.error('Failed to delete old profile picture:', error);
+      }
+    }
+
+    const [imageUrl] = await this.storageService.uploadFiles([file]);
+
+    return await this.prismaService.profile.update({
+      where: { user_id: userId },
+      data: { profile_image_url: imageUrl },
+      include: {
+        User: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+            created_at: true,
+          },
+        },
+      },
+    });
+  }
+
+  public async deleteProfilePicture(userId: number) {
+    const profile = await this.prismaService.profile.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    const defaultImageUrl = 'https://placehold.co/400x400/png';
+
+    if (profile.profile_image_url && !this.isDefaultImage(profile.profile_image_url)) {
+      try {
+        await this.storageService.deleteFile(profile.profile_image_url);
+      } catch (error) {
+        console.error('Failed to delete profile picture:', error);
+      }
+    }
+
+    return await this.prismaService.profile.update({
+      where: { user_id: userId },
+      data: { profile_image_url: defaultImageUrl },
+      include: {
+        User: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+            created_at: true,
+          },
+        },
+      },
+    });
+  }
+
+  public async updateBanner(userId: number, file: Express.Multer.File) {
+    const profile = await this.prismaService.profile.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    if (profile.banner_image_url && !this.isDefaultImage(profile.banner_image_url)) {
+      try {
+        await this.storageService.deleteFile(profile.banner_image_url);
+      } catch (error) {
+        console.error('Failed to delete old banner:', error);
+      }
+    }
+
+    const [bannerUrl] = await this.storageService.uploadFiles([file]);
+
+    return await this.prismaService.profile.update({
+      where: { user_id: userId },
+      data: { banner_image_url: bannerUrl },
+      include: {
+        User: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+            created_at: true,
+          },
+        },
+      },
+    });
+  }
+
+  public async deleteBanner(userId: number) {
+    const profile = await this.prismaService.profile.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    const defaultBannerUrl = 'https://placehold.co/1500x500/png';
+
+    if (profile.banner_image_url && !this.isDefaultImage(profile.banner_image_url)) {
+      try {
+        await this.storageService.deleteFile(profile.banner_image_url);
+      } catch (error) {
+        console.error('Failed to delete banner:', error);
+      }
+    }
+
+    return await this.prismaService.profile.update({
+      where: { user_id: userId },
+      data: { banner_image_url: defaultBannerUrl },
+      include: {
+        User: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+            created_at: true,
+          },
+        },
+      },
+    });
+  }
+
+  private isDefaultImage(url: string): boolean {
+    return url.includes('placehold') || url.includes('default');
   }
 }
