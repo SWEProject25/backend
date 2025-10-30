@@ -462,29 +462,21 @@ export class AuthController {
   public async googleRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
     const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
     this.jwtTokenService.setAuthCookies(res, accessToken);
+    
+    // Detect frontend origin from referer header
+    const referer = req.headers.referer || req.headers.origin || '';
+    const isLocalhost = referer.includes('localhost') || referer.includes('127.0.0.1');
+    const frontendUrl = isLocalhost 
+      ? process.env.FRONTEND_URL || 'http://localhost:3000'
+      : process.env.FRONTEND_URL_PROD || 'https://hankers.myaddr.tools';
+    
     const html = `
       <!DOCTYPE html>
       <html lang="en">
         <body>
           <script>
             (function () {
-              // Support both local and production frontends
-              const localUrl = "${process.env.FRONTEND_URL || 'http://localhost:3000'}";
-              const prodUrl = "${process.env.FRONTEND_URL_PROD || 'https://hankers.myaddr.tools'}";
-              
-              // Detect which frontend opened this popup
-              let frontendBase = prodUrl; // Default to production
-              try {
-                if (window.opener && !window.opener.closed) {
-                  const openerOrigin = window.opener.location.origin;
-                  if (openerOrigin.includes('localhost') || openerOrigin.includes('127.0.0.1')) {
-                    frontendBase = localUrl;
-                  }
-                }
-              } catch (e) {
-                // Cross-origin error means production
-              }
-              
+              const frontendBase = "${frontendUrl}";
               const url = frontendBase + '/home';
               const user = ${JSON.stringify(req.user)};
               const message = {
@@ -532,29 +524,21 @@ export class AuthController {
   public async githubRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
     const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
     this.jwtTokenService.setAuthCookies(res, accessToken);
+    
+    // Detect frontend origin from referer header
+    const referer = req.headers.referer || req.headers.origin || '';
+    const isLocalhost = referer.includes('localhost') || referer.includes('127.0.0.1');
+    const frontendUrl = isLocalhost 
+      ? process.env.FRONTEND_URL || 'http://localhost:3000'
+      : process.env.FRONTEND_URL_PROD || 'https://hankers.myaddr.tools';
+    
     const html = `
       <!DOCTYPE html>
       <html lang="en">
         <body>
           <script>
             (function() {
-              // Support both local and production frontends
-              const localUrl = "${process.env.FRONTEND_URL || 'http://localhost:3000'}";
-              const prodUrl = "${process.env.FRONTEND_URL_PROD || 'https://hankers.myaddr.tools'}";
-              
-              // Detect which frontend opened this popup
-              let frontendBase = prodUrl; // Default to production
-              try {
-                if (window.opener && !window.opener.closed) {
-                  const openerOrigin = window.opener.location.origin;
-                  if (openerOrigin.includes('localhost') || openerOrigin.includes('127.0.0.1')) {
-                    frontendBase = localUrl;
-                  }
-                }
-              } catch (e) {
-                // Cross-origin error means production
-              }
-              
+              const frontendBase = "${frontendUrl}";
               const url = frontendBase + '/home';
               const user = ${JSON.stringify(req.user)};
               const message = {
