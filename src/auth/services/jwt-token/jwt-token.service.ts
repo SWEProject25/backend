@@ -35,11 +35,11 @@ export class JwtTokenService {
         return undefined;
       }
       
-      // For production subdomains like hankers-backend.myaddr.tools
-      // Use the parent domain .myaddr.tools so it works across all subdomains
+      // For production subdomains like api.hankers-frontend.myaddr.tools
+      // Use .hankers-frontend.myaddr.tools (last 3 parts) because myaddr.tools is on the Public Suffix List
       const parts = hostname.split('.');
-      if (parts.length >= 2) {
-        return '.' + parts.slice(-2).join('.');
+      if (parts.length >= 3) {
+        return '.' + parts.slice(-3).join('.');
       }
       
       return undefined;
