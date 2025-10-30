@@ -29,10 +29,13 @@ async function bootstrap() {
 
   // Support both production frontend and local development
   const allowedOrigins = [
-    NODE_ENV === 'dev' ? FRONTEND_URL : FRONTEND_URL_PROD, // Production
-    NODE_ENV === 'dev' ? 'http://localhost:3000' : '', // Local development
-    NODE_ENV === 'dev' ? 'http://localhost:3001' : '', // Local development (alternative port)
-  ];
+    FRONTEND_URL_PROD, // Production
+    FRONTEND_URL, // Development
+    'http://localhost:3000', // Local development
+    'http://localhost:3001', // Local development (alternative port)
+    'http://127.0.0.1:3000', // Local development (127.0.0.1)
+    'http://127.0.0.1:3001', // Local development (127.0.0.1 alternative port)
+  ].filter(Boolean); // Remove empty strings
 
   app.enableCors({
     origin: (origin, callback) => {
