@@ -25,30 +25,6 @@ export class UpdateProfileDto {
   birthDate?: Date;
 
   @IsOptional()
-  @IsUrl({}, { message: 'Invalid profile image URL format' })
-  @MaxLength(255, {
-    message: 'Profile image URL must be at most 255 characters long',
-  })
-  @ApiPropertyOptional({
-    description: 'URL of the user profile image',
-    example: 'https://example.com/profile.jpg',
-    maxLength: 255,
-  })
-  profileImageUrl?: string;
-
-  @IsOptional()
-  @IsUrl({}, { message: 'Invalid banner image URL format' })
-  @MaxLength(255, {
-    message: 'Banner image URL must be at most 255 characters long',
-  })
-  @ApiPropertyOptional({
-    description: 'URL of the user banner image',
-    example: 'https://example.com/banner.jpg',
-    maxLength: 255,
-  })
-  bannerImageUrl?: string;
-
-  @IsOptional()
   @IsString()
   @MaxLength(160, { message: 'Bio must be at most 160 characters long' })
   @ApiPropertyOptional({
