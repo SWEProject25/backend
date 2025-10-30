@@ -19,6 +19,8 @@ const RESET_TOKEN_TTL_SECONDS = 15 * 60; // 15 minutes
 const MAX_RESET_ATTEMPTS_PREFIX = 'reset-attempts:';
 const MAX_ATTEMPTS = 5;
 const ATTEMPT_WINDOW_SECONDS = 60 * 60; // 1 hour
+const PASSWORD_RESET_COOLDOWN_PREFIX = 'cooldown:password-reset:';
+const PASSWORD_RESET_COOLDOWN_SECONDS = 60; // 1 minute cooldown
 
 @Injectable()
 export class PasswordService {
@@ -47,12 +49,20 @@ export class PasswordService {
   }
 
   public async requestPasswordReset(requestPasswordResetDto: RequestPasswordResetDto) {
-    await this.checkResetAttempts(requestPasswordResetDto.email);
+    const email = requestPasswordResetDto.email;
 
-    const user = await this.userService.findByEmail(requestPasswordResetDto.email);
+    const cooldownKey = `${PASSWORD_RESET_COOLDOWN_PREFIX}${email}`;
+    const isCoolingDown = await this.redisService.get(cooldownKey);
+    if (isCoolingDown) {
+      throw new BadRequestException(
+        `Please wait ${PASSWORD_RESET_COOLDOWN_SECONDS} seconds before requesting another password reset.`,
+      );
+    }
 
+    await this.checkResetAttempts(email);
+    const user = await this.userService.findByEmail(email);
     if (!user) {
-      console.log(`[PasswordReset] No user found for email: ${requestPasswordResetDto.email}`);
+      console.log(`[PasswordReset] No user found for email: ${email}`);
       throw new NotFoundException('Invalid email');
     }
 
@@ -60,21 +70,24 @@ export class PasswordService {
     const redisKey = `${RESET_TOKEN_PREFIX}${user.id}`;
 
     await this.redisService.set(redisKey, tokenHash, RESET_TOKEN_TTL_SECONDS);
-    await this.incrementResetAttempts(requestPasswordResetDto.email);
+    await this.incrementResetAttempts(email);
+    await this.redisService.set(cooldownKey, 'true', PASSWORD_RESET_COOLDOWN_SECONDS);
 
     const resetUrl =
       requestPasswordResetDto.type === RequestType.MOBILE
-        ? `${process.env.CROSS_URL}/reset-password?token=${resetToken}&id=${user.id}`
-        : `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&id=${user.id}`;
+        ? `${process.env.NODE_ENV === 'dev' ? process.env.CROSS_URL : process.env.CROSS_URL_PROD}/reset-password?token=${resetToken}&id=${user.id}`
+        : `${process.env.NODE_ENV === 'dev' ? process.env.FRONTEND_URL : process.env.FRONTEND_URL_PROD}/reset-password?token=${resetToken}&id=${user.id}`;
 
     const html = this.emailService.renderTemplate(resetUrl, 'reset-password.html');
     await this.emailService.sendEmail({
       subject: 'Password Reset Request',
-      recipients: [requestPasswordResetDto.email],
+      recipients: [email],
       html,
     });
 
-    console.log(`[PasswordReset] Token stored in Redis: ${redisKey}`);
+    console.log(
+      `[PasswordReset] Token stored in Redis: ${redisKey}, cooldown set for ${PASSWORD_RESET_COOLDOWN_SECONDS}s`,
+    );
   }
 
   public async verifyResetToken(userId: number, token: string): Promise<boolean> {

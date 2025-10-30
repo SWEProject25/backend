@@ -32,18 +32,18 @@ export class EmailVerificationService {
   ) {}
 
   async sendVerificationEmail(email: string): Promise<void> {
-    const user = await this.userService.findByEmail(email);
-
-    if (user?.is_verified) {
-      throw new ConflictException('Account already verified');
-    }
-
     const isCoolingDown = await this.otpService.isRateLimited(email);
     if (isCoolingDown) {
       throw new HttpException(
         `Please wait ${RESEND_COOLDOWN_SECONDS} seconds before requesting another email.`,
         HttpStatus.TOO_MANY_REQUESTS,
       );
+    }
+
+    const user = await this.userService.findByEmail(email);
+
+    if (user?.is_verified) {
+      throw new ConflictException('Account already verified');
     }
 
     const otp = await this.otpService.generateAndRateLimit(email);
