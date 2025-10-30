@@ -67,17 +67,6 @@ export class UserService {
     });
   }
 
-  public async updateEmailVerification(updateUserDto: UpdateUserDto) {
-    return await this.prismaService.user.update({
-      where: {
-        email: updateUserDto.email,
-      },
-      data: {
-        is_verified: updateUserDto.is_verified,
-      },
-    });
-  }
-
   public async findByUsername(username: string) {
     return await this.prismaService.user.findFirst({
       where: {
