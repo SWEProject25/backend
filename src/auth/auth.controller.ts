@@ -468,11 +468,23 @@ export class AuthController {
         <body>
           <script>
             (function () {
-              const frontendBase = "${
-                process.env.NODE_ENV === 'dev'
-                  ? process.env.FRONTEND_URL
-                  : process.env.FRONTEND_URL_PROD
-              }";
+              // Support both local and production frontends
+              const localUrl = "${process.env.FRONTEND_URL || 'http://localhost:3000'}";
+              const prodUrl = "${process.env.FRONTEND_URL_PROD || 'https://hankers.myaddr.tools'}";
+              
+              // Detect which frontend opened this popup
+              let frontendBase = prodUrl; // Default to production
+              try {
+                if (window.opener && !window.opener.closed) {
+                  const openerOrigin = window.opener.location.origin;
+                  if (openerOrigin.includes('localhost') || openerOrigin.includes('127.0.0.1')) {
+                    frontendBase = localUrl;
+                  }
+                }
+              } catch (e) {
+                // Cross-origin error means production
+              }
+              
               const url = frontendBase + '/home';
               const user = ${JSON.stringify(req.user)};
               const message = {
@@ -526,11 +538,23 @@ export class AuthController {
         <body>
           <script>
             (function() {
-              const frontendBase = "${
-                process.env.NODE_ENV === 'dev'
-                  ? process.env.FRONTEND_URL
-                  : process.env.FRONTEND_URL_PROD
-              }";
+              // Support both local and production frontends
+              const localUrl = "${process.env.FRONTEND_URL || 'http://localhost:3000'}";
+              const prodUrl = "${process.env.FRONTEND_URL_PROD || 'https://hankers.myaddr.tools'}";
+              
+              // Detect which frontend opened this popup
+              let frontendBase = prodUrl; // Default to production
+              try {
+                if (window.opener && !window.opener.closed) {
+                  const openerOrigin = window.opener.location.origin;
+                  if (openerOrigin.includes('localhost') || openerOrigin.includes('127.0.0.1')) {
+                    frontendBase = localUrl;
+                  }
+                }
+              } catch (e) {
+                // Cross-origin error means production
+              }
+              
               const url = frontendBase + '/home';
               const user = ${JSON.stringify(req.user)};
               const message = {
