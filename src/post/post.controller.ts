@@ -70,6 +70,28 @@ export class PostController {
     private readonly mentionService: MentionService,
   ) {}
 
+  @Get('timeline/for-you')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get personalized "For You" feed',
+    description:
+      'Returns a ranked list of posts personalized for the authenticated user. Requires authentication.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Personalized posts retrieved successfully',
+    type: GetPostsResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getForYouFeed(@CurrentUser() user: AuthenticatedUser) {
+    return this.postService.getForYouFeed(user.id);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
@@ -1064,7 +1086,7 @@ export class PostController {
     };
   }
 
-  @Get('timeline')
+  @Get('timeline/following')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
@@ -1100,7 +1122,7 @@ export class PostController {
     @Query('limit') limit: number = 10,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const posts = await this.postService.getUserTimeline(user.id, page, limit);
+    const posts = await this.postService.getFollowingForFeed(user.id, page, limit);
 
     return {
       status: 'success',
