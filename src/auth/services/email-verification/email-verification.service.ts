@@ -49,7 +49,9 @@ export class EmailVerificationService {
 
     const otp = await this.otpService.generateAndRateLimit(email);
 
-    const html = this.emailService.renderTemplate(otp, 'email-verification.html');
+    const html = this.emailService.renderTemplate('email-verification.html', {
+      verificationCode: otp,
+    });
     await this.emailService.sendEmail({
       subject: 'Account Verification',
       recipients: [email],

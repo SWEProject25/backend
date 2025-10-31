@@ -20,6 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@azure/communication-email": "^1.1.0",
+    "@azure/identity": "^4.13.0",
     "@azure/storage-blob": "^12.29.1",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/axios": "^4.0.1",
@@ -36,7 +38,6 @@
     "@nestjs/websockets": "^11.1.7",
     "@nestlab/google-recaptcha": "^3.10.0",
     "@prisma/client": "^6.17.0",
-    "@sendgrid/mail": "^8.1.6",
     "argon2": "^0.44.0",
     "axios": "^1.13.1",
     "class-transformer": "^0.5.1",
