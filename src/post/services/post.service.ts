@@ -6,14 +6,30 @@ import { PostFiltersDto } from '../dto/post-filter.dto';
 import { MediaType, Post, PostType, PostVisibility } from 'generated/prisma';
 import { StorageService } from 'src/storage/storage.service';
 
+import { MLService } from './ml.service';
+import { Prisma } from '@prisma/client';
+
+// This interface now reflects the complex object returned by our query
+export interface PostWithAllData extends Post {
+  personalizationScore: number;
+  hasMedia: boolean;
+  hashtagCount: number;
+  mentionCount: number;
+  isVerified: boolean;
+  followersCount: number;
+  followingCount: number;
+  postsCount: number;
+}
+
 @Injectable()
 export class PostService {
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
     @Inject(Services.STORAGE)
-    private readonly storageService: StorageService
-  ) { }
+    private readonly storageService: StorageService,
+    private readonly mlService: MLService,
+  ) {}
 
   private extractHashtags(content: string): string[] {
     if (!content) return [];
@@ -28,10 +44,9 @@ export class PostService {
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
     return urls.map((url, index) => ({
-      url, type: media?.[index]?.mimetype.startsWith('video')
-        ? MediaType.VIDEO
-        : MediaType.IMAGE
-    }))
+      url,
+      type: media?.[index]?.mimetype.startsWith('video') ? MediaType.VIDEO : MediaType.IMAGE,
+    }));
   }
 
   private async createPostTransaction(
@@ -42,7 +57,7 @@ export class PostService {
     return this.prismaService.$transaction(async (tx) => {
       // Upsert hashtags
       const hashtagRecords = await Promise.all(
-        hashtags.map(tag =>
+        hashtags.map((tag) =>
           tx.hashtag.upsert({
             where: { tag },
             update: {},
@@ -60,7 +75,7 @@ export class PostService {
           visibility: postData.visibility,
           user_id: postData.userId,
           hashtags: {
-            connect: hashtagRecords.map(record => ({ id: record.id })),
+            connect: hashtagRecords.map((record) => ({ id: record.id })),
           },
         },
         include: { hashtags: true },
@@ -68,35 +83,29 @@ export class PostService {
 
       // Create media entries
       await tx.media.createMany({
-        data: mediaWithType.map(m => ({
+        data: mediaWithType.map((m) => ({
           post_id: post.id,
           media_url: m.url,
           type: m.type,
         })),
       });
 
-      return { ...post, mediaUrls: mediaWithType.map(m => m.url) };
+      return { ...post, mediaUrls: mediaWithType.map((m) => m.url) };
     });
   }
-
 
   async createPost(createPostDto: CreatePostDto) {
     let urls: string[] = [];
     try {
       const { content, media } = createPostDto;
-      urls = await this.storageService.uploadFiles(media)
+      urls = await this.storageService.uploadFiles(media);
 
-      const hashtags = this.extractHashtags(content)
+      const hashtags = this.extractHashtags(content);
 
-      const mediaWithType = this.getMediaWithType(urls, media)
+      const mediaWithType = this.getMediaWithType(urls, media);
 
-      const post = await this.createPostTransaction(
-        createPostDto,
-        hashtags,
-        mediaWithType,
-      );
+      const post = await this.createPostTransaction(createPostDto, hashtags, mediaWithType);
       return post;
-
     } catch (error) {
       // deleting uploaded files in case of any error
       await this.storageService.deleteFiles(urls);
@@ -111,16 +120,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-        ...(userId && { user_id: userId }),
-        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-        ...(type && { type }),
-        is_deleted: false,
-      }
+          ...(userId && { user_id: userId }),
+          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+          ...(type && { type }),
+          is_deleted: false,
+        }
       : {
-        // TODO: improve this fallback
-        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-        is_deleted: false,
-      };
+          // TODO: improve this fallback
+          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+          is_deleted: false,
+        };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -239,7 +248,7 @@ export class PostService {
 
   async deletePost(postId: number) {
     return this.prismaService.$transaction(async (tx) => {
-      const post = await tx.post.findUnique({
+      const post = await tx.post.findFirst({
         where: { id: postId, is_deleted: false },
       });
 
@@ -271,17 +280,17 @@ export class PostService {
     });
   }
 
-  async getUserTimeline(userId: number, page = 1, limit = 20) {
+  async getFollowingForFeed(userId: number, page = 1, limit = 20) {
     const offset = (page - 1) * limit;
 
     // Tunable weights — can be adjusted dynamically later
     const wIsFollowing = 1.2;
     const wIsMine = 1.5;
     const wLikes = 0.35;
-    const wReposts = 0.25;
+    const wReposts = 0.35;
     const wReplies = 0.15;
+    const wQuotes = 0.2;
     const wMentions = 0.1;
-    const wQuotes = 0.05;
     const wFreshness = 0.1;
     const T = 2.0; // decay time (hours)
 
@@ -305,7 +314,7 @@ export class PostService {
 
         -- Relationship flags
         (p."user_id" = ${userId}) AS is_mine,
-        EXISTS(SELECT 1 FROM following f WHERE f.id = p."user_id") AS is_following,
+        TRUE AS is_following, -- This will always be true now based on the new WHERE clause
 
 
         -- Engagement counts
@@ -317,7 +326,9 @@ export class PostService {
 
         EXTRACT(EPOCH FROM (NOW() - p."created_at")) / 3600.0 AS hours_since
       FROM "posts" p
-      LEFT JOIN "User" u ON u."id" = p."user_id"
+      INNER JOIN "User" u ON u."id" = p."user_id"
+      -- Only join posts from users the current user is following
+      INNER JOIN following f ON p."user_id" = f.id
       LEFT JOIN "profiles" pr ON pr."user_id" = u."id"
       LEFT JOIN "Like" l ON l."post_id" = p."id"
       LEFT JOIN "Repost" r ON r."post_id" = p."id"
@@ -326,11 +337,11 @@ export class PostService {
       LEFT JOIN "posts" quote ON quote."parent_id" = p."id"
 
       WHERE p."is_deleted" = FALSE
-      GROUP BY p."id", p."user_id", p."content", p."type", p."parent_id", 
+      GROUP BY p."id", p."user_id", p."content", p."type", p."parent_id",
                p."visibility", p."created_at", p."is_deleted",
                u."username", pr."name", pr."profile_image_url"
     )
-    SELECT 
+    SELECT
       *,
       (
         ${wIsMine} * (CASE WHEN is_mine THEN 1 ELSE 0 END) +
@@ -351,7 +362,7 @@ export class PostService {
   }
 
   async getPostById(postId: number) {
-    const post = await this.prismaService.post.findUnique({
+    const post = await this.prismaService.post.findFirst({
       where: { id: postId, is_deleted: false },
       include: {
         _count: {
@@ -359,27 +370,189 @@ export class PostService {
             likes: true,
             repostedBy: true,
             Replies: true,
-          }
+          },
         },
         User: {
           select: {
             id: true,
             username: true,
-          }
+          },
         },
         media: {
           select: {
             media_url: true,
             type: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     if (!post) {
       throw new NotFoundException('Post not found');
     }
 
-    return post
+    return post;
+  }
+
+  async getForYouFeed(userId: number): Promise<{ posts: PostWithAllData[] }> {
+    const qualityWeight = 0.4;
+    const personalizationWeight = 0.6;
+
+    const candidatePosts: PostWithAllData[] = await this.GetPersonalizedFeedPosts(userId);
+
+    const postsForML = candidatePosts.map((p) => ({
+      postId: p.id,
+      contentLength: p.content?.length || 0,
+      hasMedia: !!p.hasMedia,
+      hashtagCount: Number(p.hashtagCount || 0),
+      mentionCount: Number(p.mentionCount || 0),
+      author: {
+        authorId: p.user_id,
+        authorFollowersCount: Number(p.followersCount || 0),
+        authorFollowingCount: Number(p.followingCount || 0),
+        authorTweetCount: Number(p.postsCount || 0),
+        authorIsVerified: !!p.isVerified,
+      },
+    }));
+
+    const qualityScores = await this.mlService.getQualityScores(postsForML);
+
+    const rankedPosts = this.rankPostsHybrid(
+      candidatePosts,
+      qualityScores,
+      qualityWeight,
+      personalizationWeight,
+    );
+
+    return { posts: rankedPosts };
+  }
+
+  private async GetPersonalizedFeedPosts(userId: number) {
+    const personalizationWeights = {
+      following: 20.0,
+      directLike: 15.0,
+      commonLike: 8.0,
+      commonFollow: 5.0,
+    };
+
+    const query = `
+    WITH user_follows AS (
+      SELECT "followingId" as following_id
+      FROM "follows"
+      WHERE "followerId" = ${userId}
+    ),
+    user_blocks AS (
+      SELECT "blockedId" as blocked_id
+      FROM "blocks"
+      WHERE "blockerId" = ${userId}
+    ),
+    liked_authors AS (
+      SELECT DISTINCT p."user_id" as author_id
+      FROM "Like" l
+      JOIN "posts" p ON l."post_id" = p."id"
+      WHERE l."user_id" = ${userId}
+    ),
+    candidate_posts AS (
+      SELECT 
+        p."id",
+        p."user_id",
+        p."content",
+        p."created_at",
+        p."type",
+        p."visibility",
+        u."username",
+        u."is_verifed" as "isVerified",
+        pr."name" as "authorName",
+        pr."profile_image_url" as "authorProfileImage",
+        COALESCE(engagement."likeCount", 0) as "likeCount",
+        COALESCE(engagement."replyCount", 0) as "replyCount",
+        COALESCE(engagement."repostCount", 0) as "repostCount",
+        author_stats."followersCount",
+        author_stats."followingCount",
+        author_stats."postsCount",
+        CASE WHEN media_check."post_id" IS NOT NULL THEN true ELSE false END as "hasMedia",
+        COALESCE(hashtag_count."count", 0) as "hashtagCount",
+        COALESCE(mention_count."count", 0) as "mentionCount",
+        (
+          CASE WHEN uf.following_id IS NOT NULL THEN ${personalizationWeights.following} ELSE 0 END +
+          CASE WHEN la.author_id IS NOT NULL THEN ${personalizationWeights.directLike} ELSE 0 END +
+          COALESCE(common_likes."count", 0) * ${personalizationWeights.commonLike} +
+          CASE WHEN common_follows."exists" THEN ${personalizationWeights.commonFollow} ELSE 0 END
+        )::double precision as "personalizationScore"
+      FROM "posts" p
+      INNER JOIN "User" u ON p."user_id" = u."id"
+      LEFT JOIN "profiles" pr ON u."id" = pr."user_id"
+      LEFT JOIN user_follows uf ON p."user_id" = uf.following_id
+      LEFT JOIN liked_authors la ON p."user_id" = la.author_id
+      LEFT JOIN LATERAL (
+        SELECT 
+          COUNT(DISTINCT l."user_id")::int as "likeCount",
+          COUNT(DISTINCT CASE WHEN replies."id" IS NOT NULL THEN replies."id" END)::int as "replyCount",
+          COUNT(DISTINCT r."user_id")::int as "repostCount"
+        FROM "posts" base
+        LEFT JOIN "Like" l ON l."post_id" = base."id"
+        LEFT JOIN "posts" replies ON replies."parent_id" = base."id" AND replies."is_deleted" = false
+        LEFT JOIN "Repost" r ON r."post_id" = base."id"
+        WHERE base."id" = p."id"
+      ) engagement ON true
+      LEFT JOIN LATERAL (
+        SELECT 
+          (SELECT COUNT(*)::int FROM "follows" WHERE "followingId" = u."id") as "followersCount",
+          (SELECT COUNT(*)::int FROM "follows" WHERE "followerId" = u."id") as "followingCount",
+          (SELECT COUNT(*)::int FROM "posts" WHERE "user_id" = u."id" AND "is_deleted" = false) as "postsCount"
+      ) author_stats ON true
+      LEFT JOIN LATERAL (
+        SELECT p."id" as post_id FROM "media" WHERE "post_id" = p."id" LIMIT 1
+      ) media_check ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int as count FROM "_PostHashtags" WHERE "B" = p."id"
+      ) hashtag_count ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int as count FROM "Mention" WHERE "post_id" = p."id"
+      ) mention_count ON true
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::float as count
+        FROM "Like" l
+        INNER JOIN user_follows uf_likes ON l."user_id" = uf_likes.following_id
+        WHERE l."post_id" = p."id"
+      ) common_likes ON true
+      LEFT JOIN LATERAL (
+        SELECT EXISTS(
+          SELECT 1 FROM "follows" f
+          INNER JOIN user_follows uf_follows ON f."followerId" = uf_follows.following_id
+          WHERE f."followingId" = p."user_id"
+        ) as exists
+      ) common_follows ON true
+      WHERE 
+        p."is_deleted" = false
+        AND p."created_at" > NOW() - INTERVAL '10 days'
+        AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
+        AND p."user_id" != ${userId}
+      ORDER BY "personalizationScore" DESC, p."created_at" DESC
+      LIMIT 200
+    )
+    SELECT * FROM candidate_posts;
+  `;
+
+    return await this.prismaService.$queryRawUnsafe<PostWithAllData[]>(query);
+  }
+
+  private rankPostsHybrid(
+    posts: PostWithAllData[],
+    qualityScores: Map<number, number>,
+    qualityWeight: number,
+    personalizationWeight: number,
+  ): PostWithAllData[] {
+    return posts
+      .map((post) => {
+        const q = qualityScores.get(post.id) || 0;
+        const pScore = Number(post.personalizationScore || 0);
+        return {
+          ...post,
+          qualityScore: q,
+          finalScore: q * qualityWeight + pScore * personalizationWeight,
+        };
+      })
+      .sort((a, b) => b.finalScore - a.finalScore);
   }
 }
