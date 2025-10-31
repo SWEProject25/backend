@@ -136,7 +136,6 @@ export class PostService {
     } = searchDto;
     const offset = (page - 1) * limit;
 
-    // Get total count of matching posts
     const countResult = await this.prismaService.$queryRaw<[{ count: bigint }]>(
       Prisma.sql`
         SELECT COUNT(DISTINCT p.id) as count
