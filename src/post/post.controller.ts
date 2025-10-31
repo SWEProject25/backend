@@ -85,8 +85,32 @@ export class PostController {
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
   })
-  async getForYouFeed(@CurrentUser() user: AuthenticatedUser) {
-    return this.postService.getForYouFeed(user.id);
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of likers per page',
+    example: 10,
+  })
+  async getForYouFeed(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    const posts = await this.postService.getForYouFeed(user.id, page, limit);
+
+    return {
+      status: 'success',
+      message: 'Posts retrieved successfully',
+      data: posts,
+    };
   }
 
   @Post()

@@ -36,7 +36,7 @@ export class MLService {
     private readonly configService: ConfigService,
   ) {
     this.mlServiceUrl =
-      this.configService.get<string>('ML_SERVICE_URL') || 'http://127.0.0.1:8001/predict';
+      this.configService.get<string>('PREDICTION_SERVICE_URL') || 'http://127.0.0.1:8001/predict';
   }
 
   /**
