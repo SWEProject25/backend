@@ -41,6 +41,7 @@ import {
   GetLikedPostsResponseDto,
 } from './dto/like-response.dto';
 import { ToggleRepostResponseDto, GetRepostersResponseDto } from './dto/repost-response.dto';
+import { SearchByHashtagResponseDto } from './dto/hashtag-search-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
 
@@ -48,6 +49,7 @@ import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { PostFiltersDto } from './dto/post-filter.dto';
 import { SearchPostsDto } from './dto/search-posts.dto';
+import { SearchByHashtagDto } from './dto/search-by-hashtag.dto';
 import { MentionService } from './services/mention.service';
 import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
 import { Mention, Post as PostModel, PostVisibility, User } from 'generated/prisma';
@@ -244,6 +246,85 @@ export class PostController {
       message: 'Search results retrieved successfully',
       data: posts,
       metadata: {
+        totalItems,
+        page,
+        limit,
+        totalPages: Math.ceil(totalItems / limit),
+      },
+    };
+  }
+
+  @Get('search/hashtag')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Search posts by hashtag',
+    description:
+      'Search posts containing a specific hashtag. Returns posts with engagement metrics and user information.',
+  })
+  @ApiQuery({
+    name: 'hashtag',
+    required: true,
+    type: String,
+    description: 'Hashtag to search for (with or without # symbol)',
+    example: 'typescript',
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    type: Number,
+    description: 'Filter search results by user ID',
+    example: 42,
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['POST', 'REPLY', 'QUOTE'],
+    description: 'Filter search results by post type',
+    example: 'POST',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Posts with hashtag retrieved successfully',
+    type: SearchByHashtagResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid query parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async searchPostsByHashtag(
+    @Query() searchDto: SearchByHashtagDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const { posts, totalItems, page, limit, hashtag } =
+      await this.postService.searchPostsByHashtag(searchDto);
+
+    return {
+      status: 'success',
+      message: `Posts with hashtag #${hashtag} retrieved successfully`,
+      data: posts,
+      metadata: {
+        hashtag,
         totalItems,
         page,
         limit,

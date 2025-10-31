@@ -4,6 +4,7 @@ import { Services } from 'src/utils/constants';
 import { CreatePostDto } from '../dto/create-post.dto';
 import { PostFiltersDto } from '../dto/post-filter.dto';
 import { SearchPostsDto } from '../dto/search-posts.dto';
+import { SearchByHashtagDto } from '../dto/search-by-hashtag.dto';
 import { MediaType, Post, PostType, PostVisibility, Prisma } from 'generated/prisma';
 import { StorageService } from 'src/storage/storage.service';
 
@@ -198,6 +199,90 @@ export class PostService {
       totalItems,
       page,
       limit,
+    };
+  }
+
+  async searchPostsByHashtag(searchDto: SearchByHashtagDto) {
+    const { hashtag, userId, type, page = 1, limit = 10 } = searchDto;
+    const offset = (page - 1) * limit;
+
+    // Normalize hashtag (remove # if present and convert to lowercase)
+    const normalizedHashtag = hashtag.startsWith('#')
+      ? hashtag.slice(1).toLowerCase()
+      : hashtag.toLowerCase();
+
+    // Count total posts with this hashtag
+    const countResult = await this.prismaService.post.count({
+      where: {
+        is_deleted: false,
+        hashtags: {
+          some: {
+            tag: normalizedHashtag,
+          },
+        },
+        ...(userId && { user_id: userId }),
+        ...(type && { type }),
+      },
+    });
+
+    // Get posts with the hashtag
+    const posts = await this.prismaService.post.findMany({
+      where: {
+        is_deleted: false,
+        hashtags: {
+          some: {
+            tag: normalizedHashtag,
+          },
+        },
+        ...(userId && { user_id: userId }),
+        ...(type && { type }),
+      },
+      include: {
+        User: {
+          select: {
+            id: true,
+            username: true,
+            Profile: {
+              select: {
+                name: true,
+                profile_image_url: true,
+              },
+            },
+          },
+        },
+        hashtags: {
+          select: {
+            id: true,
+            tag: true,
+          },
+        },
+        media: {
+          select: {
+            media_url: true,
+            type: true,
+          },
+        },
+        _count: {
+          select: {
+            likes: true,
+            repostedBy: true,
+            Replies: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+      skip: offset,
+      take: limit,
+    });
+
+    return {
+      posts,
+      totalItems: countResult,
+      page,
+      limit,
+      hashtag: normalizedHashtag,
     };
   }
 
