@@ -3,7 +3,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
 import { CreatePostDto } from '../dto/create-post.dto';
 import { PostFiltersDto } from '../dto/post-filter.dto';
-import { MediaType, Post, PostType, PostVisibility } from 'generated/prisma';
+import { SearchPostsDto } from '../dto/search-posts.dto';
+import { MediaType, Post, PostType, PostVisibility, Prisma } from 'generated/prisma';
 import { StorageService } from 'src/storage/storage.service';
 
 @Injectable()
@@ -12,8 +13,8 @@ export class PostService {
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
     @Inject(Services.STORAGE)
-    private readonly storageService: StorageService
-  ) { }
+    private readonly storageService: StorageService,
+  ) {}
 
   private extractHashtags(content: string): string[] {
     if (!content) return [];
@@ -28,10 +29,9 @@ export class PostService {
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
     return urls.map((url, index) => ({
-      url, type: media?.[index]?.mimetype.startsWith('video')
-        ? MediaType.VIDEO
-        : MediaType.IMAGE
-    }))
+      url,
+      type: media?.[index]?.mimetype.startsWith('video') ? MediaType.VIDEO : MediaType.IMAGE,
+    }));
   }
 
   private async createPostTransaction(
@@ -42,7 +42,7 @@ export class PostService {
     return this.prismaService.$transaction(async (tx) => {
       // Upsert hashtags
       const hashtagRecords = await Promise.all(
-        hashtags.map(tag =>
+        hashtags.map((tag) =>
           tx.hashtag.upsert({
             where: { tag },
             update: {},
@@ -60,7 +60,7 @@ export class PostService {
           visibility: postData.visibility,
           user_id: postData.userId,
           hashtags: {
-            connect: hashtagRecords.map(record => ({ id: record.id })),
+            connect: hashtagRecords.map((record) => ({ id: record.id })),
           },
         },
         include: { hashtags: true },
@@ -68,35 +68,29 @@ export class PostService {
 
       // Create media entries
       await tx.media.createMany({
-        data: mediaWithType.map(m => ({
+        data: mediaWithType.map((m) => ({
           post_id: post.id,
           media_url: m.url,
           type: m.type,
         })),
       });
 
-      return { ...post, mediaUrls: mediaWithType.map(m => m.url) };
+      return { ...post, mediaUrls: mediaWithType.map((m) => m.url) };
     });
   }
-
 
   async createPost(createPostDto: CreatePostDto) {
     let urls: string[] = [];
     try {
       const { content, media } = createPostDto;
-      urls = await this.storageService.uploadFiles(media)
+      urls = await this.storageService.uploadFiles(media);
 
-      const hashtags = this.extractHashtags(content)
+      const hashtags = this.extractHashtags(content);
 
-      const mediaWithType = this.getMediaWithType(urls, media)
+      const mediaWithType = this.getMediaWithType(urls, media);
 
-      const post = await this.createPostTransaction(
-        createPostDto,
-        hashtags,
-        mediaWithType,
-      );
+      const post = await this.createPostTransaction(createPostDto, hashtags, mediaWithType);
       return post;
-
     } catch (error) {
       // deleting uploaded files in case of any error
       await this.storageService.deleteFiles(urls);
@@ -111,16 +105,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-        ...(userId && { user_id: userId }),
-        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-        ...(type && { type }),
-        is_deleted: false,
-      }
+          ...(userId && { user_id: userId }),
+          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+          ...(type && { type }),
+          is_deleted: false,
+        }
       : {
-        // TODO: improve this fallback
-        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-        is_deleted: false,
-      };
+          // TODO: improve this fallback
+          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+          is_deleted: false,
+        };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -129,6 +123,83 @@ export class PostService {
     });
 
     return posts;
+  }
+
+  async searchPosts(searchDto: SearchPostsDto) {
+    const {
+      searchQuery,
+      userId,
+      type,
+      page = 1,
+      limit = 10,
+      similarityThreshold = 0.1,
+    } = searchDto;
+    const offset = (page - 1) * limit;
+
+    // Get total count of matching posts
+    const countResult = await this.prismaService.$queryRaw<[{ count: bigint }]>(
+      Prisma.sql`
+        SELECT COUNT(DISTINCT p.id) as count
+        FROM posts p
+        WHERE 
+          p.is_deleted = false
+          ${userId ? Prisma.sql`AND p.user_id = ${userId}` : Prisma.empty}
+          ${type ? Prisma.sql`AND p.type = ${type}::"PostType"` : Prisma.empty}
+          AND similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+      `,
+    );
+
+    const totalItems = Number(countResult[0]?.count || 0);
+
+    const posts = await this.prismaService.$queryRaw<any[]>(
+      Prisma.sql`
+        SELECT 
+          p.*,
+          similarity(p.content, ${searchQuery}) as relevance,
+          json_build_object(
+            'id', u.id,
+            'username', u.username,
+            'name', pr.name,
+            'profile_image_url', pr.profile_image_url
+          ) as "User",
+          COALESCE(
+            json_agg(
+              DISTINCT jsonb_build_object('media_url', m.media_url, 'type', m.type)
+            ) FILTER (WHERE m.id IS NOT NULL),
+            '[]'
+          ) as media,
+          json_build_object(
+            'likes', COUNT(DISTINCT l.user_id),
+            'repostedBy', COUNT(DISTINCT r.user_id),
+            'Replies', COUNT(DISTINCT reply.id)
+          ) as "_count"
+        FROM posts p
+        LEFT JOIN "User" u ON u.id = p.user_id
+        LEFT JOIN profiles pr ON pr.user_id = u.id
+        LEFT JOIN media m ON m.post_id = p.id
+        LEFT JOIN "Like" l ON l.post_id = p.id
+        LEFT JOIN "Repost" r ON r.post_id = p.id
+        LEFT JOIN posts reply ON reply.parent_id = p.id AND reply.type = 'REPLY'
+        WHERE 
+          p.is_deleted = false
+          ${userId ? Prisma.sql`AND p.user_id = ${userId}` : Prisma.empty}
+          ${type ? Prisma.sql`AND p.type = ${type}::"PostType"` : Prisma.empty}
+          AND similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+        GROUP BY p.id, u.id, u.username, pr.name, pr.profile_image_url
+        ORDER BY 
+          relevance DESC, 
+          p.created_at DESC
+        LIMIT ${limit} 
+        OFFSET ${offset}
+      `,
+    );
+
+    return {
+      posts,
+      totalItems,
+      page,
+      limit,
+    };
   }
 
   private async getPosts(
@@ -359,27 +430,27 @@ export class PostService {
             likes: true,
             repostedBy: true,
             Replies: true,
-          }
+          },
         },
         User: {
           select: {
             id: true,
             username: true,
-          }
+          },
         },
         media: {
           select: {
             media_url: true,
             type: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     if (!post) {
       throw new NotFoundException('Post not found');
     }
 
-    return post
+    return post;
   }
 }

@@ -1,14 +1,19 @@
 import {
   Body,
   Controller,
-  Delete, FileTypeValidator,
+  Delete,
+  FileTypeValidator,
   Get,
   HttpStatus,
-  Inject, MaxFileSizeValidator,
-  Param, ParseFilePipe,
+  Inject,
+  MaxFileSizeValidator,
+  Param,
+  ParseFilePipe,
   Post,
-  Query, UploadedFiles,
-  UseGuards, UseInterceptors,
+  Query,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { PostService } from './services/post.service';
 import { LikeService } from './services/like.service';
@@ -42,6 +47,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
 import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { PostFiltersDto } from './dto/post-filter.dto';
+import { SearchPostsDto } from './dto/search-posts.dto';
 import { MentionService } from './services/mention.service';
 import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
 import { Mention, Post as PostModel, PostVisibility, User } from 'generated/prisma';
@@ -92,7 +98,7 @@ export class PostController {
   async createPost(
     @Body() createPostDto: CreatePostDto,
     @CurrentUser() user: AuthenticatedUser,
-    @UploadedFiles( ImageVideoUploadPipe ) media: Express.Multer.File[]
+    @UploadedFiles(ImageVideoUploadPipe) media: Express.Multer.File[],
   ) {
     createPostDto.userId = user.id;
     createPostDto.media = media;
@@ -162,6 +168,87 @@ export class PostController {
       status: 'success',
       message: 'Posts retrieved successfully',
       data: posts,
+    };
+  }
+
+  @Get('search')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Search posts by content',
+    description:
+      'Full-text search using trigram similarity with relevance ranking. Supports partial matching and fuzzy search.',
+  })
+  @ApiQuery({
+    name: 'searchQuery',
+    required: true,
+    type: String,
+    description: 'Search query to match against post content (minimum 2 characters)',
+    example: 'machine learning',
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    type: Number,
+    description: 'Filter search results by user ID',
+    example: 42,
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['POST', 'REPLY', 'QUOTE'],
+    description: 'Filter search results by post type',
+    example: 'POST',
+  })
+  @ApiQuery({
+    name: 'similarityThreshold',
+    required: false,
+    type: Number,
+    description: 'Minimum similarity threshold (0.0 to 1.0). Lower values return more results.',
+    example: 0.1,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Search results retrieved successfully',
+    type: GetPostsResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid query parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async searchPosts(@Query() searchDto: SearchPostsDto, @CurrentUser() user: AuthenticatedUser) {
+    const { posts, totalItems, page, limit } = await this.postService.searchPosts(searchDto);
+
+    return {
+      status: 'success',
+      message: 'Search results retrieved successfully',
+      data: posts,
+      metadata: {
+        totalItems,
+        page,
+        limit,
+        totalPages: Math.ceil(totalItems / limit),
+      },
     };
   }
 
