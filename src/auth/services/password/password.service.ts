@@ -63,7 +63,6 @@ export class PasswordService {
     await this.checkResetAttempts(email);
     const user = await this.userService.findByEmail(email);
     if (!user) {
-      console.log(`[PasswordReset] No user found for email: ${email}`);
       throw new NotFoundException('Invalid email');
     }
 
@@ -79,16 +78,15 @@ export class PasswordService {
         ? `${process.env.NODE_ENV === 'dev' ? process.env.CROSS_URL : process.env.CROSS_URL_PROD}/reset-password?token=${resetToken}&id=${user.id}`
         : `${process.env.NODE_ENV === 'dev' ? process.env.FRONTEND_URL : process.env.FRONTEND_URL_PROD}/reset-password?token=${resetToken}&id=${user.id}`;
 
-    const html = this.emailService.renderTemplate(resetUrl, 'reset-password.html');
+    const html = this.emailService.renderTemplate('reset-password.html', {
+      verificationCode: resetUrl,
+      username: user.username,
+    });
     await this.emailService.sendEmail({
       subject: 'Password Reset Request',
       recipients: [email],
       html,
     });
-
-    console.log(
-      `[PasswordReset] Token stored in Redis: ${redisKey}, cooldown set for ${PASSWORD_RESET_COOLDOWN_SECONDS}s`,
-    );
   }
 
   public async verifyResetToken(userId: number, token: string): Promise<boolean> {
@@ -96,7 +94,7 @@ export class PasswordService {
       throw new BadRequestException('User ID and token are required');
     }
 
-    // ✅ TEST OVERRIDE: allow predefined test user and token to pass without Redis
+    // TEST OVERRIDE: allow predefined test user and token to pass without Redis
     if (token === TEST_RESET_TOKEN) {
       const redisKey = `${RESET_TOKEN_PREFIX}${userId}`;
       const testHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -104,9 +102,6 @@ export class PasswordService {
       // Store the fake hashed token with the normal TTL so resetPassword() can find it
       await this.redisService.set(redisKey, testHash, RESET_TOKEN_TTL_SECONDS);
 
-      console.log(
-        `[PasswordReset] ✅ Test token bypass: created temporary Redis token for user ${userId}`,
-      );
       return true;
     }
 
@@ -114,19 +109,14 @@ export class PasswordService {
     const storedHash = await this.redisService.get(redisKey);
 
     if (!storedHash) {
-      console.warn(`[PasswordReset] No token found or token expired for ${userId}`);
       throw new UnauthorizedException('Password reset token is invalid or has expired');
     }
 
     const providedHash = crypto.createHash('sha256').update(token).digest('hex');
-    const isMatch = providedHash === storedHash;
-
-    if (!isMatch) {
-      console.warn(`[PasswordReset] Token mismatch for ${userId}`);
+    if (providedHash !== storedHash) {
       throw new UnauthorizedException('Invalid password reset token');
     }
 
-    console.log(`[PasswordReset] Token verified for user ${userId}`);
     return true;
   }
 
@@ -145,8 +135,6 @@ export class PasswordService {
     const hashedPassword = await this.hash(newPassword);
     await this.userService.updatePassword(userId, hashedPassword);
     await this.redisService.del(redisKey);
-
-    console.log(`[PasswordReset] Password reset completed for user ${userId}`);
   }
 
   private generateTokens() {
