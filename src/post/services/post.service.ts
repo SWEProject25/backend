@@ -3,7 +3,9 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
 import { CreatePostDto } from '../dto/create-post.dto';
 import { PostFiltersDto } from '../dto/post-filter.dto';
-import { MediaType, Post, PostType, PostVisibility } from 'generated/prisma';
+import { SearchPostsDto } from '../dto/search-posts.dto';
+import { SearchByHashtagDto } from '../dto/search-by-hashtag.dto';
+import { MediaType, Post, PostType, PostVisibility, Prisma as PrismalSql } from 'generated/prisma';
 import { StorageService } from 'src/storage/storage.service';
 
 import { MLService } from './ml.service';
@@ -138,6 +140,166 @@ export class PostService {
     });
 
     return posts;
+  }
+
+  async searchPosts(searchDto: SearchPostsDto) {
+    const {
+      searchQuery,
+      userId,
+      type,
+      page = 1,
+      limit = 10,
+      similarityThreshold = 0.1,
+    } = searchDto;
+    const offset = (page - 1) * limit;
+
+    const countResult = await this.prismaService.$queryRaw<[{ count: bigint }]>(
+      PrismalSql.sql`
+        SELECT COUNT(DISTINCT p.id) as count
+        FROM posts p
+        WHERE 
+          p.is_deleted = false
+          ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
+          ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
+          AND similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+      `,
+    );
+
+    const totalItems = Number(countResult[0]?.count || 0);
+
+    const posts = await this.prismaService.$queryRaw<any[]>(
+      PrismalSql.sql`
+        SELECT 
+          p.*,
+          similarity(p.content, ${searchQuery}) as relevance,
+          json_build_object(
+            'id', u.id,
+            'username', u.username,
+            'name', pr.name,
+            'profile_image_url', pr.profile_image_url
+          ) as "User",
+          COALESCE(
+            json_agg(
+              DISTINCT jsonb_build_object('media_url', m.media_url, 'type', m.type)
+            ) FILTER (WHERE m.id IS NOT NULL),
+            '[]'
+          ) as media,
+          json_build_object(
+            'likes', COUNT(DISTINCT l.user_id),
+            'repostedBy', COUNT(DISTINCT r.user_id),
+            'Replies', COUNT(DISTINCT reply.id)
+          ) as "_count"
+        FROM posts p
+        LEFT JOIN "User" u ON u.id = p.user_id
+        LEFT JOIN profiles pr ON pr.user_id = u.id
+        LEFT JOIN media m ON m.post_id = p.id
+        LEFT JOIN "Like" l ON l.post_id = p.id
+        LEFT JOIN "Repost" r ON r.post_id = p.id
+        LEFT JOIN posts reply ON reply.parent_id = p.id AND reply.type = 'REPLY'
+        WHERE 
+          p.is_deleted = false
+          ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
+          ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
+          AND similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+        GROUP BY p.id, u.id, u.username, pr.name, pr.profile_image_url
+        ORDER BY 
+          relevance DESC, 
+          p.created_at DESC
+        LIMIT ${limit} 
+        OFFSET ${offset}
+      `,
+    );
+
+    return {
+      posts,
+      totalItems,
+      page,
+      limit,
+    };
+  }
+
+  async searchPostsByHashtag(searchDto: SearchByHashtagDto) {
+    const { hashtag, userId, type, page = 1, limit = 10 } = searchDto;
+    const offset = (page - 1) * limit;
+
+    // Normalize hashtag (remove # if present and convert to lowercase)
+    const normalizedHashtag = hashtag.startsWith('#')
+      ? hashtag.slice(1).toLowerCase()
+      : hashtag.toLowerCase();
+
+    // Count total posts with this hashtag
+    const countResult = await this.prismaService.post.count({
+      where: {
+        is_deleted: false,
+        hashtags: {
+          some: {
+            tag: normalizedHashtag,
+          },
+        },
+        ...(userId && { user_id: userId }),
+        ...(type && { type }),
+      },
+    });
+
+    // Get posts with the hashtag
+    const posts = await this.prismaService.post.findMany({
+      where: {
+        is_deleted: false,
+        hashtags: {
+          some: {
+            tag: normalizedHashtag,
+          },
+        },
+        ...(userId && { user_id: userId }),
+        ...(type && { type }),
+      },
+      include: {
+        User: {
+          select: {
+            id: true,
+            username: true,
+            Profile: {
+              select: {
+                name: true,
+                profile_image_url: true,
+              },
+            },
+          },
+        },
+        hashtags: {
+          select: {
+            id: true,
+            tag: true,
+          },
+        },
+        media: {
+          select: {
+            media_url: true,
+            type: true,
+          },
+        },
+        _count: {
+          select: {
+            likes: true,
+            repostedBy: true,
+            Replies: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+      skip: offset,
+      take: limit,
+    });
+
+    return {
+      posts,
+      totalItems: countResult,
+      page,
+      limit,
+      hashtag: normalizedHashtag,
+    };
   }
 
   private async getPosts(
