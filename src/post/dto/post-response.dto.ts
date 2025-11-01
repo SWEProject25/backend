@@ -119,6 +119,18 @@ export class PostResponseDto {
     type: [PostMediaDto],
   })
   media: PostMediaDto[];
+
+  @ApiProperty({
+    description: 'Whether the current user has liked this post',
+    example: true,
+  })
+  isLikedByMe?: boolean;
+
+  @ApiProperty({
+    description: 'Whether the current user has reposted this post',
+    example: true,
+  })
+  isRepostedByMe?: boolean;
 }
 
 export class CreatePostResponseDto {

@@ -402,8 +402,8 @@ export class PostController {
     description: 'Post not found',
     type: ErrorResponseDto,
   })
-  async getPostById(@Param('postId') postId: number) {
-    const post = await this.postService.getPostById(postId);
+  async getPostById(@Param('postId') postId: number, @CurrentUser() user: AuthenticatedUser) {
+    const post = await this.postService.getPostById(postId, user.id);
 
     return {
       status: 'success',
