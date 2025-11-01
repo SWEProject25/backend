@@ -54,6 +54,7 @@ import { EmailDto, VerifyOtpDto } from './dto/email-verification.dto';
 import { AuthJwtPayload } from 'src/types/jwtPayload';
 import { AuthenticatedUser } from './interfaces/user.interface';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { VerifyPasswordDto } from './dto/verify-password.dto';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -680,6 +681,50 @@ export class AuthController {
     return {
       status: 'success',
       message: 'Password updated successfully',
+    };
+  }
+
+  @Post('verifyPassword')
+  @HttpCode(HttpStatus.OK)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Verify user password',
+    description:
+      "Verifies if the provided password matches the current user's password. Used for re-authentication before sensitive operations.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password verification completed',
+    schema: {
+      example: {
+        status: 'success',
+        data: {
+          isValid: true,
+        },
+        message: 'Password is correct',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+    type: ErrorResponseDto,
+  })
+  async verifyPassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() verifyPasswordDto: VerifyPasswordDto,
+  ) {
+    const isValid = await this.passwordService.verifyCurrentPassword(
+      user.id,
+      verifyPasswordDto.password,
+    );
+
+    return {
+      status: 'success',
+      data: {
+        isValid,
+      },
+      message: isValid ? 'Password is correct' : 'Password is incorrect',
     };
   }
 }
