@@ -20,12 +20,14 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AiIntegrationModule } from './ai-integration/ai-integration.module';
 import envSchema from './config/validate-config';
+import { BullModule } from '@nestjs/bullmq';
+import redisConfig from './config/redis.config';
 
 const envFilePath = '.env';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ envFilePath, isGlobal: true, validationSchema: envSchema }),
+    ConfigModule.forRoot({ envFilePath, isGlobal: true, validationSchema: envSchema, load: [redisConfig] }),
     AuthModule,
     UserModule,
     UsersModule,
@@ -37,6 +39,31 @@ const envFilePath = '.env';
       // score: 0.8, // The minimum score to pass
       // for v2
       // skipIf: process.env.NODE_ENV !== 'production',
+    }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [redisConfig.KEY],
+      useFactory: (config: { redisHost: string; redisPort: number }) => {
+        console.log('BullMQ connecting to Redis at:', `${config.redisHost}:${config.redisPort}`);
+
+        return {
+          connection: {
+            host: config.redisHost,
+            port: config.redisPort,
+          },
+
+          defaultJobOptions: {
+            removeOnComplete: {
+              count: 1000,
+              age: 24 * 3600, // 1 day
+            },
+            removeOnFail: {
+              count: 5000,
+              age: 7 * 24 * 3600, // 7 days
+            },
+          },
+        };
+      },
     }),
     PostModule,
     ProfileModule,

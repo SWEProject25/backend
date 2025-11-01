@@ -31,3 +31,12 @@ export enum RequestType {
   WEB = 'WEB',
   MOBILE = 'MOBILE',
 }
+
+export const RedisQueues = {
+  postQueue: {
+    name: 'post-queue',
+    processes: {
+      summarizePostContent: 'summarize-post-content',
+    }
+  }
+  }

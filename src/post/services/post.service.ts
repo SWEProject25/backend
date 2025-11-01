@@ -1,11 +1,14 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Services } from 'src/utils/constants';
+import { RedisQueues, Services } from 'src/utils/constants';
 import { CreatePostDto } from '../dto/create-post.dto';
 import { PostFiltersDto } from '../dto/post-filter.dto';
 import { MediaType, Post, PostType, PostVisibility } from 'generated/prisma';
 import { StorageService } from 'src/storage/storage.service';
 import { AiSummarizationService } from 'src/ai-integration/services/summarization.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { SummarizeJob } from 'src/common/interfaces/summarizeJob.interface';
 
 @Injectable()
 export class PostService {
@@ -16,6 +19,8 @@ export class PostService {
     private readonly storageService: StorageService,
     @Inject(Services.AI_SUMMARIZATION)
     private readonly aiSummarizationService: AiSummarizationService,
+    @InjectQueue(RedisQueues.postQueue.name)
+    private readonly postQueue: Queue,
   ) { }
 
   private extractHashtags(content: string): string[] {
@@ -98,6 +103,9 @@ export class PostService {
         hashtags,
         mediaWithType,
       );
+
+      await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
+
       return post;
 
     } catch (error) {
@@ -105,6 +113,13 @@ export class PostService {
       await this.storageService.deleteFiles(urls);
       throw error;
     }
+  }
+
+  private async addToSummarizationQueue(job: SummarizeJob) {
+    await this.postQueue.add(
+      RedisQueues.postQueue.processes.summarizePostContent,
+      job
+    );
   }
 
   async summarizePost(postId: number) {
