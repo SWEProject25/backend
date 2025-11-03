@@ -9,6 +9,7 @@ import { MediaType, Post, PostType, PostVisibility, Prisma as PrismalSql } from 
 import { StorageService } from 'src/storage/storage.service';
 
 import { MLService } from './ml.service';
+import { RawPost, TransformedPost } from '../interfaces/post.interface';
 
 // This interface now reflects the complex object returned by our query
 
@@ -582,16 +583,81 @@ export class PostService {
     return this.getTopPaginatedPosts(posts, reposts, page, limit);
   }
 
+  private transformPost(posts: RawPost[]): TransformedPost[] {
+    return posts.map((post) => ({
+      userId: post.User.id,
+      username: post.User.username,
+      verified: post.User.is_verified,
+      name: post.User.Profile?.name || post.User.username,
+      avatar: post.User.Profile?.profile_image_url || null,
+      postId: post.id,
+      date: post.created_at,
+      likesCount: post._count.likes,
+      retweetsCount: post._count.repostedBy,
+      commentsCount: post._count.Replies,
+      isLikedByMe: post.likes.length > 0,
+      isFollowedByMe: post.User.Followers && post.User.Followers.length > 0 || false,
+      isRepostedByMe: post.repostedBy.length > 0,
+      text: post.content,
+      media: post.media.map(m => ({
+        url: m.media_url,
+        type: m.type
+      })),
+      isRepost: false,
+      isQuote: false
+    }));
+  }
+
   async getUserReplies(userId: number, page: number, limit: number, visibility?: PostVisibility) {
     return this.getPosts(userId, page, limit, [PostType.REPLY], visibility);
   }
 
-  async getRepliesOfPost(postId: number, page: number, limit: number) {
-    return this.prismaService.post.findMany({
+  async getRepliesOfPost(postId: number, page: number, limit: number, userId: number) {
+    const replies = await this.prismaService.post.findMany({
       where: {
         type: PostType.REPLY,
         parent_id: postId,
         is_deleted: false,
+      },
+      include: {
+        _count: {
+          select: {
+            likes: true,
+            repostedBy: true,
+            Replies: true,
+          },
+        },
+        User: {
+          select: {
+            id: true,
+            username: true,
+            is_verified: true,
+            Profile: {
+              select: {
+                name: true,
+                profile_image_url: true,
+              },
+            },
+            Followers: {
+              where: { followerId: userId },
+              select: { followerId: true },
+            },
+          },
+        },
+        media: {
+          select: {
+            media_url: true,
+            type: true,
+          },
+        },
+        likes: {
+          where: { user_id: userId },
+          select: { user_id: true },
+        },
+        repostedBy: {
+          where: { user_id: userId },
+          select: { user_id: true },
+        },
       },
       skip: (page - 1) * limit,
       take: limit,
@@ -599,6 +665,9 @@ export class PostService {
         created_at: 'desc',
       },
     });
+
+
+    return this.transformPost(replies);
   }
 
   async deletePost(postId: number) {
@@ -672,7 +741,7 @@ export class PostService {
     if (!post) {
       throw new NotFoundException('Post not found');
     }
-    
+
     const { likes, repostedBy, ...postData } = post;
 
     return {
