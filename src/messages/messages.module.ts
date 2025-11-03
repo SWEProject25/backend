@@ -6,6 +6,7 @@ import { Services } from 'src/utils/constants';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { RedisModule } from 'src/redis/redis.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PrismaModule } from 'src/prisma/prisma.module';
       }),
     }),
     PrismaModule,
+    RedisModule,
   ],
   controllers: [MessagesController],
   providers: [

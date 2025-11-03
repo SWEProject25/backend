@@ -6,6 +6,7 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import { Inject, UnauthorizedException, UseFilters } from '@nestjs/common';
 import { Services } from 'src/utils/constants';
@@ -15,6 +16,7 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { MarkSeenDto } from './dto/mark-seen.dto';
 import { WebSocketExceptionFilter } from './exceptions/ws-exception.filter';
+import { RedisService } from 'src/redis/redis.service';
 
 @WebSocketGateway(8000, {
   cors: {
@@ -22,18 +24,60 @@ import { WebSocketExceptionFilter } from './exceptions/ws-exception.filter';
   },
 })
 @UseFilters(new WebSocketExceptionFilter())
-export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  private readonly connectedUsers = new Map<number, Set<string>>(); // userId -> Set of socketIds
-
+export class MessagesGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
+{
   constructor(
     @Inject(Services.MESSAGES)
     private readonly messagesService: MessagesService,
+    @Inject(Services.REDIS)
+    private readonly redisService: RedisService,
   ) {}
 
   @WebSocketServer()
   server: Server;
 
-  handleConnection(client: Socket) {
+  async afterInit() {
+    // Subscribe to message broadcasts from other pods
+    await this.redisService.subscribe('message:created', async (message) => {
+      const data = JSON.parse(message);
+      this.server.to(`conversation_${data.conversationId}`).emit('messageCreated', data.payload);
+    });
+
+    await this.redisService.subscribe('message:updated', async (message) => {
+      const data = JSON.parse(message);
+      this.server.to(`conversation_${data.conversationId}`).emit('messageUpdated', data.payload);
+    });
+
+    await this.redisService.subscribe('messages:seen', async (message) => {
+      const data = JSON.parse(message);
+      this.server.to(`conversation_${data.conversationId}`).emit('messagesSeen', data.payload);
+    });
+
+    await this.redisService.subscribe('user:typing', async (message) => {
+      const data = JSON.parse(message);
+      this.server.to(`conversation_${data.conversationId}`).emit('userTyping', data.payload);
+    });
+
+    await this.redisService.subscribe('user:stopTyping', async (message) => {
+      const data = JSON.parse(message);
+      this.server.to(`conversation_${data.conversationId}`).emit('userStoppedTyping', data.payload);
+    });
+
+    await this.redisService.subscribe('message:notification', async (message) => {
+      const data = JSON.parse(message);
+      this.server.to(`user_${data.userId}`).emit('newMessageNotification', data.payload);
+    });
+
+    await this.redisService.subscribe('message:editNotification', async (message) => {
+      const data = JSON.parse(message);
+      this.server.to(`user_${data.userId}`).emit('editMessageNotification', data.payload);
+    });
+
+    console.log('✅ WebSocket Gateway initialized with Redis pub/sub');
+  }
+
+  async handleConnection(client: Socket) {
     try {
       const userId = client.data.userId;
 
@@ -43,11 +87,8 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         return;
       }
 
-      // Track connected user
-      if (!this.connectedUsers.has(userId)) {
-        this.connectedUsers.set(userId, new Set());
-      }
-      this.connectedUsers.get(userId)!.add(client.id);
+      // Track connected user in Redis
+      await this.redisService.sAdd(`user:${userId}:sockets`, client.id);
 
       // Join user's personal room for notifications
       client.join(`user_${userId}`);
@@ -58,17 +99,18 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     try {
       const userId = client.data.userId;
 
       if (userId) {
-        const userSockets = this.connectedUsers.get(userId);
-        if (userSockets) {
-          userSockets.delete(client.id);
-          if (userSockets.size === 0) {
-            this.connectedUsers.delete(userId);
-          }
+        // Remove socket from Redis
+        await this.redisService.sRem(`user:${userId}:sockets`, client.id);
+
+        // Clean up empty sets (optional, helps with Redis memory)
+        const remaining = await this.redisService.sCard(`user:${userId}:sockets`);
+        if (remaining === 0) {
+          await this.redisService.del(`user:${userId}:sockets`);
         }
       }
     } catch (error) {
@@ -173,23 +215,27 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       const message = await this.messagesService.create(createMessageDto);
 
-      // Emit to conversation room
-      this.server
-        .to(`conversation_${createMessageDto.conversationId}`)
-        .emit('messageCreated', message);
-
-      const conversationRoom = this.server.sockets.adapter.rooms.get(
-        `conversation_${createMessageDto.conversationId}`,
+      // Broadcast to ALL pods via Redis pub/sub
+      await this.redisService.publish(
+        'message:created',
+        JSON.stringify({
+          conversationId: createMessageDto.conversationId,
+          payload: message,
+        }),
       );
-      const recipientRoom = this.server.sockets.adapter.rooms.get(`user_${recipientId}`);
 
-      const isRecipientInConversation =
-        conversationRoom &&
-        recipientRoom &&
-        [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
+      // Check if recipient is in conversation room across ALL pods
+      const recipientSockets = await this.redisService.sMembers(`user:${recipientId}:sockets`);
+      const isRecipientInConversation = recipientSockets.length > 0;
 
       if (!isRecipientInConversation) {
-        this.server.to(`user_${recipientId}`).emit('newMessageNotification', message);
+        await this.redisService.publish(
+          'message:notification',
+          JSON.stringify({
+            userId: recipientId,
+            payload: message,
+          }),
+        );
       }
 
       return {
@@ -216,27 +262,32 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       const message = await this.messagesService.update(updateMessageDto, userId);
 
-      // Emit updated message to users in that conversation room
-      this.server.to(`conversation_${message.conversationId}`).emit('messageUpdated', message);
+      // Broadcast to ALL pods via Redis
+      await this.redisService.publish(
+        'message:updated',
+        JSON.stringify({
+          conversationId: message.conversationId,
+          payload: message,
+        }),
+      );
 
       const participants = await this.messagesService.getConversationUsers(message.conversationId);
 
       const recipientId =
         userId === participants.user1Id ? participants.user2Id : participants.user1Id;
 
-      const conversationRoom = this.server.sockets.adapter.rooms.get(
-        `conversation_${message.conversationId}`,
-      );
-
-      const recipientRoom = this.server.sockets.adapter.rooms.get(`user_${recipientId}`);
-
-      const isRecipientInConversation =
-        conversationRoom &&
-        recipientRoom &&
-        [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
+      // Check if recipient is connected across ALL pods
+      const recipientSockets = await this.redisService.sMembers(`user:${recipientId}:sockets`);
+      const isRecipientInConversation = recipientSockets.length > 0;
 
       if (!isRecipientInConversation) {
-        this.server.to(`user_${recipientId}`).emit('editMessageNotification', message);
+        await this.redisService.publish(
+          'message:editNotification',
+          JSON.stringify({
+            userId: recipientId,
+            payload: message,
+          }),
+        );
       }
 
       return {
@@ -268,12 +319,18 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       await this.messagesService.markMessagesAsSeen(markSeenDto.conversationId, markSeenDto.userId);
 
-      // Notify other participants in the conversation
-      socket.to(`conversation_${markSeenDto.conversationId}`).emit('messagesSeen', {
-        conversationId: markSeenDto.conversationId,
-        userId: markSeenDto.userId,
-        timestamp: new Date().toISOString(),
-      });
+      // Broadcast to ALL pods
+      await this.redisService.publish(
+        'messages:seen',
+        JSON.stringify({
+          conversationId: markSeenDto.conversationId,
+          payload: {
+            conversationId: markSeenDto.conversationId,
+            userId: markSeenDto.userId,
+            timestamp: new Date().toISOString(),
+          },
+        }),
+      );
 
       return {
         status: 'success',
@@ -296,11 +353,17 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         throw new UnauthorizedException('User not authenticated');
       }
 
-      // Notify others in the conversation
-      socket.to(`conversation_${data.conversationId}`).emit('userTyping', {
-        conversationId: data.conversationId,
-        userId,
-      });
+      // Broadcast to ALL pods
+      await this.redisService.publish(
+        'user:typing',
+        JSON.stringify({
+          conversationId: data.conversationId,
+          payload: {
+            conversationId: data.conversationId,
+            userId,
+          },
+        }),
+      );
 
       return { status: 'success' };
     } catch (error) {
@@ -321,10 +384,16 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         throw new UnauthorizedException('User not authenticated');
       }
 
-      socket.to(`conversation_${data.conversationId}`).emit('userStoppedTyping', {
-        conversationId: data.conversationId,
-        userId,
-      });
+      await this.redisService.publish(
+        'user:stopTyping',
+        JSON.stringify({
+          conversationId: data.conversationId,
+          payload: {
+            conversationId: data.conversationId,
+            userId,
+          },
+        }),
+      );
 
       return { status: 'success' };
     } catch (error) {
