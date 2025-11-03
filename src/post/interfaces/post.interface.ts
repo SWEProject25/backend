@@ -31,7 +31,7 @@ export interface RawPost {
   visibility: string;
   created_at: Date;
   is_deleted: boolean;
-  summary: string | null;
+  summary?: string | null;
   _count: Count;
   User: User;
   media: Media[];
