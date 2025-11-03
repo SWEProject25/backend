@@ -181,4 +181,13 @@ export class PasswordService {
     const hashedPassword = await this.hash(changePasswordDto.newPassword);
     await this.userService.updatePassword(id, hashedPassword);
   }
+
+  public async verifyCurrentPassword(userId: number, password: string): Promise<boolean> {
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return await this.verify(user.password, password);
+  }
 }
