@@ -75,10 +75,24 @@ export class UserService {
     });
   }
 
+  public async findByProviderId(providerId: string) {
+    return await this.prismaService.user.findFirst({
+      where: {
+        provider_id: providerId,
+      },
+      include: {
+        Profile: true,
+      },
+    });
+  }
+
   public async createOAuthUser(oauthProfileDto: OAuthProfileDto) {
+    // Use email if available, otherwise generate unique email from provider_id to avoid constraint violation
+    const email = oauthProfileDto.email || `${oauthProfileDto.provider}_${oauthProfileDto.providerId}@oauth.local`;
+    
     const newUser = await this.prismaService.user.create({
       data: {
-        email: oauthProfileDto.provider === 'google' ? oauthProfileDto.email! : '',
+        email,
         password: '',
         username: oauthProfileDto.username!,
         is_verified: true,
