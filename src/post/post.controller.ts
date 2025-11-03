@@ -68,7 +68,7 @@ export class PostController {
     private readonly repostService: RepostService,
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
-  ) {}
+  ) { }
 
   @Get('timeline/for-you')
   @UseGuards(JwtAuthGuard)
@@ -552,8 +552,9 @@ export class PostController {
     @Param('postId') postId: number,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser
   ) {
-    const replies = await this.postService.getRepliesOfPost(+postId, +page, +limit);
+    const replies = await this.postService.getRepliesOfPost(+postId, +page, +limit, user.id);
 
     return {
       status: 'success',

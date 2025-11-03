@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PostType, PostVisibility } from 'generated/prisma';
+import { Transform } from 'class-transformer';
 
 export class CreatePostDto {
   @IsString()
@@ -24,6 +25,7 @@ export class CreatePostDto {
   type: PostType;
 
   @IsOptional()
+  @Transform(({ value }) => value ? parseInt(value, 10) : undefined)
   @ApiPropertyOptional({
     description: 'The ID of the parent post (used when this post is a reply or quote)',
     example: 42,
