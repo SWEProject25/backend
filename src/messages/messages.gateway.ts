@@ -38,43 +38,50 @@ export class MessagesGateway
   server: Server;
 
   async afterInit() {
-    // Subscribe to message broadcasts from other pods
-    await this.redisService.subscribe('message:created', async (message) => {
-      const data = JSON.parse(message);
-      this.server.to(`conversation_${data.conversationId}`).emit('messageCreated', data.payload);
-    });
+    try {
+      console.log('🔄 Initializing WebSocket Gateway with Redis pub/sub...');
 
-    await this.redisService.subscribe('message:updated', async (message) => {
-      const data = JSON.parse(message);
-      this.server.to(`conversation_${data.conversationId}`).emit('messageUpdated', data.payload);
-    });
+      // Subscribe to message broadcasts from other pods
+      await this.redisService.subscribe('message:created', async (message) => {
+        const data = JSON.parse(message);
+        this.server.to(`conversation_${data.conversationId}`).emit('messageCreated', data.payload);
+      });
 
-    await this.redisService.subscribe('messages:seen', async (message) => {
-      const data = JSON.parse(message);
-      this.server.to(`conversation_${data.conversationId}`).emit('messagesSeen', data.payload);
-    });
+      await this.redisService.subscribe('message:updated', async (message) => {
+        const data = JSON.parse(message);
+        this.server.to(`conversation_${data.conversationId}`).emit('messageUpdated', data.payload);
+      });
 
-    await this.redisService.subscribe('user:typing', async (message) => {
-      const data = JSON.parse(message);
-      this.server.to(`conversation_${data.conversationId}`).emit('userTyping', data.payload);
-    });
+      await this.redisService.subscribe('messages:seen', async (message) => {
+        const data = JSON.parse(message);
+        this.server.to(`conversation_${data.conversationId}`).emit('messagesSeen', data.payload);
+      });
 
-    await this.redisService.subscribe('user:stopTyping', async (message) => {
-      const data = JSON.parse(message);
-      this.server.to(`conversation_${data.conversationId}`).emit('userStoppedTyping', data.payload);
-    });
+      await this.redisService.subscribe('user:typing', async (message) => {
+        const data = JSON.parse(message);
+        this.server.to(`conversation_${data.conversationId}`).emit('userTyping', data.payload);
+      });
 
-    await this.redisService.subscribe('message:notification', async (message) => {
-      const data = JSON.parse(message);
-      this.server.to(`user_${data.userId}`).emit('newMessageNotification', data.payload);
-    });
+      await this.redisService.subscribe('user:stopTyping', async (message) => {
+        const data = JSON.parse(message);
+        this.server.to(`conversation_${data.conversationId}`).emit('userStoppedTyping', data.payload);
+      });
 
-    await this.redisService.subscribe('message:editNotification', async (message) => {
-      const data = JSON.parse(message);
-      this.server.to(`user_${data.userId}`).emit('editMessageNotification', data.payload);
-    });
+      await this.redisService.subscribe('message:notification', async (message) => {
+        const data = JSON.parse(message);
+        this.server.to(`user_${data.userId}`).emit('newMessageNotification', data.payload);
+      });
 
-    console.log('✅ WebSocket Gateway initialized with Redis pub/sub');
+      await this.redisService.subscribe('message:editNotification', async (message) => {
+        const data = JSON.parse(message);
+        this.server.to(`user_${data.userId}`).emit('editMessageNotification', data.payload);
+      });
+
+      console.log('✅ WebSocket Gateway initialized with Redis pub/sub');
+    } catch (error) {
+      console.error('❌ Failed to initialize WebSocket Gateway:', error);
+      throw error;
+    }
   }
 
   async handleConnection(client: Socket) {

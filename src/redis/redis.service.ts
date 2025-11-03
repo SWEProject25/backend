@@ -21,22 +21,33 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       },
     };
 
-    // Main client for general operations
-    this.client = createClient(config);
-    this.client.on('error', (err) => console.error('Redis Client Error:', err));
-    this.client.on('connect', () => console.log('Redis connected'));
-    this.client.on('ready', () => console.log('Redis ready'));
-    await this.client.connect();
+    try {
+      // Main client for general operations
+      this.client = createClient(config);
+      this.client.on('error', (err) => console.error('Redis Client Error:', err));
+      this.client.on('connect', () => console.log('✅ Redis main client connected'));
+      this.client.on('ready', () => console.log('✅ Redis main client ready'));
+      await this.client.connect();
 
-    // Dedicated subscriber client
-    this.subscriber = createClient(config);
-    this.subscriber.on('error', (err) => console.error('Redis Subscriber Error:', err));
-    await this.subscriber.connect();
+      // Dedicated subscriber client
+      this.subscriber = createClient(config);
+      this.subscriber.on('error', (err) => console.error('Redis Subscriber Error:', err));
+      this.subscriber.on('connect', () => console.log('✅ Redis subscriber connected'));
+      await this.subscriber.connect();
+      console.log('✅ Redis subscriber client initialized');
 
-    // Dedicated publisher client
-    this.publisher = createClient(config);
-    this.publisher.on('error', (err) => console.error('Redis Publisher Error:', err));
-    await this.publisher.connect();
+      // Dedicated publisher client
+      this.publisher = createClient(config);
+      this.publisher.on('error', (err) => console.error('Redis Publisher Error:', err));
+      this.publisher.on('connect', () => console.log('✅ Redis publisher connected'));
+      await this.publisher.connect();
+      console.log('✅ Redis publisher client initialized');
+
+      console.log('✅ All Redis clients connected successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize Redis clients:', error);
+      throw error;
+    }
   }
 
   async onModuleDestroy() {
@@ -97,6 +108,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   // Pub/Sub operations
   async publish(channel: string, message: string): Promise<number> {
+    if (!this.publisher) {
+      throw new Error('Redis publisher not initialized');
+    }
     return await this.publisher.publish(channel, message);
   }
 
@@ -104,10 +118,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     channel: string,
     callback: (message: string, channel: string) => void,
   ): Promise<void> {
+    if (!this.subscriber) {
+      throw new Error('Redis subscriber not initialized');
+    }
     await this.subscriber.subscribe(channel, callback);
   }
 
   async unsubscribe(channel: string): Promise<void> {
+    if (!this.subscriber) {
+      throw new Error('Redis subscriber not initialized');
+    }
     await this.subscriber.unsubscribe(channel);
   }
 
