@@ -41,6 +41,11 @@ export class MessagesGateway
     try {
       console.log('🔄 Initializing WebSocket Gateway with Redis pub/sub...');
 
+      // Wait for Redis to be ready
+      console.log('⏳ Waiting for Redis to be ready...');
+      await this.redisService.waitUntilReady(15000);
+      console.log('✅ Redis is ready, setting up subscriptions...');
+
       // Subscribe to message broadcasts from other pods
       await this.redisService.subscribe('message:created', async (message) => {
         const data = JSON.parse(message);

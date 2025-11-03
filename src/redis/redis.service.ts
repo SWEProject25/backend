@@ -8,6 +8,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private client: RedisClientType;
   private subscriber: RedisClientType;
   private publisher: RedisClientType;
+  private isReady = false;
 
   constructor(
     @Inject(redisConfig.KEY)
@@ -44,9 +45,20 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       console.log('✅ Redis publisher client initialized');
 
       console.log('✅ All Redis clients connected successfully');
+      this.isReady = true;
     } catch (error) {
       console.error('❌ Failed to initialize Redis clients:', error);
       throw error;
+    }
+  }
+
+  async waitUntilReady(timeoutMs: number = 10000): Promise<void> {
+    const startTime = Date.now();
+    while (!this.isReady) {
+      if (Date.now() - startTime > timeoutMs) {
+        throw new Error('Redis initialization timeout');
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 
