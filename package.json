@@ -38,6 +38,7 @@
     "@nestjs/websockets": "^11.1.7",
     "@nestlab/google-recaptcha": "^3.10.0",
     "@prisma/client": "^6.17.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "argon2": "^0.44.0",
     "axios": "^1.13.1",
     "class-transformer": "^0.5.1",
