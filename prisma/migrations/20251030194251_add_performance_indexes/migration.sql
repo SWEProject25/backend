@@ -12,14 +12,14 @@ WHERE is_deleted = false;
 
 -- 3. Follow relationships (bidirectional)
 CREATE INDEX  idx_follows_follower 
-ON follows (followerId, followingId);
+ON follows ("followerId", "followingId");
 
 CREATE INDEX  idx_follows_following 
-ON follows (followingId, followerId);
+ON follows ("followingId", "followerId");
 
 -- 4. Blocks lookup
 CREATE INDEX  idx_blocks_blocker 
-ON blocks (blockerId, blockedId);
+ON blocks ("blockerId", "blockedId");
 
 -- 5. Likes - for author preference and engagement
 CREATE INDEX  idx_likes_user 
