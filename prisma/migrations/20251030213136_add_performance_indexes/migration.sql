@@ -37,7 +37,7 @@ ON "Repost" (post_id, user_id);
 
 -- 8. Media
 CREATE INDEX idx_media_post 
-ON media (post_id);
+ON "Media" (post_id);
 
 -- 9. Hashtags
 CREATE INDEX idx_post_hashtags_post ON "_PostHashtags" ("B");
@@ -57,7 +57,7 @@ ANALYZE follows;
 ANALYZE "Like";
 ANALYZE blocks;
 ANALYZE "Repost";
-ANALYZE media;
+ANALYZE "Media";
 ANALYZE "_PostHashtags";
 ANALYZE "Mention";
 ANALYZE profiles;

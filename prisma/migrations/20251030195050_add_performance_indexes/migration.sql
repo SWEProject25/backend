@@ -25,10 +25,10 @@ ON blocks ("blockerId", "blockedId");
 
 -- 5. Likes - for author preference and engagement
 CREATE INDEX  idx_likes_user 
-ON likes (user_id, post_id);
+ON "Like" (user_id, post_id);
 
 CREATE INDEX  idx_likes_post 
-ON likes (post_id, user_id);
+ON "Like" (post_id, user_id);
 
 -- 6. Replies for engagement count
 CREATE INDEX  idx_posts_parent 
@@ -37,11 +37,11 @@ WHERE parent_id IS NOT NULL AND is_deleted = false;
 
 -- 7. Reposts for engagement
 CREATE INDEX  idx_reposts_post 
-ON reposts (post_id, user_id);
+ON "Repost" (post_id, user_id);
 
 -- 8. Media check
 CREATE INDEX  idx_media_post 
-ON media (post_id);
+ON "Media" (post_id);
 
 -- 9. Hashtags relationship
 CREATE INDEX  idx_post_hashtags_post 
@@ -49,7 +49,7 @@ ON "_PostHashtags" ("B");
 
 -- 10. Mentions
 CREATE INDEX  idx_mentions_post 
-ON mentions (post_id);
+ON "Mention" (post_id);
 
 -- 11. Profile lookup for author data
 CREATE INDEX  idx_profiles_user 
@@ -61,7 +61,7 @@ ON profiles (user_id);
 
 -- 12. For "common likes" - people you follow who liked a post
 CREATE INDEX  idx_likes_post_user_combined 
-ON likes (post_id, user_id);
+ON "Like" (post_id, user_id);
 
 -- 13. For "common follows" - people you follow who follow an author
 CREATE INDEX  idx_follows_following_follower_combined 
@@ -72,10 +72,10 @@ ON follows ("followingId", "followerId");
 -- ==========================================
 ANALYZE posts;
 ANALYZE follows;
-ANALYZE likes;
+ANALYZE "Like";
 ANALYZE blocks;
-ANALYZE reposts;
-ANALYZE media;
+ANALYZE "Repost";
+ANALYZE "Media";
 ANALYZE "_PostHashtags";
-ANALYZE mentions;
+ANALYZE "Mention";
 ANALYZE profiles;
