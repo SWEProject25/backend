@@ -5,37 +5,37 @@
 
 */
 -- DropIndex
-DROP INDEX "dev"."idx_likes_post" IF EXISTS idx_likes_post;
+DROP INDEX IF EXISTS "idx_likes_post";
 
 -- DropIndex
-DROP INDEX "dev"."idx_likes_post_user_combined" IF EXISTS idx_likes_post_user_combined;
+DROP INDEX IF EXISTS "idx_likes_post_user_combined";
 
 -- DropIndex
-DROP INDEX "dev"."idx_likes_user" IF EXISTS idx_likes_user;
+DROP INDEX IF EXISTS "idx_likes_user";
 
 -- DropIndex
-DROP INDEX "dev"."idx_mentions_post" IF EXISTS idx_mentions_post;
+DROP INDEX IF EXISTS "idx_mentions_post";
 
 -- DropIndex
-DROP INDEX "dev"."idx_reposts_post" IF EXISTS idx_reposts_post;
+DROP INDEX IF EXISTS "idx_reposts_post";
 
 -- DropIndex
-DROP INDEX "dev"."idx_blocks_blocker" IF EXISTS idx_blocks_blocker;
+DROP INDEX IF EXISTS "idx_blocks_blocker";
 
 -- DropIndex
-DROP INDEX "dev"."idx_follows_follower" IF EXISTS idx_follows_follower;
+DROP INDEX IF EXISTS "idx_follows_follower";
 
 -- DropIndex
-DROP INDEX "dev"."idx_follows_following" IF EXISTS idx_follows_following;
+DROP INDEX IF EXISTS "idx_follows_following";
 
 -- DropIndex
-DROP INDEX "dev"."idx_follows_following_follower_combined" IF EXISTS idx_follows_following_follower_combined;
+DROP INDEX IF EXISTS "idx_follows_following_follower_combined";
 
 -- DropIndex
-DROP INDEX "dev"."idx_profiles_user" IF EXISTS idx_profiles_user;
+DROP INDEX IF EXISTS "idx_profiles_user";
 
 -- DropTable
-DROP TABLE "dev"."Media" IF EXISTS idx_likes_post;
+DROP TABLE IF EXISTS "Media";
 
 -- CreateTable
 CREATE TABLE "media" (
