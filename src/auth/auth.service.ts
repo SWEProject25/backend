@@ -163,6 +163,33 @@ export class AuthService {
       };
     }
 
+    // Check by email if provided (to link existing accounts)
+    if (githubUserData.email) {
+      const existingUserByEmail = await this.userService.getUserData(githubUserData.email);
+      console.log('[GitHub OAuth] User found by email:', !!existingUserByEmail?.user);
+      
+      if (existingUserByEmail?.user && existingUserByEmail?.profile) {
+        // Link GitHub OAuth to existing account
+        if (!existingUserByEmail.user.provider_id) {
+          console.log('[GitHub OAuth] Linking GitHub OAuth to existing account');
+          await this.userService.updateOAuthData(
+            existingUserByEmail.user.id,
+            githubUserData.providerId,
+            githubUserData.email,
+          );
+        }
+        
+        return {
+          sub: existingUserByEmail.user.id,
+          username: existingUserByEmail.user.username,
+          role: existingUserByEmail.user.role,
+          email: existingUserByEmail.user.email,
+          name: existingUserByEmail.profile.name,
+          profileImageUrl: existingUserByEmail.profile.profile_image_url,
+        };
+      }
+    }
+
     // Check by username (for backwards compatibility with old OAuth users)
     const existingUser = await this.userService.getUserData(githubUserData.username!);
     console.log('[GitHub OAuth] User found by username:', !!existingUser?.user);
