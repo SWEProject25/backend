@@ -141,8 +141,17 @@ export class AuthService {
   }
 
   public async validateGithubUser(githubUserData: OAuthProfileDto) {
+    // Debug logging
+    console.log('[GitHub OAuth] Validating user with data:', {
+      username: githubUserData.username,
+      providerId: githubUserData.providerId,
+      email: githubUserData.email || 'NO EMAIL',
+    });
+    
     // First, check if user exists by provider_id (most reliable for OAuth)
     const existingUserByProvider = await this.userService.findByProviderId(githubUserData.providerId);
+    console.log('[GitHub OAuth] User found by provider_id:', !!existingUserByProvider);
+    
     if (existingUserByProvider) {
       return {
         sub: existingUserByProvider.id,
@@ -156,6 +165,8 @@ export class AuthService {
 
     // Check by username (for backwards compatibility with old OAuth users)
     const existingUser = await this.userService.getUserData(githubUserData.username!);
+    console.log('[GitHub OAuth] User found by username:', !!existingUser?.user);
+    
     if (existingUser?.user && existingUser?.profile) {
       // If user exists but doesn't have provider_id set, update it (migration path)
       if (!existingUser.user.provider_id) {
@@ -177,6 +188,7 @@ export class AuthService {
     }
     
     // Create new user if none exists
+    console.log('[GitHub OAuth] Creating new user - no existing user found');
     const newUser = await this.userService.createOAuthUser(githubUserData);
     return {
       sub: newUser.newUser.id,

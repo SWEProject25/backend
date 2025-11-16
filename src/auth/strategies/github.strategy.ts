@@ -39,6 +39,16 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     const email = profile.emails && profile.emails.length > 0 
       ? profile.emails[0].value 
       : undefined;
+    
+    // Debug logging to track GitHub OAuth data
+    console.log('[GitHub OAuth] Received profile data:', {
+      username,
+      providerId,
+      email: email || 'NO EMAIL',
+      hasEmails: !!profile.emails,
+      emailsLength: profile.emails?.length || 0,
+    });
+    
     const githubUserDto: OAuthProfileDto = {
       username,
       displayName: userDisplayname,
