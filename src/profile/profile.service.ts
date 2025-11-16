@@ -335,6 +335,13 @@ export class ProfileService {
   }
 
   private isDefaultImage(url: string): boolean {
+    // Don't try to delete OAuth provider images (GitHub, Google, etc.)
+    if (url.includes('avatars.githubusercontent.com') || 
+        url.includes('googleusercontent.com') ||
+        url.includes('githubusercontent.com') ||
+        url.includes('graph.facebook.com')) {
+      return true; // Treat as "default" so we don't try to delete them
+    }
     return url.includes('placehold') || url.includes('default');
   }
 }
