@@ -386,7 +386,7 @@ export class PostService {
         FROM posts p
         LEFT JOIN "User" u ON u.id = p.user_id
         LEFT JOIN profiles pr ON pr.user_id = u.id
-        LEFT JOIN media m ON m.post_id = p.id
+        LEFT JOIN "Media" m ON m.post_id = p.id
         LEFT JOIN "Like" l ON l.post_id = p.id
         LEFT JOIN "Repost" r ON r.post_id = p.id
         LEFT JOIN posts reply ON reply.parent_id = p.id AND reply.type = 'REPLY'
@@ -925,7 +925,7 @@ export class PostService {
         -- Media URLs (as JSON array)
         COALESCE(
           (SELECT json_agg(json_build_object('url', m."media_url", 'type', m."type"))
-           FROM "media" m WHERE m."post_id" = ap."id"),
+           FROM "Media" m WHERE m."post_id" = ap."id"),
           '[]'::json
         ) as "mediaUrls",
         
@@ -951,7 +951,7 @@ export class PostService {
               ),
               'media', COALESCE(
                 (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type"))
-                 FROM "media" om WHERE om."post_id" = op."id"),
+                 FROM "Media" om WHERE om."post_id" = op."id"),
                 '[]'::json
               )
             )
@@ -999,7 +999,7 @@ export class PostService {
       
       -- Media check
       LEFT JOIN LATERAL (
-        SELECT ap."id" as post_id FROM "media" WHERE "post_id" = ap."id" LIMIT 1
+        SELECT ap."id" as post_id FROM "Media" WHERE "post_id" = ap."id" LIMIT 1
       ) media_check ON true
       
       -- Hashtag count
@@ -1208,7 +1208,7 @@ export class PostService {
         -- Media URLs (as JSON array)
         COALESCE(
           (SELECT json_agg(json_build_object('url', med."media_url", 'type', med."type"))
-           FROM "media" med WHERE med."post_id" = ap."id"),
+           FROM "Media" med WHERE med."post_id" = ap."id"),
           '[]'::json
         ) as "mediaUrls",
         
@@ -1234,7 +1234,7 @@ export class PostService {
               ),
               'media', COALESCE(
                 (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type"))
-                 FROM "media" om WHERE om."post_id" = op."id"),
+                 FROM "Media" om WHERE om."post_id" = op."id"),
                 '[]'::json
               )
             )
@@ -1255,7 +1255,7 @@ export class PostService {
       LEFT JOIN "posts" reply ON reply."parent_id" = ap."id"
       LEFT JOIN "posts" quote ON quote."parent_id" = ap."id"
       LEFT JOIN LATERAL (
-        SELECT ap."id" as post_id FROM "media" WHERE "post_id" = ap."id" LIMIT 1
+        SELECT ap."id" as post_id FROM "Media" WHERE "post_id" = ap."id" LIMIT 1
       ) media_check ON true
       LEFT JOIN LATERAL (
         SELECT COUNT(*)::int as count FROM "_PostHashtags" WHERE "B" = ap."id"
