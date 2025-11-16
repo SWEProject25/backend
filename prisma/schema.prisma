@@ -20,7 +20,7 @@ model User {
   username    String    @unique() @map("username") @db.VarChar(50)
   password    String    @map("password") @db.VarChar(255)
   is_verified Boolean   @default(false) @map("is_verifed")
-  provider_id String?   @map("provider_id")
+  provider_id String?   @unique @map("provider_id")
   role        Role      @default(USER) @map("role")
   created_at  DateTime  @default(now()) @map("created_at")
   updated_at  DateTime  @updatedAt() @map("updated_at")

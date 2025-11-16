@@ -76,9 +76,16 @@ export class UserService {
   }
 
   public async createOAuthUser(oauthProfileDto: OAuthProfileDto) {
+    // Generate a unique email for providers that don't provide one (like GitHub without email scope)
+    let email = oauthProfileDto.email;
+    if (!email) {
+      // Use provider-specific format to avoid conflicts
+      email = `${oauthProfileDto.providerId}@${oauthProfileDto.provider}.oauth`;
+    }
+    
     const newUser = await this.prismaService.user.create({
       data: {
-        email: oauthProfileDto.provider === 'google' ? oauthProfileDto.email! : '',
+        email,
         password: '',
         username: oauthProfileDto.username!,
         is_verified: true,
@@ -96,6 +103,17 @@ export class UserService {
       newUser,
       proflie,
     };
+  }
+
+  public async findByProviderId(providerId: string) {
+    return await this.prismaService.user.findFirst({
+      where: {
+        provider_id: providerId,
+      },
+      include: {
+        Profile: true,
+      },
+    });
   }
 
   public async getUserData(uniqueIdentifier: string) {

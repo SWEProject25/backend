@@ -141,11 +141,21 @@ export class AuthService {
   }
 
   public async validateGithubUser(githubUserData: OAuthProfileDto) {
+    // First, check if user exists by provider_id (most reliable for OAuth)
+    const existingUserByProvider = await this.userService.findByProviderId(githubUserData.providerId);
+    if (existingUserByProvider) {
+      return {
+        sub: existingUserByProvider.id,
+        username: existingUserByProvider.username,
+        role: existingUserByProvider.role,
+        email: existingUserByProvider.email,
+        name: existingUserByProvider.Profile?.name,
+        profileImageUrl: existingUserByProvider.Profile?.profile_image_url,
+      };
+    }
+
+    // Fallback: check by username (for backwards compatibility)
     const existingUser = await this.userService.getUserData(githubUserData.username!);
-    // if (existingUser) {
-    //   // @TODO check for provider
-    //   return existingUser;
-    // }
     if (existingUser?.user && existingUser?.profile) {
       return {
         sub: existingUser.user.id,
@@ -156,6 +166,8 @@ export class AuthService {
         profileImageUrl: existingUser.profile.profile_image_url,
       };
     }
+    
+    // Create new user if none exists
     const newUser = await this.userService.createOAuthUser(githubUserData);
     return {
       sub: newUser.newUser.id,
