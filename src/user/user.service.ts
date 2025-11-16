@@ -92,10 +92,14 @@ export class UserService {
         provider_id: oauthProfileDto.providerId,
       },
     });
+    
+    // Use displayName if available, otherwise fallback to username
+    const displayName = oauthProfileDto.displayName || oauthProfileDto.username || 'User';
+    
     const proflie = await this.prismaService.profile.create({
       data: {
         user_id: newUser.id,
-        name: oauthProfileDto.displayName,
+        name: displayName,
         profile_image_url: oauthProfileDto?.profileImageUrl,
       },
     });
