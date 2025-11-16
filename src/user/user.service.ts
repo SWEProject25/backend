@@ -116,6 +116,23 @@ export class UserService {
     });
   }
 
+  public async updateOAuthData(userId: number, providerId: string, email?: string) {
+    // Generate synthetic email if not provided
+    const updateData: any = {
+      provider_id: providerId,
+    };
+    
+    // Only update email if provided and it's not empty
+    if (email) {
+      updateData.email = email;
+    }
+    
+    return await this.prismaService.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+  }
+
   public async getUserData(uniqueIdentifier: string) {
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(uniqueIdentifier);
     const user = await this.prismaService.user.findUnique({

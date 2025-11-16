@@ -154,9 +154,18 @@ export class AuthService {
       };
     }
 
-    // Fallback: check by username (for backwards compatibility)
+    // Check by username (for backwards compatibility with old OAuth users)
     const existingUser = await this.userService.getUserData(githubUserData.username!);
     if (existingUser?.user && existingUser?.profile) {
+      // If user exists but doesn't have provider_id set, update it (migration path)
+      if (!existingUser.user.provider_id) {
+        await this.userService.updateOAuthData(
+          existingUser.user.id,
+          githubUserData.providerId,
+          githubUserData.email,
+        );
+      }
+      
       return {
         sub: existingUser.user.id,
         username: existingUser.user.username,
