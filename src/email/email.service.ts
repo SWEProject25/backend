@@ -82,8 +82,8 @@ export class EmailService {
       throw new Error('❌ No email provider configured. Please set up AWS SES, Resend, or Azure.');
     }
 
-    this.logger.log(`📧 Primary email provider: ${mailerConfiguration.primaryProvider.toUpperCase()}`);
-    this.logger.log(`🔄 Fallback enabled: ${mailerConfiguration.enableFallback ? 'YES' : 'NO'}`);
+    const provider = mailerConfiguration.useAwsFirst ? 'AWS SES → Resend' : 'Resend only';
+    this.logger.log(`� Email provider: ${provider}`);
   }
 
   public async sendEmail(
