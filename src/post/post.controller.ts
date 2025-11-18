@@ -285,7 +285,10 @@ export class PostController {
     type: ErrorResponseDto,
   })
   async searchPosts(@Query() searchDto: SearchPostsDto, @CurrentUser() user: AuthenticatedUser) {
-    const { posts, totalItems, page, limit } = await this.postService.searchPosts(searchDto);
+    const { posts, totalItems, page, limit } = await this.postService.searchPosts(
+      searchDto,
+      user.id,
+    );
 
     return {
       status: 'success',
@@ -362,8 +365,10 @@ export class PostController {
     @Query() searchDto: SearchByHashtagDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const { posts, totalItems, page, limit, hashtag } =
-      await this.postService.searchPostsByHashtag(searchDto);
+    const { posts, totalItems, page, limit, hashtag } = await this.postService.searchPostsByHashtag(
+      searchDto,
+      user.id,
+    );
 
     return {
       status: 'success',
