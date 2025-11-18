@@ -34,8 +34,10 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { GetProfileResponseDto } from './dto/get-profile-response.dto';
 import { UpdateProfileResponseDto } from './dto/update-profile-response.dto';
 import { SearchProfileResponseDto } from './dto/search-profile-response.dto';
+import { GetProfileWithFollowStatusResponseDto } from './dto/get-profile-with-follow-status-response.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Routes, Services } from 'src/utils/constants';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
@@ -82,7 +84,7 @@ export class ProfileController {
   }
 
   @Get('user/:userId')
-  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get user profile by user ID',
@@ -97,15 +99,18 @@ export class ProfileController {
   @ApiResponse({
     status: 200,
     description: 'Profile retrieved successfully',
-    type: GetProfileResponseDto,
+    type: GetProfileWithFollowStatusResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Profile not found',
     type: ErrorResponseDto,
   })
-  public async getProfileByUserId(@Param('userId', ParseIntPipe) userId: number) {
-    const profile = await this.profileService.getProfileByUserId(userId);
+  public async getProfileByUserId(
+    @Param('userId', ParseIntPipe) userId: number,
+    @CurrentUser() user?: any,
+  ) {
+    const profile = await this.profileService.getProfileByUserId(userId, user?.id);
     return {
       status: 'success',
       message: 'Profile retrieved successfully',
@@ -114,7 +119,7 @@ export class ProfileController {
   }
 
   @Get('username/:username')
-  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get user profile by username',
@@ -129,15 +134,18 @@ export class ProfileController {
   @ApiResponse({
     status: 200,
     description: 'Profile retrieved successfully',
-    type: GetProfileResponseDto,
+    type: GetProfileWithFollowStatusResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Profile not found',
     type: ErrorResponseDto,
   })
-  public async getProfileByUsername(@Param('username') username: string) {
-    const profile = await this.profileService.getProfileByUsername(username);
+  public async getProfileByUsername(
+    @Param('username') username: string,
+    @CurrentUser() user?: any,
+  ) {
+    const profile = await this.profileService.getProfileByUsername(username, user?.id);
     return {
       status: 'success',
       message: 'Profile retrieved successfully',
@@ -146,7 +154,7 @@ export class ProfileController {
   }
 
   @Get('search')
-  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Search profiles by username or name',
@@ -187,6 +195,7 @@ export class ProfileController {
   public async searchProfiles(
     @Query('query') query: string,
     @Query() paginationDto: PaginationDto,
+    @CurrentUser() user?: any,
   ) {
     if (!query || query.trim().length === 0) {
       return {
@@ -206,6 +215,7 @@ export class ProfileController {
       query.trim(),
       paginationDto.page,
       paginationDto.limit,
+      user?.id,
     );
 
     return {
