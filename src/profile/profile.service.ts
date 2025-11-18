@@ -199,7 +199,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    if (profile.profile_image_url && !this.isDefaultImage(profile.profile_image_url)) {
+    if (profile.profile_image_url) {
       try {
         await this.storageService.deleteFile(profile.profile_image_url);
       } catch (error) {
@@ -235,9 +235,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    const defaultImageUrl = 'https://placehold.co/400x400/png';
-
-    if (profile.profile_image_url && !this.isDefaultImage(profile.profile_image_url)) {
+    if (profile.profile_image_url) {
       try {
         await this.storageService.deleteFile(profile.profile_image_url);
       } catch (error) {
@@ -247,7 +245,7 @@ export class ProfileService {
 
     return await this.prismaService.profile.update({
       where: { user_id: userId },
-      data: { profile_image_url: defaultImageUrl },
+      data: { profile_image_url: null },
       include: {
         User: {
           select: {
@@ -271,7 +269,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    if (profile.banner_image_url && !this.isDefaultImage(profile.banner_image_url)) {
+    if (profile.banner_image_url) {
       try {
         await this.storageService.deleteFile(profile.banner_image_url);
       } catch (error) {
@@ -307,9 +305,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    const defaultBannerUrl = 'https://placehold.co/1500x500/png';
-
-    if (profile.banner_image_url && !this.isDefaultImage(profile.banner_image_url)) {
+    if (profile.banner_image_url) {
       try {
         await this.storageService.deleteFile(profile.banner_image_url);
       } catch (error) {
@@ -319,7 +315,7 @@ export class ProfileService {
 
     return await this.prismaService.profile.update({
       where: { user_id: userId },
-      data: { banner_image_url: defaultBannerUrl },
+      data: { banner_image_url: null },
       include: {
         User: {
           select: {
@@ -332,16 +328,5 @@ export class ProfileService {
         },
       },
     });
-  }
-
-  private isDefaultImage(url: string): boolean {
-    // Don't try to delete OAuth provider images (GitHub, Google, etc.)
-    if (url.includes('avatars.githubusercontent.com') || 
-        url.includes('googleusercontent.com') ||
-        url.includes('githubusercontent.com') ||
-        url.includes('graph.facebook.com')) {
-      return true; // Treat as "default" so we don't try to delete them
-    }
-    return url.includes('placehold') || url.includes('default');
   }
 }
