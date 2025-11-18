@@ -34,8 +34,8 @@ export class ProfileService {
     return {
       ...profileData,
       User: userData,
-      followersCount: _count.Followers,
-      followingCount: _count.Following,
+      followers_count: _count.Followers,
+      following_count: _count.Following,
     };
   }
 
@@ -46,8 +46,8 @@ export class ProfileService {
     return {
       ...profileData,
       User: userData,
-      followersCount: _count.Followers,
-      followingCount: _count.Following,
+      followers_count: _count.Followers,
+      following_count: _count.Following,
       is_followed_by_me: isFollowedByMe,
     };
   }
