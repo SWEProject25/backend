@@ -194,6 +194,7 @@ model Conversation {
   user2Id    Int
   createdAt   DateTime  @default(now())
   updatedAt   DateTime?  @updatedAt
+  nextMessageIndex   Int       @default(1)
 
   Messages    Message[]
   User1       User      @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
@@ -205,6 +206,7 @@ model Conversation {
 model Message {
   id             Int       @id @default(autoincrement())
   conversationId Int
+  messageIndex    Int?
   senderId       Int
   text        String    @db.VarChar(1000)
   isDeletedU1     Boolean   @default(false)
@@ -228,7 +230,7 @@ model Media {
 
   post Post @relation(fields: [post_id], references: [id], onDelete: Cascade)
 
-  @@map("Media")
+  @@map("media")
 }
 
 enum MediaType {
