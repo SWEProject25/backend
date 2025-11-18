@@ -117,8 +117,53 @@ export class ProfileService {
     return !!profile;
   }
 
-  public async searchProfiles(query: string, page: number = 1, limit: number = 10) {
+  public async searchProfiles(
+    query: string,
+    page: number = 1,
+    limit: number = 10,
+    currentUserId?: number,
+  ) {
     const skip = (page - 1) * limit;
+
+    const blockMuteFilter = currentUserId
+      ? {
+          AND: [
+            {
+              NOT: {
+                User: {
+                  Blockers: {
+                    some: {
+                      blockerId: currentUserId,
+                    },
+                  },
+                },
+              },
+            },
+            {
+              NOT: {
+                User: {
+                  Blocked: {
+                    some: {
+                      blockedId: currentUserId,
+                    },
+                  },
+                },
+              },
+            },
+            {
+              NOT: {
+                User: {
+                  Muters: {
+                    some: {
+                      muterId: currentUserId,
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        }
+      : {};
 
     const total = await this.prismaService.profile.count({
       where: {
@@ -139,6 +184,7 @@ export class ProfileService {
             },
           },
         ],
+        ...blockMuteFilter,
       },
     });
 
@@ -161,6 +207,7 @@ export class ProfileService {
             },
           },
         ],
+        ...blockMuteFilter,
       },
       include: {
         User: {
