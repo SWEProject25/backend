@@ -41,6 +41,7 @@ export class MessagesService {
       select: {
         id: true,
         conversationId: true,
+        messageIndex: true,
         senderId: true,
         text: true,
         createdAt: true,
@@ -124,6 +125,8 @@ export class MessagesService {
         take: limit,
         select: {
           id: true,
+          conversationId: true,
+          messageIndex: true,
           text: true,
           senderId: true,
           isSeen: true,
@@ -180,6 +183,16 @@ export class MessagesService {
           id: {
             gt: firstMessageId,
           },
+        },
+        select: {
+          id: true,
+          conversationId: true,
+          messageIndex: true,
+          text: true,
+          senderId: true,
+          isSeen: true,
+          createdAt: true,
+          updatedAt: true,
         },
       });
     });
