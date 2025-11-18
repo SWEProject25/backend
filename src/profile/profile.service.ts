@@ -13,7 +13,46 @@ export class ProfileService {
     private readonly storageService: StorageService,
   ) {}
 
-  public async getProfileByUserId(userId: number) {
+  private readonly userSelectWithCounts = {
+    id: true,
+    username: true,
+    email: true,
+    role: true,
+    created_at: true,
+    _count: {
+      select: {
+        Followers: true,
+        Following: true,
+      },
+    },
+  };
+
+  private formatProfileResponse(profile: any) {
+    const { User, ...profileData } = profile;
+    const { _count, ...userData } = User;
+
+    return {
+      ...profileData,
+      User: userData,
+      followers_count: _count.Followers,
+      following_count: _count.Following,
+    };
+  }
+
+  private formatProfileResponseWithFollowStatus(profile: any, isFollowedByMe: boolean) {
+    const { User, ...profileData } = profile;
+    const { _count, ...userData } = User;
+
+    return {
+      ...profileData,
+      User: userData,
+      followers_count: _count.Followers,
+      following_count: _count.Following,
+      is_followed_by_me: isFollowedByMe,
+    };
+  }
+
+  public async getProfileByUserId(userId: number, currentUserId?: number) {
     const profile = await this.prismaService.profile.findUnique({
       where: {
         user_id: userId,
@@ -21,13 +60,7 @@ export class ProfileService {
       },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
@@ -36,10 +69,23 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    return profile;
+    let isFollowedByMe = false;
+    if (currentUserId && currentUserId !== userId) {
+      const followRelation = await this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: currentUserId,
+            followingId: userId,
+          },
+        },
+      });
+      isFollowedByMe = !!followRelation;
+    }
+
+    return this.formatProfileResponseWithFollowStatus(profile, isFollowedByMe);
   }
 
-  public async getProfileByUsername(username: string) {
+  public async getProfileByUsername(username: string, currentUserId?: number) {
     const profile = await this.prismaService.profile.findFirst({
       where: {
         User: {
@@ -49,13 +95,7 @@ export class ProfileService {
       },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
@@ -64,7 +104,20 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    return profile;
+    let isFollowedByMe = false;
+    if (currentUserId && currentUserId !== profile.user_id) {
+      const followRelation = await this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: currentUserId,
+            followingId: profile.user_id,
+          },
+        },
+      });
+      isFollowedByMe = !!followRelation;
+    }
+
+    return this.formatProfileResponseWithFollowStatus(profile, isFollowedByMe);
   }
 
   public async updateProfile(userId: number, updateProfileDto: UpdateProfileDto) {
@@ -85,18 +138,12 @@ export class ProfileService {
       data: updateProfileDto,
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
 
-    return updatedProfile;
+    return this.formatProfileResponse(updatedProfile);
   }
 
   public async profileExists(userId: number): Promise<boolean> {
@@ -109,8 +156,53 @@ export class ProfileService {
     return !!profile;
   }
 
-  public async searchProfiles(query: string, page: number = 1, limit: number = 10) {
+  public async searchProfiles(
+    query: string,
+    page: number = 1,
+    limit: number = 10,
+    currentUserId?: number,
+  ) {
     const skip = (page - 1) * limit;
+
+    const blockMuteFilter = currentUserId
+      ? {
+          AND: [
+            {
+              NOT: {
+                User: {
+                  Blockers: {
+                    some: {
+                      blockerId: currentUserId,
+                    },
+                  },
+                },
+              },
+            },
+            {
+              NOT: {
+                User: {
+                  Blocked: {
+                    some: {
+                      blockedId: currentUserId,
+                    },
+                  },
+                },
+              },
+            },
+            {
+              NOT: {
+                User: {
+                  Muters: {
+                    some: {
+                      muterId: currentUserId,
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        }
+      : {};
 
     const total = await this.prismaService.profile.count({
       where: {
@@ -131,6 +223,7 @@ export class ProfileService {
             },
           },
         ],
+        ...blockMuteFilter,
       },
     });
 
@@ -153,16 +246,11 @@ export class ProfileService {
             },
           },
         ],
+        ...blockMuteFilter,
       },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
       skip,
@@ -181,8 +269,10 @@ export class ProfileService {
 
     const totalPages = Math.ceil(total / limit);
 
+    const profilesWithCounts = profiles.map((profile) => this.formatProfileResponse(profile));
+
     return {
-      profiles,
+      profiles: profilesWithCounts,
       total,
       page,
       limit,
@@ -199,7 +289,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    if (profile.profile_image_url && !this.isDefaultImage(profile.profile_image_url)) {
+    if (profile.profile_image_url) {
       try {
         await this.storageService.deleteFile(profile.profile_image_url);
       } catch (error) {
@@ -209,21 +299,17 @@ export class ProfileService {
 
     const [imageUrl] = await this.storageService.uploadFiles([file]);
 
-    return await this.prismaService.profile.update({
+    const updatedProfile = await this.prismaService.profile.update({
       where: { user_id: userId },
       data: { profile_image_url: imageUrl },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
+
+    return this.formatProfileResponse(updatedProfile);
   }
 
   public async deleteProfilePicture(userId: number) {
@@ -235,9 +321,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    const defaultImageUrl = 'https://placehold.co/400x400/png';
-
-    if (profile.profile_image_url && !this.isDefaultImage(profile.profile_image_url)) {
+    if (profile.profile_image_url) {
       try {
         await this.storageService.deleteFile(profile.profile_image_url);
       } catch (error) {
@@ -245,21 +329,17 @@ export class ProfileService {
       }
     }
 
-    return await this.prismaService.profile.update({
+    const updatedProfile = await this.prismaService.profile.update({
       where: { user_id: userId },
-      data: { profile_image_url: defaultImageUrl },
+      data: { profile_image_url: null },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
+
+    return this.formatProfileResponse(updatedProfile);
   }
 
   public async updateBanner(userId: number, file: Express.Multer.File) {
@@ -271,7 +351,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    if (profile.banner_image_url && !this.isDefaultImage(profile.banner_image_url)) {
+    if (profile.banner_image_url) {
       try {
         await this.storageService.deleteFile(profile.banner_image_url);
       } catch (error) {
@@ -281,21 +361,17 @@ export class ProfileService {
 
     const [bannerUrl] = await this.storageService.uploadFiles([file]);
 
-    return await this.prismaService.profile.update({
+    const updatedProfile = await this.prismaService.profile.update({
       where: { user_id: userId },
       data: { banner_image_url: bannerUrl },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
+
+    return this.formatProfileResponse(updatedProfile);
   }
 
   public async deleteBanner(userId: number) {
@@ -307,9 +383,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    const defaultBannerUrl = 'https://placehold.co/1500x500/png';
-
-    if (profile.banner_image_url && !this.isDefaultImage(profile.banner_image_url)) {
+    if (profile.banner_image_url) {
       try {
         await this.storageService.deleteFile(profile.banner_image_url);
       } catch (error) {
@@ -317,31 +391,16 @@ export class ProfileService {
       }
     }
 
-    return await this.prismaService.profile.update({
+    const updatedProfile = await this.prismaService.profile.update({
       where: { user_id: userId },
-      data: { banner_image_url: defaultBannerUrl },
+      data: { banner_image_url: null },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
-  }
 
-  private isDefaultImage(url: string): boolean {
-    // Don't try to delete OAuth provider images (GitHub, Google, etc.)
-    if (url.includes('avatars.githubusercontent.com') || 
-        url.includes('googleusercontent.com') ||
-        url.includes('githubusercontent.com') ||
-        url.includes('graph.facebook.com')) {
-      return true; // Treat as "default" so we don't try to delete them
-    }
-    return url.includes('placehold') || url.includes('default');
+    return this.formatProfileResponse(updatedProfile);
   }
 }
