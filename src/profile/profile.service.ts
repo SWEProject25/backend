@@ -13,6 +13,32 @@ export class ProfileService {
     private readonly storageService: StorageService,
   ) {}
 
+  private readonly userSelectWithCounts = {
+    id: true,
+    username: true,
+    email: true,
+    role: true,
+    created_at: true,
+    _count: {
+      select: {
+        Followers: true,
+        Following: true,
+      },
+    },
+  };
+
+  private formatProfileResponse(profile: any) {
+    const { User, ...profileData } = profile;
+    const { _count, ...userData } = User;
+
+    return {
+      ...profileData,
+      User: userData,
+      followersCount: _count.Followers,
+      followingCount: _count.Following,
+    };
+  }
+
   public async getProfileByUserId(userId: number) {
     const profile = await this.prismaService.profile.findUnique({
       where: {
@@ -21,13 +47,7 @@ export class ProfileService {
       },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
@@ -36,7 +56,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    return profile;
+    return this.formatProfileResponse(profile);
   }
 
   public async getProfileByUsername(username: string) {
@@ -49,13 +69,7 @@ export class ProfileService {
       },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
@@ -64,7 +78,7 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    return profile;
+    return this.formatProfileResponse(profile);
   }
 
   public async updateProfile(userId: number, updateProfileDto: UpdateProfileDto) {
@@ -85,18 +99,12 @@ export class ProfileService {
       data: updateProfileDto,
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
 
-    return updatedProfile;
+    return this.formatProfileResponse(updatedProfile);
   }
 
   public async profileExists(userId: number): Promise<boolean> {
@@ -156,13 +164,7 @@ export class ProfileService {
       },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
       skip,
@@ -181,8 +183,10 @@ export class ProfileService {
 
     const totalPages = Math.ceil(total / limit);
 
+    const profilesWithCounts = profiles.map((profile) => this.formatProfileResponse(profile));
+
     return {
-      profiles,
+      profiles: profilesWithCounts,
       total,
       page,
       limit,
@@ -209,21 +213,17 @@ export class ProfileService {
 
     const [imageUrl] = await this.storageService.uploadFiles([file]);
 
-    return await this.prismaService.profile.update({
+    const updatedProfile = await this.prismaService.profile.update({
       where: { user_id: userId },
       data: { profile_image_url: imageUrl },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
+
+    return this.formatProfileResponse(updatedProfile);
   }
 
   public async deleteProfilePicture(userId: number) {
@@ -243,21 +243,17 @@ export class ProfileService {
       }
     }
 
-    return await this.prismaService.profile.update({
+    const updatedProfile = await this.prismaService.profile.update({
       where: { user_id: userId },
       data: { profile_image_url: null },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
+
+    return this.formatProfileResponse(updatedProfile);
   }
 
   public async updateBanner(userId: number, file: Express.Multer.File) {
@@ -279,21 +275,17 @@ export class ProfileService {
 
     const [bannerUrl] = await this.storageService.uploadFiles([file]);
 
-    return await this.prismaService.profile.update({
+    const updatedProfile = await this.prismaService.profile.update({
       where: { user_id: userId },
       data: { banner_image_url: bannerUrl },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
+
+    return this.formatProfileResponse(updatedProfile);
   }
 
   public async deleteBanner(userId: number) {
@@ -313,20 +305,16 @@ export class ProfileService {
       }
     }
 
-    return await this.prismaService.profile.update({
+    const updatedProfile = await this.prismaService.profile.update({
       where: { user_id: userId },
       data: { banner_image_url: null },
       include: {
         User: {
-          select: {
-            id: true,
-            username: true,
-            email: true,
-            role: true,
-            created_at: true,
-          },
+          select: this.userSelectWithCounts,
         },
       },
     });
+
+    return this.formatProfileResponse(updatedProfile);
   }
 }
