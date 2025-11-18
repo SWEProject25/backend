@@ -39,7 +39,20 @@ export class ProfileService {
     };
   }
 
-  public async getProfileByUserId(userId: number) {
+  private formatProfileResponseWithFollowStatus(profile: any, isFollowedByMe: boolean) {
+    const { User, ...profileData } = profile;
+    const { _count, ...userData } = User;
+
+    return {
+      ...profileData,
+      User: userData,
+      followersCount: _count.Followers,
+      followingCount: _count.Following,
+      is_followed_by_me: isFollowedByMe,
+    };
+  }
+
+  public async getProfileByUserId(userId: number, currentUserId?: number) {
     const profile = await this.prismaService.profile.findUnique({
       where: {
         user_id: userId,
@@ -56,10 +69,23 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    return this.formatProfileResponse(profile);
+    let isFollowedByMe = false;
+    if (currentUserId && currentUserId !== userId) {
+      const followRelation = await this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: currentUserId,
+            followingId: userId,
+          },
+        },
+      });
+      isFollowedByMe = !!followRelation;
+    }
+
+    return this.formatProfileResponseWithFollowStatus(profile, isFollowedByMe);
   }
 
-  public async getProfileByUsername(username: string) {
+  public async getProfileByUsername(username: string, currentUserId?: number) {
     const profile = await this.prismaService.profile.findFirst({
       where: {
         User: {
@@ -78,7 +104,20 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    return this.formatProfileResponse(profile);
+    let isFollowedByMe = false;
+    if (currentUserId && currentUserId !== profile.user_id) {
+      const followRelation = await this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: currentUserId,
+            followingId: profile.user_id,
+          },
+        },
+      });
+      isFollowedByMe = !!followRelation;
+    }
+
+    return this.formatProfileResponseWithFollowStatus(profile, isFollowedByMe);
   }
 
   public async updateProfile(userId: number, updateProfileDto: UpdateProfileDto) {
