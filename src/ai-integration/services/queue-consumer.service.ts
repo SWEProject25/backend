@@ -9,6 +9,7 @@ import { PrismaService } from "src/prisma/prisma.service";
 @Processor(RedisQueues.postQueue.name)
 export class QueueConsumerService extends WorkerHost {
   constructor(
+    @Inject(Services.AI_SUMMARIZATION)
     private readonly aiSummarizationService: AiSummarizationService,
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,

@@ -129,6 +129,10 @@ export class PostService {
 
     if (!post) throw new NotFoundException('Post not found');
 
+    if(post.summary) {
+      return post.summary;
+    }
+
     return this.aiSummarizationService.summarizePost(post.content);
   }
 
