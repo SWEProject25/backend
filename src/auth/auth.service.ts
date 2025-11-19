@@ -64,8 +64,8 @@ export class AuthService {
       throw new UnauthorizedException('Account has been deleted');
     }
 
-    console.log(userData);
     const accessToken = await this.jwtTokenService.generateAccessToken(userId, username);
+
     return {
       user: {
         id: userId,
