@@ -108,23 +108,14 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const userData = await this.userService.getUserData(email);
 
-    if (userData?.profile && userData?.user) {
-      return {
-        sub: userData.user.id,
-        username: userData.user.username,
-        role: userData.user.role,
-        email: userData.user.email!,
-        name: userData.profile.name,
-        profileImageUrl: userData.profile.profile_image_url!,
-      };
-    }
     // return to req.user
     return {
       sub: user.id,
       username: user.username,
       role: user.role,
+      email,
+      profileImageUrl: user.Profile?.profile_image_url,
     };
   }
 
@@ -151,27 +142,19 @@ export class AuthService {
 
   public async validateGoogleUser(googleUser: CreateUserDto) {
     const email = googleUser.email;
-    const existingUser = await this.userService.getUserData(email);
-    if (existingUser?.user && existingUser?.profile) {
-      return {
-        sub: existingUser.user.id,
-        username: existingUser.user.username,
-        role: existingUser.user.role,
-        email: existingUser.user.email,
-        name: existingUser.profile.name,
-        profileImageUrl: existingUser.profile.profile_image_url,
-      };
+    const existingUser = await this.userService.findByEmail(email);
+    if (existingUser) {
+      return existingUser;
     }
-    const newUser = await this.userService.create(googleUser, true);
-    const user = {
-      sub: newUser.newUser.id,
-      username: newUser.newUser.username,
-      role: newUser.newUser.role,
-      email: newUser.newUser.email,
-      name: newUser.userProfile.name,
-      profileImageUrl: newUser.userProfile.profile_image_url,
+    const user = await this.userService.create(googleUser, true);
+    return {
+      sub: user.id,
+      username: user.username,
+      role: user.role,
+      email: user.email,
+      name: user.Profile?.name,
+      profileImageUrl: user.Profile?.profile_image_url,
     };
-    return user;
   }
 
   public async validateGithubUser(githubUserData: OAuthProfileDto) {

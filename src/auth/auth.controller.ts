@@ -97,33 +97,27 @@ export class AuthController {
     @Body() createUserDto: CreateUserDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.registerUser(createUserDto);
-
-    const userProfile = result.userProfile;
-    const newUser = result.newUser;
-    const accessToken = await this.jwtTokenService.generateAccessToken(
-      newUser.id,
-      newUser.username,
-    );
+    const user = await this.authService.registerUser(createUserDto);
+    const accessToken = await this.jwtTokenService.generateAccessToken(user.id, user.username);
     this.jwtTokenService.setAuthCookies(res, accessToken);
     return {
       status: 'success',
       message: 'Account created successfully.',
       data: {
         user: {
-          id: newUser.id,
-          username: newUser.username,
-          role: newUser.role,
-          email: newUser.email,
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          email: user.email,
           profile: {
-            name: userProfile.name,
-            profileImageUrl: userProfile.profile_image_url,
-            birthDate: userProfile.birth_date,
+            name: user.Profile?.name,
+            profileImageUrl: user.Profile?.profile_image_url,
+            birthDate: user.Profile?.birth_date,
           },
         },
         onboardingStatus: {
-          hasCompeletedFollowing: newUser.has_completed_following,
-          hasCompeletedInterests: newUser.has_completed_interests,
+          hasCompeletedFollowing: user.has_completed_following,
+          hasCompeletedInterests: user.has_completed_interests,
         },
       },
     };
