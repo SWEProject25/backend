@@ -7,9 +7,8 @@ COPY prisma ./prisma/
 
 RUN npm ci
 
-COPY . .
-
-RUN npx prisma generate && npm run build
+# Ensure the generated directory is created during the builder stage
+RUN mkdir -p /app/generated && npx prisma generate && npm run build
 
 FROM node:20-alpine
 
