@@ -77,12 +77,24 @@ export class UsersService {
       throw new ConflictException('You cannot follow a user who has blocked you');
     }
 
-    return this.prismaService.follow.create({
+    const follow = await this.prismaService.follow.create({
       data: {
         followerId,
         followingId,
       },
     });
+    const userFollowingCount = await this.getFollowingCount(followerId);
+    const user = await this.prismaService.user.findFirst({
+      where: { id: followerId },
+      select: { has_completed_following: true },
+    });
+    if (userFollowingCount > 0 && user?.has_completed_following === false) {
+      await this.prismaService.user.update({
+        where: { id: followerId },
+        data: { has_completed_following: true },
+      });
+    }
+    return follow;
   }
 
   async unfollowUser(followerId: number, followingId: number) {
@@ -675,5 +687,9 @@ export class UsersService {
       this.CACHE_TTL,
     );
     return interests;
+  }
+
+  public async getFollowingCount(userId: number) {
+    return this.prismaService.follow.count({ where: { followerId: userId } });
   }
 }

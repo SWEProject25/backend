@@ -30,6 +30,9 @@ export class AuthService {
   ) {}
 
   public async registerUser(createUserDto: CreateUserDto) {
+    if (!createUserDto.birthDate) {
+      throw new BadRequestException('Birth date is required for signup');
+    }
     const existingUser = await this.userService.findByEmail(createUserDto.email);
     if (existingUser) {
       throw new ConflictException('User is already exists');
@@ -76,13 +79,13 @@ export class AuthService {
           ? {
               name: userData.Profile.name,
               profileImageUrl: userData.Profile.profile_image_url,
-              birthDate: userData.Profile?.birth_date,
             }
           : null,
       },
       onboarding: {
         hasCompeletedFollowing: userData.has_completed_following,
         hasCompeletedInterests: userData.has_completed_interests,
+        hasCompletedBirthDate: userData.Profile?.birth_date !== null,
       },
       accessToken,
     };
@@ -140,13 +143,19 @@ export class AuthService {
     };
   }
 
-  public async validateGoogleUser(googleUser: CreateUserDto) {
+  public async validateGoogleUser(googleUser: OAuthProfileDto) {
     const email = googleUser.email;
     const existingUser = await this.userService.findByEmail(email);
     if (existingUser) {
       return existingUser;
     }
-    const user = await this.userService.create(googleUser, true);
+    const createUserDto: CreateUserDto = {
+      email,
+      name: googleUser.displayName,
+      password: '',
+    };
+    const { email: _, displayName, ...restData } = googleUser;
+    const user = await this.userService.create(createUserDto, true, restData);
     return {
       sub: user.id,
       username: user.username,

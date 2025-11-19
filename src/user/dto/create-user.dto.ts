@@ -8,6 +8,7 @@ import {
   MaxLength,
   Matches,
   IsDate,
+  IsOptional,
 } from 'class-validator';
 import { IsAdult } from 'src/common/decorators/is-adult.decorator';
 import { ToLowerCase } from 'src/common/decorators/lowercase.decorator';
@@ -67,7 +68,7 @@ export class CreateUserDto {
 
   @IsDate({ message: 'Invalid birth date format. Expected YYYY-MM-DD.' })
   @Type(() => Date)
-  @IsNotEmpty()
+  @IsOptional()
   @IsAdult({ message: 'User must be between 15 and 100 years old' })
   @ApiProperty({
     description: 'The user’s date of birth in ISO format.',
@@ -75,5 +76,5 @@ export class CreateUserDto {
     type: Date,
     format: 'date',
   })
-  birthDate: Date;
+  birthDate?: Date;
 }

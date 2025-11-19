@@ -13,7 +13,11 @@ export class UserService {
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
   ) {}
-  public async create(createUserDto: CreateUserDto, isVerified: boolean) {
+  public async create(
+    createUserDto: CreateUserDto,
+    isVerified: boolean,
+    oauthData?: Partial<OAuthProfileDto>,
+  ) {
     const { password, name, birthDate, ...userData } = createUserDto;
     const hashedPassword = await hash(password);
     let username = generateUsername(name);
@@ -26,10 +30,16 @@ export class UserService {
         password: hashedPassword,
         username,
         is_verified: isVerified,
+        ...(oauthData?.providerId && {
+          provider_id: oauthData.providerId,
+        }),
         Profile: {
           create: {
             name,
-            birth_date: birthDate,
+            ...(birthDate && { birth_date: birthDate }),
+            ...(oauthData?.profileImageUrl && {
+              profile_image_url: oauthData.profileImageUrl,
+            }),
           },
         },
       },

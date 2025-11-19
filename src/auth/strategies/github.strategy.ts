@@ -30,34 +30,22 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     profile: Profile,
     done: VerifiedCallback,
   ) {
-    const username = profile?.username;
+    const email = profile.emails![0].value.toLowerCase();
+    const username = profile.username!;
     const userDisplayname = profile.displayName;
     const providerId = profile.id;
     const provider = profile.provider;
     const profileImageUrl = profile?.photos![0].value;
-    // Extract email from profile (GitHub returns emails array)
-    const email = profile.emails && profile.emails.length > 0 
-      ? profile.emails[0].value 
-      : undefined;
-    
-    // Debug logging to track GitHub OAuth data
-    console.log('[GitHub OAuth] Received profile data:', {
-      username,
-      providerId,
-      email: email || 'NO EMAIL',
-      hasEmails: !!profile.emails,
-      emailsLength: profile.emails?.length || 0,
-    });
-    
     const githubUserDto: OAuthProfileDto = {
+      email,
       username,
       displayName: userDisplayname,
       provider,
       providerId,
       profileImageUrl,
-      email,
     };
     const user = await this.authService.validateGithubUser(githubUserDto);
+    console.log('githubUser', user, 'email', email);
     done(null, user);
   }
 }

@@ -662,7 +662,6 @@ export class UsersController {
     const limit = query.limit || 10;
     const userId = user?.id; // Will be undefined if not authenticated
 
-    console.log(user);
     // Default behavior: exclude followed and blocked if authenticated
     const excludeFollowed = query.excludeFollowed ?? !!userId;
     const excludeBlocked = query.excludeBlocked ?? !!userId;
@@ -748,7 +747,6 @@ export class UsersController {
       status: 'success',
       message: 'Interests saved successfully. Please follow some users to complete onboarding.',
       savedCount,
-      nextStep: 'FOLLOWING',
     };
   }
 

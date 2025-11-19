@@ -112,12 +112,12 @@ export class AuthController {
           profile: {
             name: user.Profile?.name,
             profileImageUrl: user.Profile?.profile_image_url,
-            birthDate: user.Profile?.birth_date,
           },
         },
         onboardingStatus: {
           hasCompeletedFollowing: user.has_completed_following,
           hasCompeletedInterests: user.has_completed_interests,
+          hasCompletedBirthDate: user.Profile?.birth_date !== null,
         },
       },
     };
@@ -199,6 +199,7 @@ export class AuthController {
         onboardingStatus: {
           hasCompeletedFollowing: userData?.has_completed_following,
           hasCompeletedInterests: userData?.has_completed_interests,
+          hasCompletedBirthDate: userData?.Profile?.birth_date !== null,
         },
       },
     };
@@ -473,8 +474,11 @@ export class AuthController {
   @Public()
   @UseGuards(GoogleAuthGuard)
   public async googleRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
-    const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
-    console.log(user);
+    const { accessToken, ...user } = await this.authService.login(
+      req.user.sub ?? req.user?.id,
+      req.user.username,
+    );
+    console.log('google controller', user);
     this.jwtTokenService.setAuthCookies(res, accessToken);
     const html = `
       <!DOCTYPE html>
@@ -534,6 +538,7 @@ export class AuthController {
   public async githubRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
     const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
     this.jwtTokenService.setAuthCookies(res, accessToken);
+    console.log('github controller', user);
     const html = `
       <!DOCTYPE html>
       <html lang="en">
