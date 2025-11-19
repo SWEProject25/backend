@@ -89,12 +89,6 @@ export class SaveUserInterestsResponseDto {
 
   @ApiProperty({ example: 5 })
   savedCount: number;
-
-  @ApiProperty({
-    example: 'FOLLOWING',
-    description: 'Next onboarding step',
-  })
-  nextStep: string;
 }
 
 export class GetAllInterestsResponseDto {
