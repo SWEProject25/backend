@@ -19,6 +19,8 @@ CREATE TABLE "User" (
     "is_verifed" BOOLEAN NOT NULL DEFAULT false,
     "provider_id" TEXT,
     "role" "Role" NOT NULL DEFAULT 'USER',
+    "has_completed_interests" BOOLEAN NOT NULL DEFAULT false,
+    "has_completed_following" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
     "deleted_at" TIMESTAMP(3),
@@ -53,6 +55,29 @@ CREATE TABLE "email_verification" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "email_verification_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "interests" (
+    "id" SERIAL NOT NULL,
+    "name" VARCHAR(50) NOT NULL,
+    "slug" VARCHAR(50) NOT NULL,
+    "description" VARCHAR(255),
+    "icon" VARCHAR(100),
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "interests_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_interests" (
+    "user_id" INTEGER NOT NULL,
+    "interest_id" INTEGER NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "user_interests_pkey" PRIMARY KEY ("user_id","interest_id")
 );
 
 -- CreateTable
@@ -171,29 +196,6 @@ CREATE TABLE "Media" (
 );
 
 -- CreateTable
-CREATE TABLE "interests" (
-    "id" SERIAL NOT NULL,
-    "name" VARCHAR(50) NOT NULL,
-    "slug" VARCHAR(50) NOT NULL,
-    "description" VARCHAR(255),
-    "icon" VARCHAR(100),
-    "is_active" BOOLEAN NOT NULL DEFAULT true,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "interests_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "user_interests" (
-    "user_id" INTEGER NOT NULL,
-    "interest_id" INTEGER NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "user_interests_pkey" PRIMARY KEY ("user_id","interest_id")
-);
-
--- CreateTable
 CREATE TABLE "_PostHashtags" (
     "A" INTEGER NOT NULL,
     "B" INTEGER NOT NULL,
@@ -217,22 +219,28 @@ CREATE UNIQUE INDEX "profiles_user_id_key" ON "profiles"("user_id");
 CREATE UNIQUE INDEX "email_verification_user_email_key" ON "email_verification"("user_email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Hashtag_tag_key" ON "Hashtag"("tag");
-
--- CreateIndex
-CREATE UNIQUE INDEX "conversations_user1Id_user2Id_key" ON "conversations"("user1Id", "user2Id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "interests_name_key" ON "interests"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "interests_slug_key" ON "interests"("slug");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Hashtag_tag_key" ON "Hashtag"("tag");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "conversations_user1Id_user2Id_key" ON "conversations"("user1Id", "user2Id");
+
+-- CreateIndex
 CREATE INDEX "_PostHashtags_B_index" ON "_PostHashtags"("B");
 
 -- AddForeignKey
 ALTER TABLE "profiles" ADD CONSTRAINT "profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_interests" ADD CONSTRAINT "user_interests_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_interests" ADD CONSTRAINT "user_interests_interest_id_fkey" FOREIGN KEY ("interest_id") REFERENCES "interests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "posts" ADD CONSTRAINT "posts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -290,12 +298,6 @@ ALTER TABLE "messages" ADD CONSTRAINT "messages_senderId_fkey" FOREIGN KEY ("sen
 
 -- AddForeignKey
 ALTER TABLE "Media" ADD CONSTRAINT "Media_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "user_interests" ADD CONSTRAINT "user_interests_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "user_interests" ADD CONSTRAINT "user_interests_interest_id_fkey" FOREIGN KEY ("interest_id") REFERENCES "interests"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "_PostHashtags" ADD CONSTRAINT "_PostHashtags_A_fkey" FOREIGN KEY ("A") REFERENCES "Hashtag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
