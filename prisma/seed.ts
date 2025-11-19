@@ -1,9 +1,27 @@
-import { PrismaClient, Role, PostType, PostVisibility, MediaType } from '../generated/prisma';
+import { PrismaClient, Role, PostType, PostVisibility, MediaType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('Start seeding...');
+
+  // --- Clear existing data in correct order (respecting foreign key constraints) ---
+  console.log('Clearing existing data...');
+  await prisma.message.deleteMany({});
+  await prisma.conversation.deleteMany({});
+  await prisma.media.deleteMany({});
+  await prisma.mention.deleteMany({});
+  await prisma.like.deleteMany({});
+  await prisma.repost.deleteMany({});
+  await prisma.mute.deleteMany({});
+  await prisma.block.deleteMany({});
+  await prisma.follow.deleteMany({});
+  await prisma.post.deleteMany({});
+  await prisma.profile.deleteMany({});
+  await prisma.emailVerification.deleteMany({});
+  await prisma.user.deleteMany({});
+  await prisma.hashtag.deleteMany({});
+  console.log('Existing data cleared.');
 
   // --- 1. User Table Data ---
   await prisma.user.createMany({
