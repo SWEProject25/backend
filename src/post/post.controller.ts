@@ -52,7 +52,7 @@ import { SearchPostsDto } from './dto/search-posts.dto';
 import { SearchByHashtagDto } from './dto/search-by-hashtag.dto';
 import { MentionService } from './services/mention.service';
 import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
-import { Mention, Post as PostModel, PostVisibility, User } from 'generated/prisma';
+import { Mention, Post as PostModel, PostVisibility, User } from '@prisma/client';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ImageVideoUploadPipe } from 'src/storage/pipes/file-upload.pipe';
 

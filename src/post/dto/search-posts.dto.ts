@@ -12,7 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { PostType } from 'generated/prisma';
+import { PostType } from '@prisma/client';
 
 export class SearchPostsDto extends PaginationDto {
   @ApiProperty({

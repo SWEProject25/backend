@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PostType, PostVisibility, MediaType } from 'generated/prisma';
+import { PostType, PostVisibility, MediaType } from '@prisma/client';
 
 class PostCountsDto {
   @ApiProperty({
@@ -38,7 +38,8 @@ class PostUserDto {
 class PostMediaDto {
   @ApiProperty({
     description: 'Media URL',
-    example: 'https://stsimpleappiee20o.blob.core.windows.net/media/d679f207-9248-49e7-917b-9cdc358217ed.png',
+    example:
+      'https://stsimpleappiee20o.blob.core.windows.net/media/d679f207-9248-49e7-917b-9cdc358217ed.png',
   })
   media_url: string;
 
