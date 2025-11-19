@@ -21,11 +21,10 @@ COPY prisma ./prisma/
 RUN npm ci --only=production && npx prisma generate
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/generated ./generated
 COPY --from=builder /app/src/email/templates ./src/email/templates
 
 EXPOSE 3000
-
 HEALTHCHECK --interval=30s --timeout=3s CMD node -e "require('http').get('http://localhost:3000', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
-
 CMD ["node", "dist/src/main"]
