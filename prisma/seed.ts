@@ -1,26 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role, PostType, PostVisibility, MediaType } from '../generated/prisma';
 
-enum Role {
-  USER,
-  ADMIN,
-}
-
-enum PostType {
-  POST,
-  REPLY,
-  QUOTE,
-}
-
-enum PostVisibility {
-  EVERY_ONE,
-  FOLLOWERS,
-  MENTIONED,
-}
-
-enum MediaType {
-  VIDEO,
-  IMAGE,
-}
 const prisma = new PrismaClient();
 
 async function main() {
@@ -35,7 +14,7 @@ async function main() {
         password: '',
         created_at: new Date('2025-11-16T01:52:52.169Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: '147805022',
         role: Role.USER,
         updated_at: new Date('2025-11-16T01:52:52.169Z'),
@@ -48,7 +27,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$eqOf3z4CvT7Uj2PsFhQHyw$w6rgy0z1xS0PI+WUNiOGReDB14Mi3BYNnEnaPTw13nA',
         created_at: new Date('2025-11-16T01:59:20.204Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-16T01:59:20.204Z'),
@@ -61,7 +40,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$gX7JG4G4zjbsjZdNMA8eRw$XRWmuWiKVBdrODQdIAq6LK5t62o8Y2tjKfAHHgbLTVs',
         created_at: new Date('2025-11-16T02:03:31.079Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-16T02:03:31.079Z'),
@@ -74,7 +53,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$BxarIYgdOoTbwEhoP064rg$+N+5lyqTYe8kf2Q0SjrRq+D/RpU7Nm4uxTY6kg+w4WY',
         created_at: new Date('2025-11-16T03:12:02.576Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-16T03:12:02.576Z'),
@@ -87,7 +66,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$w9Th/ppqgNZHVEHJNI4xbw$tR1U2C0dFM5/uuy+V5vskG8ZS4dIGGpQMkimmPZx9YA',
         created_at: new Date('2025-11-16T13:00:40.899Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-16T13:00:40.899Z'),
@@ -100,7 +79,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$a5xKn9FMFGiSf6uEcuHREQ$Axs6vlPAZfa6qv+ZL6IU2R3p73fF7JtwlKLXrklRvkc',
         created_at: new Date('2025-11-17T15:25:11.012Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T15:25:11.012Z'),
@@ -113,7 +92,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$W5EntXTQGO3sJBiJPOVyoA$jHbxWH5b78+AplvP24Pjt8lz1GSEuva11qzUHe6mNdQ',
         created_at: new Date('2025-11-17T15:25:25.406Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T15:25:25.406Z'),
@@ -126,7 +105,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$4WcLnsm0Qj2L3nCDNYciYw$9spTbEH3KC9gYC69YRwDeHlQbSzYYOFL/iGHKqmt5Dc',
         created_at: new Date('2025-11-17T15:47:03.278Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T15:47:03.278Z'),
@@ -139,7 +118,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$vR3Xm9v/41JrLJlLgkoJWw$OnDT9XlOzzKNDnPVg/YkCPnyS7C1dVLG5liZlpWzW58',
         created_at: new Date('2025-11-17T15:56:54.207Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T15:56:54.207Z'),
@@ -152,7 +131,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$ngSEDZO524clFR6yAFZbKQ$4/st2a45la8AGZK4hI64E+WWA0zZTq58pnDZFZjv9DM',
         created_at: new Date('2025-11-17T16:25:11.991Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T16:25:11.991Z'),
@@ -165,7 +144,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$ekEOrFrfxQI4kk3Hlel7Ew$qWhODGN+WueNjGAoR1H7cCzzjcSoIBOmz4KFX00O5Tg',
         created_at: new Date('2025-11-17T16:25:21.781Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T16:25:21.781Z'),
@@ -178,7 +157,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$UkWxNo6qhMIfPw0eo2+7TQ$fTJKiTKEuQ2SDukAiCiOWCEREx0qy9R6vq8a0+yn7Cc',
         created_at: new Date('2025-11-17T18:57:45.278Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T18:57:45.278Z'),
@@ -191,7 +170,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$AaO1h9hX9RV42M+5KVN6Jw$v/L3KUfNQNvu+hCRHwkxs7Z6HiEHLIIjV9mqZJfWLyc',
         created_at: new Date('2025-11-17T19:42:45.900Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T19:42:45.900Z'),
@@ -204,7 +183,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$npEiEyZMUpf7YxyNyKinFg$m+c16MbWLviHx6bXrWXLG4wGHTAWB3uoyohG5uCfhvg',
         created_at: new Date('2025-11-17T19:43:47.351Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T19:43:47.351Z'),
@@ -217,7 +196,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$5zfJjPLQYXeZS6Cv4YuDFQ$T1E0/izyH/w+uKHd9lr+9FHzfhm2uyYwU2bTOtWYxgY',
         created_at: new Date('2025-11-17T21:01:55.184Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T21:01:55.184Z'),
@@ -230,7 +209,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$wT5PBxNzJK0GbjT9EznTBg$YekFTTdA8fbePJ+mPbP8I+qIs8Drjjc7xCPfep/16Aw',
         created_at: new Date('2025-11-17T21:14:28.107Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T21:14:28.107Z'),
@@ -243,7 +222,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$450XHs7znItCxqjBavVPpg$iGlRU590xpy7YBkO8i5TPIseuVPjpE4DkKhKktn7uWI',
         created_at: new Date('2025-11-17T23:34:07.418Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T23:34:07.418Z'),
@@ -256,7 +235,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$B80w/qAInXnUfncmxl+IJQ$qla93fy3p4gi60VGVtkpOirsbSPo7BJWiynmG3S/KOg',
         created_at: new Date('2025-11-17T23:36:08.285Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T23:36:08.285Z'),
@@ -269,7 +248,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$DytPmovfC3Qx+6CN2kyKHA$9OrzuLka/c5mzKYPgNlN87q9U80jc34n0ShY1F/sEZ0',
         created_at: new Date('2025-11-17T23:41:02.680Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-17T23:41:02.680Z'),
@@ -282,7 +261,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$yMV7jn/bGWXEApgU7V/1zw$0/YzTlVhtcdi2+Y01HuQ50+OGQ7QenXfwRrZ0+vh+Tg',
         created_at: new Date('2025-11-18T00:54:08.682Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T00:54:08.682Z'),
@@ -295,7 +274,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$elfGE3lpfQXfNBNtrUcNbQ$f4FnbAqwE9n6KF8k1EbyjKIW34JUJ8vgt5ONtM1VOXc',
         created_at: new Date('2025-11-18T00:56:13.676Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T00:56:13.676Z'),
@@ -308,7 +287,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$aNm5N7ANmq5zBYfag4WqjA$vCOaSppbLEiA/QegPKPI2CVuYNYQcx9u8MKEsy6Lzbk',
         created_at: new Date('2025-11-18T00:57:48.508Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T00:57:48.508Z'),
@@ -321,7 +300,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$78+IM0k5lmZRVFKzhrCacA$VFMHqdolbVsi9AwBmODcmZ83rQVh/thowaVJQYyua44',
         created_at: new Date('2025-11-18T05:20:46.108Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T05:20:46.108Z'),
@@ -334,7 +313,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$m9HbVVmRSd523TilZ/Oj5g$ar9VY/xFua/vvucegvfW/67Z1zdkl6G6LVzRYbdUr3M',
         created_at: new Date('2025-11-18T07:25:35.039Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T07:25:35.039Z'),
@@ -346,7 +325,7 @@ async function main() {
         password: '',
         created_at: new Date('2025-11-18T07:27:54.594Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: '136837275',
         role: Role.USER,
         updated_at: new Date('2025-11-18T07:27:54.594Z'),
@@ -359,7 +338,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$qPgvHMxld2e/Dgx01nTygQ$QBgXZlIgWhKo8mXQgSz8IPmBbaS3XiykFojXBk7OYAA',
         created_at: new Date('2025-11-18T07:36:36.513Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T07:36:36.513Z'),
@@ -372,7 +351,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$+DkFmIawOeN10PqpCNwIyQ$68EfLW+tByPPmksZ1qFxUzSCOQxM1znR/0+7GrVGIuw',
         created_at: new Date('2025-11-17T15:34:12.790Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: '149705123',
         role: Role.USER,
         updated_at: new Date('2025-11-18T10:59:47.748Z'),
@@ -385,7 +364,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$ZGx55bElLarpJJnF+14tcg$yCGQ21Y8IpaCr0tKxIP2Esztea1qrimv+ab+DFGmXmo',
         created_at: new Date('2025-11-18T11:00:51.906Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T11:00:51.906Z'),
@@ -398,7 +377,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$cwnBbeZ1eHRiZ3PLqFz/iQ$pKGbSywPTasstPE1e9XOAnziB9WSkDuoDwfSGsoIrmQ',
         created_at: new Date('2025-11-18T11:02:26.036Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T11:02:26.036Z'),
@@ -410,7 +389,7 @@ async function main() {
         password: '$argon2i$v=19$m=16,t=2,p=1$TmU1RDJrczRuTktraXVwYg$DPll4hwvRTv+omTCo2SpFA',
         created_at: new Date('2025-11-18T11:12:23.516Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T11:12:23.516Z'),
@@ -423,7 +402,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$0QgfYFlDIyZkASoGRx1vcQ$op2TryztMn7PjwjINhFksuKxNmSpS82d/ND/NlpsLw0',
         created_at: new Date('2025-11-18T16:15:47.310Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T16:15:47.310Z'),
@@ -435,7 +414,7 @@ async function main() {
         password: '',
         created_at: new Date('2025-11-18T16:16:11.820Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: '138603828',
         role: Role.USER,
         updated_at: new Date('2025-11-18T16:16:11.820Z'),
@@ -448,7 +427,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$bBRDT5Q0K/S7L7E/9v2KdA$RUH4zjorW9k8VAnZnWcYF8pgpqNOf+/34GP8glt07l8',
         created_at: new Date('2025-11-18T16:33:59.212Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T16:33:59.212Z'),
@@ -461,7 +440,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$A1zdLDjpMKgZ0s3gSpw1dg$hadZhQaEWU0D4dkieAq0hbzMLD0/TzCi09cCQdEeRuI',
         created_at: new Date('2025-11-18T17:21:31.209Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T17:21:31.209Z'),
@@ -474,7 +453,7 @@ async function main() {
           '$argon2id$v=19$m=65536,t=3,p=4$F40HohKInxmct90G/CCZDg$vgtW+srJhZUXY1lOf/UmRP2mAaWm3QcTq/uYJVTqxQ8',
         created_at: new Date('2025-11-18T21:14:57.000Z'),
         deleted_at: null,
-        is_verifed: true,
+        is_verified: true,
         provider_id: null,
         role: Role.USER,
         updated_at: new Date('2025-11-18T21:14:57.000Z'),
@@ -913,6 +892,20 @@ async function main() {
       },
       {
         id: 37,
+        user_id: 46,
+        name: 'Ryuzaki',
+        birth_date: new Date('2000-01-01T00:00:00.000Z'),
+        profile_image_url: null,
+        banner_image_url: null,
+        bio: null,
+        location: null,
+        website: null,
+        is_deactivated: false,
+        created_at: new Date('2025-11-18T16:15:47.310Z'),
+        updated_at: new Date('2025-11-18T16:15:47.310Z'),
+      },
+      {
+        id: 38,
         user_id: 47,
         name: 'Ahmed Ellabban',
         birth_date: null,
@@ -926,7 +919,7 @@ async function main() {
         updated_at: new Date('2025-11-18T16:16:11.823Z'),
       },
       {
-        id: 38,
+        id: 39,
         user_id: 48,
         name: 'Tough Days',
         birth_date: new Date('2025-11-18T16:33:58.545Z'),
@@ -940,7 +933,7 @@ async function main() {
         updated_at: new Date('2025-11-18T16:33:59.217Z'),
       },
       {
-        id: 39,
+        id: 40,
         user_id: 49,
         name: 'Omar Nabil',
         birth_date: new Date('2002-05-17T00:00:00.000Z'),
@@ -954,7 +947,7 @@ async function main() {
         updated_at: new Date('2025-11-18T17:21:31.214Z'),
       },
       {
-        id: 40,
+        id: 41,
         user_id: 50,
         name: 'far',
         birth_date: new Date('2000-01-01T00:00:00.000Z'),
@@ -1992,6 +1985,21 @@ async function main() {
   // blocks: No data to insert.
   // email_verification: No data to insert.
   // mutes: No data to insert.
+
+  // --- 9. Reset Sequences ---
+  // This ensures that auto-increment IDs continue from the max inserted ID
+  await prisma.$executeRawUnsafe(`
+    SELECT setval(pg_get_serial_sequence('"User"', 'id'), COALESCE((SELECT MAX(id) FROM "User"), 1), true);
+  `);
+  await prisma.$executeRawUnsafe(`
+    SELECT setval(pg_get_serial_sequence('"profiles"', 'id'), COALESCE((SELECT MAX(id) FROM "profiles"), 1), true);
+  `);
+  await prisma.$executeRawUnsafe(`
+    SELECT setval(pg_get_serial_sequence('"posts"', 'id'), COALESCE((SELECT MAX(id) FROM "posts"), 1), true);
+  `);
+  await prisma.$executeRawUnsafe(`
+    SELECT setval(pg_get_serial_sequence('"media"', 'id'), COALESCE((SELECT MAX(id) FROM "media"), 1), true);
+  `);
 
   console.log('Seeding finished.');
 }

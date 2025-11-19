@@ -52,7 +52,7 @@ import { SearchPostsDto } from './dto/search-posts.dto';
 import { SearchByHashtagDto } from './dto/search-by-hashtag.dto';
 import { MentionService } from './services/mention.service';
 import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
-import { Mention, Post as PostModel, PostVisibility, User } from 'generated/prisma';
+import { Mention, Post as PostModel, PostVisibility, User } from '@prisma/client';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ImageVideoUploadPipe } from 'src/storage/pipes/file-upload.pipe';
 
@@ -68,7 +68,7 @@ export class PostController {
     private readonly repostService: RepostService,
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
-  ) { }
+  ) {}
 
   @Get('timeline/for-you')
   @UseGuards(JwtAuthGuard)
@@ -557,7 +557,7 @@ export class PostController {
     @Param('postId') postId: number,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
-    @CurrentUser() user: AuthenticatedUser
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     const replies = await this.postService.getRepliesOfPost(+postId, +page, +limit, user.id);
 

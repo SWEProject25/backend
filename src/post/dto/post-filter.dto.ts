@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsInt, IsString, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { PostType } from 'generated/prisma';
+import { PostType } from '@prisma/client';
 
 export class PostFiltersDto extends PaginationDto {
   @ApiPropertyOptional({ description: 'Filter posts by user ID', example: 42 })
