@@ -55,12 +55,34 @@ export class AuthService {
   }
 
   public async login(userId: number, username: string) {
-    const accessToken = await this.jwtTokenService.generateAccessToken(userId, username);
+    const userData = await this.userService.findOne(userId);
 
+    if (!userData) {
+      throw new UnauthorizedException('User not found');
+    }
+    if (userData.deleted_at) {
+      throw new UnauthorizedException('Account has been deleted');
+    }
+
+    console.log(userData);
+    const accessToken = await this.jwtTokenService.generateAccessToken(userId, username);
     return {
       user: {
         id: userId,
         username,
+        email: userData.email,
+        role: userData.role,
+        profile: userData.Profile
+          ? {
+              name: userData.Profile.name,
+              profileImageUrl: userData.Profile.profile_image_url,
+              birthDate: userData.Profile?.birth_date,
+            }
+          : null,
+      },
+      onboarding: {
+        hasCompeletedFollowing: userData.has_completed_following,
+        hasCompeletedInterests: userData.has_completed_interests,
       },
       accessToken,
     };
@@ -71,6 +93,14 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.deleted_at) {
+      throw new UnauthorizedException('Account has been deleted');
+    }
+
+    if (!user.is_verified) {
+      throw new UnauthorizedException('Please verify your email before logging in');
     }
 
     const isPasswordValid = await this.passwordService.verify(user.password, password);
@@ -103,6 +133,10 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('Invalid Credentials');
+    }
+
+    if (user.deleted_at) {
+      throw new UnauthorizedException('Account has been deleted');
     }
 
     return {
@@ -147,11 +181,13 @@ export class AuthService {
       providerId: githubUserData.providerId,
       email: githubUserData.email || 'NO EMAIL',
     });
-    
+
     // First, check if user exists by provider_id (most reliable for OAuth)
-    const existingUserByProvider = await this.userService.findByProviderId(githubUserData.providerId);
+    const existingUserByProvider = await this.userService.findByProviderId(
+      githubUserData.providerId,
+    );
     console.log('[GitHub OAuth] User found by provider_id:', !!existingUserByProvider);
-    
+
     if (existingUserByProvider) {
       return {
         sub: existingUserByProvider.id,
@@ -167,7 +203,7 @@ export class AuthService {
     if (githubUserData.email) {
       const existingUserByEmail = await this.userService.getUserData(githubUserData.email);
       console.log('[GitHub OAuth] User found by email:', !!existingUserByEmail?.user);
-      
+
       if (existingUserByEmail?.user && existingUserByEmail?.profile) {
         // Link GitHub OAuth to existing account
         if (!existingUserByEmail.user.provider_id) {
@@ -178,7 +214,7 @@ export class AuthService {
             githubUserData.email,
           );
         }
-        
+
         return {
           sub: existingUserByEmail.user.id,
           username: existingUserByEmail.user.username,
@@ -193,7 +229,7 @@ export class AuthService {
     // Check by username (for backwards compatibility with old OAuth users)
     const existingUser = await this.userService.getUserData(githubUserData.username!);
     console.log('[GitHub OAuth] User found by username:', !!existingUser?.user);
-    
+
     if (existingUser?.user && existingUser?.profile) {
       // If user exists but doesn't have provider_id set, update it (migration path)
       if (!existingUser.user.provider_id) {
@@ -203,7 +239,7 @@ export class AuthService {
           githubUserData.email,
         );
       }
-      
+
       return {
         sub: existingUser.user.id,
         username: existingUser.user.username,
@@ -213,7 +249,7 @@ export class AuthService {
         profileImageUrl: existingUser.profile.profile_image_url,
       };
     }
-    
+
     // Create new user if none exists
     console.log('[GitHub OAuth] Creating new user - no existing user found');
     const newUser = await this.userService.createOAuthUser(githubUserData);
