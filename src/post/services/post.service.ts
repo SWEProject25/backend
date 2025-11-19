@@ -5,7 +5,7 @@ import { CreatePostDto } from '../dto/create-post.dto';
 import { PostFiltersDto } from '../dto/post-filter.dto';
 import { SearchPostsDto } from '../dto/search-posts.dto';
 import { SearchByHashtagDto } from '../dto/search-by-hashtag.dto';
-import { MediaType, Post, PostType, PostVisibility, Prisma as PrismalSql } from 'generated/prisma';
+import { MediaType, Post, PostType, PostVisibility, Prisma as PrismalSql } from '@prisma/client';
 import { StorageService } from 'src/storage/storage.service';
 
 import { MLService } from './ml.service';

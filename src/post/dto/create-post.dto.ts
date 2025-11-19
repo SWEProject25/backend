@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { PostType, PostVisibility } from 'generated/prisma';
+import { PostType, PostVisibility } from '@prisma/client';
 import { Transform } from 'class-transformer';
 
 export class CreatePostDto {

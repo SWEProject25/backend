@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsOptional, IsEnum } from 'class-validator';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { PostType } from 'generated/prisma';
+import { PostType } from '@prisma/client';
 
 export class SearchByHashtagDto extends PaginationDto {
   @ApiProperty({

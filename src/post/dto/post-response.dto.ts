@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PostType, PostVisibility, MediaType } from 'generated/prisma';
+import { PostType, PostVisibility, MediaType } from '@prisma/client';
 
 class PostCountsDto {
   @ApiProperty({
