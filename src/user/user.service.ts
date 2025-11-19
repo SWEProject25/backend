@@ -61,8 +61,12 @@ export class UserService {
           select: {
             name: true,
             profile_image_url: true,
+            birth_date: true,
           },
         },
+        deleted_at: true,
+        has_completed_following: true,
+        has_completed_interests: true,
       },
     });
   }
@@ -82,7 +86,7 @@ export class UserService {
       // Use provider-specific format to avoid conflicts
       email = `${oauthProfileDto.providerId}@${oauthProfileDto.provider}.oauth`;
     }
-    
+
     const newUser = await this.prismaService.user.create({
       data: {
         email,
@@ -92,10 +96,10 @@ export class UserService {
         provider_id: oauthProfileDto.providerId,
       },
     });
-    
+
     // Use displayName if available, otherwise fallback to username
     const displayName = oauthProfileDto.displayName || oauthProfileDto.username || 'User';
-    
+
     const proflie = await this.prismaService.profile.create({
       data: {
         user_id: newUser.id,
@@ -125,12 +129,12 @@ export class UserService {
     const updateData: any = {
       provider_id: providerId,
     };
-    
+
     // Only update email if provided and it's not empty
     if (email) {
       updateData.email = email;
     }
-    
+
     return await this.prismaService.user.update({
       where: { id: userId },
       data: updateData,
