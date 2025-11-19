@@ -112,8 +112,15 @@ export class AuthController {
           username: newUser.username,
           role: newUser.role,
           email: newUser.email,
-          name: userProfile.name,
-          profileImageUrl: userProfile.profile_image_url,
+          profile: {
+            name: userProfile.name,
+            profileImageUrl: userProfile.profile_image_url,
+            birthDate: userProfile.birth_date,
+          },
+        },
+        onboardingStatus: {
+          hasCompeletedFollowing: newUser.has_completed_following,
+          hasCompeletedInterests: newUser.has_completed_interests,
         },
       },
     };
@@ -153,14 +160,8 @@ export class AuthController {
       status: 'success',
       message: 'Logged in successfully',
       data: {
-        user: {
-          id: req.user.sub,
-          username: req.user.username,
-          role: req.user.role,
-          email: req.user.email,
-          name: req.user.name,
-          profileImageUrl: req.user.profileImageUrl,
-        },
+        user: result.user,
+        onboardingStatus: result.onboarding,
       },
     };
   }
