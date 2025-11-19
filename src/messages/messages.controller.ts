@@ -65,12 +65,14 @@ export class MessagesController {
         status: 'success',
         data: [
           {
-            id: 1,
-            text: 'Hello',
-            senderId: 1,
+            id: 11,
+            conversationId: 6,
+            messageIndex: 1,
+            text: 'Hello, how are you?',
+            senderId: 49,
             isSeen: false,
-            createdAt: '2024-01-01T00:00:00.000Z',
-            updatedAt: '2024-01-01T00:00:00.000Z',
+            createdAt: '2025-11-19T18:19:54.691Z',
+            updatedAt: '2025-11-19T18:19:54.691Z',
           },
         ],
         metadata: {
@@ -140,12 +142,14 @@ export class MessagesController {
         status: 'success',
         data: [
           {
-            id: 2,
-            text: 'How are you?',
-            senderId: 2,
+            id: 11,
+            conversationId: 6,
+            messageIndex: 1,
+            text: 'Hello, how are you?',
+            senderId: 49,
             isSeen: false,
-            createdAt: '2024-01-01T00:05:00.000Z',
-            updatedAt: '2024-01-01T00:05:00.000Z',
+            createdAt: '2025-11-19T18:19:54.691Z',
+            updatedAt: '2025-11-19T18:19:54.691Z',
           },
         ],
         metadata: {
