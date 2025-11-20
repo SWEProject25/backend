@@ -228,8 +228,6 @@ model Media {
   type       MediaType
 
   post Post @relation(fields: [post_id], references: [id], onDelete: Cascade)
-
-  @@map("media")
 }
 
 enum MediaType {
