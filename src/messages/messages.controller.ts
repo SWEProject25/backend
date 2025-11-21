@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Delete,
-  Put,
   Param,
   ParseIntPipe,
   Query,
@@ -66,12 +65,14 @@ export class MessagesController {
         status: 'success',
         data: [
           {
-            id: 1,
-            text: 'Hello',
-            senderId: 1,
+            id: 11,
+            conversationId: 6,
+            messageIndex: 1,
+            text: 'Hello, how are you?',
+            senderId: 49,
             isSeen: false,
-            createdAt: '2024-01-01T00:00:00.000Z',
-            updatedAt: '2024-01-01T00:00:00.000Z',
+            createdAt: '2025-11-19T18:19:54.691Z',
+            updatedAt: '2025-11-19T18:19:54.691Z',
           },
         ],
         metadata: {
@@ -107,6 +108,79 @@ export class MessagesController {
       user.id,
       lastMessageId,
       limit || 20,
+    );
+
+    return {
+      status: 'success',
+      ...result,
+    };
+  }
+
+  @Get(':conversationId/lost-messages')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get lost messages for a conversation',
+    description: 'Retrieves messages sent after a specific message ID for a conversation',
+  })
+  @ApiParam({
+    name: 'conversationId',
+    type: Number,
+    description: 'The ID of the conversation',
+  })
+  @ApiQuery({
+    name: 'firstMessageId',
+    type: Number,
+    required: true,
+    description: 'ID of the first message received',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Lost messages retrieved successfully',
+    schema: {
+      example: {
+        status: 'success',
+        data: [
+          {
+            id: 11,
+            conversationId: 6,
+            messageIndex: 1,
+            text: 'Hello, how are you?',
+            senderId: 49,
+            isSeen: false,
+            createdAt: '2025-11-19T18:19:54.691Z',
+            updatedAt: '2025-11-19T18:19:54.691Z',
+          },
+        ],
+        metadata: {
+          totalItems: 1,
+          firstMessageId: 2,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Conversation not found',
+    schema: ErrorResponseDto.schemaExample('Conversation not found', 'Not Found'),
+  })
+  async getLostMessages(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('conversationId', ParseIntPipe) conversationId: number,
+    @Query('firstMessageId', ParseIntPipe) firstMessageId: number,
+  ) {
+    const result = await this.messagesService.getConversationLostMessages(
+      conversationId,
+      user.id,
+      firstMessageId,
     );
 
     return {

@@ -68,7 +68,7 @@ export class PostController {
     private readonly repostService: RepostService,
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
-  ) { }
+  ) {}
 
   @Get('timeline/for-you')
   @UseGuards(JwtAuthGuard)
@@ -285,7 +285,10 @@ export class PostController {
     type: ErrorResponseDto,
   })
   async searchPosts(@Query() searchDto: SearchPostsDto, @CurrentUser() user: AuthenticatedUser) {
-    const { posts, totalItems, page, limit } = await this.postService.searchPosts(searchDto);
+    const { posts, totalItems, page, limit } = await this.postService.searchPosts(
+      searchDto,
+      user.id,
+    );
 
     return {
       status: 'success',
@@ -362,8 +365,10 @@ export class PostController {
     @Query() searchDto: SearchByHashtagDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const { posts, totalItems, page, limit, hashtag } =
-      await this.postService.searchPostsByHashtag(searchDto);
+    const { posts, totalItems, page, limit, hashtag } = await this.postService.searchPostsByHashtag(
+      searchDto,
+      user.id,
+    );
 
     return {
       status: 'success',
@@ -552,7 +557,7 @@ export class PostController {
     @Param('postId') postId: number,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
-    @CurrentUser() user: AuthenticatedUser
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     const replies = await this.postService.getRepliesOfPost(+postId, +page, +limit, user.id);
 

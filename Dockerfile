@@ -1,31 +1,25 @@
 FROM node:20-alpine AS builder
-
 WORKDIR /app
-
+# Install dependencies
 COPY package*.json ./
 COPY prisma ./prisma/
-
 RUN npm ci
-
+# Copy source and build
 COPY . .
+RUN npx prisma generate
+RUN npm run build
 
-RUN npx prisma generate && npm run build
-
+# ---- Production Image ----
 FROM node:20-alpine
-
 WORKDIR /app
-
+# Install only prod deps
 COPY package*.json ./
 COPY prisma ./prisma/
-
-RUN npm ci --only=production && npx prisma generate
-
+RUN npm ci --omit=dev
+RUN npx prisma generate
+# Copy build artifacts
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/generated ./generated
+# Copy email templates to match the path your code expects
 COPY --from=builder /app/src/email/templates ./src/email/templates
-
 EXPOSE 3000
-
-HEALTHCHECK --interval=30s --timeout=3s CMD node -e "require('http').get('http://localhost:3000', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
-
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]

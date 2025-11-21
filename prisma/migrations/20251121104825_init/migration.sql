@@ -165,6 +165,7 @@ CREATE TABLE "conversations" (
     "user2Id" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3),
+    "nextMessageIndex" INTEGER NOT NULL DEFAULT 1,
 
     CONSTRAINT "conversations_pkey" PRIMARY KEY ("id")
 );
@@ -173,6 +174,7 @@ CREATE TABLE "conversations" (
 CREATE TABLE "messages" (
     "id" SERIAL NOT NULL,
     "conversationId" INTEGER NOT NULL,
+    "messageIndex" INTEGER,
     "senderId" INTEGER NOT NULL,
     "text" VARCHAR(1000) NOT NULL,
     "isDeletedU1" BOOLEAN NOT NULL DEFAULT false,

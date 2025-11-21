@@ -336,7 +336,7 @@ export class PostService {
     return posts;
   }
 
-  async searchPosts(searchDto: SearchPostsDto) {
+  async searchPosts(searchDto: SearchPostsDto, currentUserId?: number) {
     const {
       searchQuery,
       userId,
@@ -347,6 +347,21 @@ export class PostService {
     } = searchDto;
     const offset = (page - 1) * limit;
 
+    // Build block/mute filters
+    const blockMuteFilter = currentUserId
+      ? PrismalSql.sql`
+      AND NOT EXISTS (
+        SELECT 1 FROM blocks WHERE "blockerId" = ${currentUserId} AND "blockedId" = p.user_id
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM blocks WHERE "blockedId" = ${currentUserId} AND "blockerId" = p.user_id
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM mutes WHERE "muterId" = ${currentUserId} AND "mutedId" = p.user_id
+      )
+    `
+      : PrismalSql.empty;
+
     const countResult = await this.prismaService.$queryRaw<[{ count: bigint }]>(
       PrismalSql.sql`
         SELECT COUNT(DISTINCT p.id) as count
@@ -356,6 +371,7 @@ export class PostService {
           ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
           ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
           AND similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+          ${blockMuteFilter}
       `,
     );
 
@@ -395,6 +411,7 @@ export class PostService {
           ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
           ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
           AND similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+          ${blockMuteFilter}
         GROUP BY p.id, u.id, u.username, pr.name, pr.profile_image_url
         ORDER BY 
           relevance DESC, 
@@ -412,7 +429,7 @@ export class PostService {
     };
   }
 
-  async searchPostsByHashtag(searchDto: SearchByHashtagDto) {
+  async searchPostsByHashtag(searchDto: SearchByHashtagDto, currentUserId?: number) {
     const { hashtag, userId, type, page = 1, limit = 10 } = searchDto;
     const offset = (page - 1) * limit;
 
@@ -420,6 +437,47 @@ export class PostService {
     const normalizedHashtag = hashtag.startsWith('#')
       ? hashtag.slice(1).toLowerCase()
       : hashtag.toLowerCase();
+
+    // Build block/mute filters
+    const blockMuteFilter = currentUserId
+      ? {
+          AND: [
+            {
+              NOT: {
+                User: {
+                  Blockers: {
+                    some: {
+                      blockerId: currentUserId,
+                    },
+                  },
+                },
+              },
+            },
+            {
+              NOT: {
+                User: {
+                  Blocked: {
+                    some: {
+                      blockedId: currentUserId,
+                    },
+                  },
+                },
+              },
+            },
+            {
+              NOT: {
+                User: {
+                  Muters: {
+                    some: {
+                      muterId: currentUserId,
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        }
+      : {};
 
     // Count total posts with this hashtag
     const countResult = await this.prismaService.post.count({
@@ -432,6 +490,7 @@ export class PostService {
         },
         ...(userId && { user_id: userId }),
         ...(type && { type }),
+        ...blockMuteFilter,
       },
     });
 
@@ -446,6 +505,7 @@ export class PostService {
         },
         ...(userId && { user_id: userId }),
         ...(type && { type }),
+        ...blockMuteFilter,
       },
       include: {
         User: {

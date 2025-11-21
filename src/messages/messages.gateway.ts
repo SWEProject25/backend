@@ -279,12 +279,35 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       await this.messagesService.markMessagesAsSeen(markSeenDto.conversationId, markSeenDto.userId);
 
-      // Notify other participants in the conversation
       socket.to(`conversation_${markSeenDto.conversationId}`).emit('messagesSeen', {
         conversationId: markSeenDto.conversationId,
         userId: markSeenDto.userId,
         timestamp: new Date().toISOString(),
       });
+
+      const participants = await this.messagesService.getConversationUsers(
+        markSeenDto.conversationId,
+      );
+      const recipientId =
+        markSeenDto.userId === participants.user1Id ? participants.user2Id : participants.user1Id;
+
+      const conversationRoom = this.server.sockets.adapter.rooms.get(
+        `conversation_${markSeenDto.conversationId}`,
+      );
+      const recipientRoom = this.server.sockets.adapter.rooms.get(`user_${recipientId}`);
+
+      const isRecipientInConversation =
+        conversationRoom &&
+        recipientRoom &&
+        [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
+
+      if (!isRecipientInConversation) {
+        this.server.to(`user_${recipientId}`).emit('messagesSeen', {
+          conversationId: markSeenDto.conversationId,
+          userId: markSeenDto.userId,
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       return {
         status: 'success',
@@ -313,6 +336,32 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         userId,
       });
 
+      const participants = await this.messagesService.getConversationUsers(data.conversationId);
+
+      if (userId !== participants.user1Id && userId !== participants.user2Id) {
+        throw new UnauthorizedException('You are not part of this conversation');
+      }
+
+      const recipientId =
+        userId === participants.user1Id ? participants.user2Id : participants.user1Id;
+
+      const conversationRoom = this.server.sockets.adapter.rooms.get(
+        `conversation_${data.conversationId}`,
+      );
+      const recipientRoom = this.server.sockets.adapter.rooms.get(`user_${recipientId}`);
+
+      const isRecipientInConversation =
+        conversationRoom &&
+        recipientRoom &&
+        [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
+
+      if (!isRecipientInConversation) {
+        this.server.to(`user_${recipientId}`).emit('userTyping', {
+          conversationId: data.conversationId,
+          userId,
+        });
+      }
+
       return { status: 'success' };
     } catch (error) {
       console.error(`Error handling typing event: ${error.message}`);
@@ -332,10 +381,37 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         throw new UnauthorizedException('User not authenticated');
       }
 
+      // Emit to conversation room
       socket.to(`conversation_${data.conversationId}`).emit('userStoppedTyping', {
         conversationId: data.conversationId,
         userId,
       });
+
+      const participants = await this.messagesService.getConversationUsers(data.conversationId);
+
+      if (userId !== participants.user1Id && userId !== participants.user2Id) {
+        throw new UnauthorizedException('You are not part of this conversation');
+      }
+
+      const recipientId =
+        userId === participants.user1Id ? participants.user2Id : participants.user1Id;
+
+      const conversationRoom = this.server.sockets.adapter.rooms.get(
+        `conversation_${data.conversationId}`,
+      );
+      const recipientRoom = this.server.sockets.adapter.rooms.get(`user_${recipientId}`);
+
+      const isRecipientInConversation =
+        conversationRoom &&
+        recipientRoom &&
+        [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
+
+      if (!isRecipientInConversation) {
+        this.server.to(`user_${recipientId}`).emit('userStoppedTyping', {
+          conversationId: data.conversationId,
+          userId,
+        });
+      }
 
       return { status: 'success' };
     } catch (error) {

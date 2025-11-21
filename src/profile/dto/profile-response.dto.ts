@@ -111,4 +111,16 @@ export class ProfileResponseDto {
     type: UserInfoDto,
   })
   User: UserInfoDto;
+
+  @ApiProperty({
+    description: 'Number of followers',
+    example: 100,
+  })
+  followersCount: number;
+
+  @ApiProperty({
+    description: 'Number of accounts following',
+    example: 50,
+  })
+  followingCount: number;
 }

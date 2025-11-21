@@ -1,759 +1,935 @@
-import { PrismaClient, PostType, PostVisibility, MediaType, Role } from '@prisma/client';
-import * as argon2 from 'argon2';
+import { PrismaClient, Role, PostType, PostVisibility, MediaType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Define types
-type CreatedUser = {
-  id: number;
-  email: string;
-  username: string;
-  password: string;
-  is_verified: boolean;
-  provider_id: string | null;
-  role: Role;
-  has_completed_interests: boolean;
-  has_completed_following: boolean;
-  created_at: Date;
-  updated_at: Date;
-  deleted_at: Date | null;
-  Profile: any;
-};
-
-type CreatedInterest = {
-  id: number;
-  name: string;
-  slug: string;
-  description: string | null;
-  icon: string | null;
-  is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
-};
-
-type CreatedPost = {
-  id: number;
-  user_id: number;
-  content: string;
-  type: PostType;
-  parent_id: number | null;
-  visibility: PostVisibility;
-  created_at: Date;
-  is_deleted: boolean;
-};
-
-type CreatedHashtag = {
-  id: number;
-  tag: string;
-  created_at: Date;
-};
-
-type CreatedConversation = {
-  id: number;
-  user1Id: number;
-  user2Id: number;
-  createdAt: Date;
-  updatedAt: Date | null;
-};
-
-// Sample data
-const interests = [
-  { name: 'News', slug: 'news', icon: '📰', description: 'Stay updated with current events' },
-  {
-    name: 'Sports',
-    slug: 'sports',
-    icon: '⚽',
-    description: 'Follow your favorite sports and teams',
-  },
-  { name: 'Music', slug: 'music', icon: '🎵', description: 'Discover new music and artists' },
-  {
-    name: 'Dance',
-    slug: 'dance',
-    icon: '💃',
-    description: 'Explore dance styles and performances',
-  },
-  { name: 'Celebrity', slug: 'celebrity', icon: '⭐', description: 'Keep up with celebrity news' },
-  {
-    name: 'Relationships',
-    slug: 'relationships',
-    icon: '❤️',
-    description: 'Dating, love, and relationship advice',
-  },
-  { name: 'Movies & TV', slug: 'movies-tv', icon: '🎬', description: 'Latest in entertainment' },
-  { name: 'Technology', slug: 'technology', icon: '💻', description: 'Tech news and innovations' },
-  {
-    name: 'Business & Finance',
-    slug: 'business-finance',
-    icon: '💼',
-    description: 'Business trends and financial news',
-  },
-  { name: 'Gaming', slug: 'gaming', icon: '🎮', description: 'Video games and esports' },
-  { name: 'Fashion', slug: 'fashion', icon: '👗', description: 'Style trends and fashion news' },
-  { name: 'Food', slug: 'food', icon: '🍕', description: 'Recipes and culinary adventures' },
-  { name: 'Travel', slug: 'travel', icon: '✈️', description: 'Travel tips and destinations' },
-  { name: 'Fitness', slug: 'fitness', icon: '💪', description: 'Health and fitness tips' },
-  {
-    name: 'Science',
-    slug: 'science',
-    icon: '🔬',
-    description: 'Scientific discoveries and research',
-  },
-  { name: 'Art', slug: 'art', icon: '🎨', description: 'Visual arts and creativity' },
-];
-
-const sampleUsers = [
-  {
-    email: 'mohamed-sameh-albaz@example.com',
-    username: 'mohamed-sameh-albaz',
-    password: 'Password123!',
-    profile: {
-      name: 'Mohamed Sameh Albaz',
-      bio: 'Software Engineer | Full-stack Developer 💻 | Building amazing apps',
-      location: 'Cairo, Egypt',
-      website: 'https://mohamed-albaz.dev',
-      birth_date: new Date('1995-01-15'),
-    },
-    interests: ['Technology', 'Gaming', 'Science'],
-    hasCompletedOnboarding: true,
-    role: 'ADMIN' as Role,
-  },
-  {
-    email: 'john.doe@example.com',
-    username: 'john_doe',
-    password: 'Password123!',
-    profile: {
-      name: 'John Doe',
-      bio: 'Tech enthusiast | Coffee lover ☕ | Building cool stuff',
-      location: 'San Francisco, CA',
-      website: 'https://johndoe.dev',
-      birth_date: new Date('1990-05-15'),
-    },
-    interests: ['Technology', 'Gaming', 'Science'],
-    hasCompletedOnboarding: true,
-    role: 'USER' as Role,
-  },
-  {
-    email: 'jane.smith@example.com',
-    username: 'jane_smith',
-    password: 'Password123!',
-    profile: {
-      name: 'Jane Smith',
-      bio: 'Designer | Creative soul 🎨 | Living life in colors',
-      location: 'New York, NY',
-      website: 'https://janesmith.design',
-      birth_date: new Date('1992-08-22'),
-    },
-    interests: ['Art', 'Fashion', 'Travel'],
-    hasCompletedOnboarding: true,
-    role: 'USER' as Role,
-  },
-  {
-    email: 'alex.johnson@example.com',
-    username: 'alex_codes',
-    password: 'Password123!',
-    profile: {
-      name: 'Alex Johnson',
-      bio: 'Full-stack developer | Open source contributor 💻',
-      location: 'Austin, TX',
-      website: 'https://github.com/alexjohnson',
-      birth_date: new Date('1995-03-10'),
-    },
-    interests: ['Technology', 'Music', 'Fitness'],
-    hasCompletedOnboarding: true,
-    role: 'USER' as Role,
-  },
-  {
-    email: 'sarah.williams@example.com',
-    username: 'sarah_fit',
-    password: 'Password123!',
-    profile: {
-      name: 'Sarah Williams',
-      bio: 'Fitness coach | Nutrition expert 💪 | Health is wealth',
-      location: 'Los Angeles, CA',
-      website: 'https://sarahfitness.com',
-      birth_date: new Date('1988-11-30'),
-    },
-    interests: ['Fitness', 'Food', 'Relationships'],
-    hasCompletedOnboarding: true,
-    role: 'USER' as Role,
-  },
-  {
-    email: 'mike.brown@example.com',
-    username: 'mike_sports',
-    password: 'Password123!',
-    profile: {
-      name: 'Mike Brown',
-      bio: 'Sports journalist | Football fanatic ⚽ | Never miss a game',
-      location: 'Chicago, IL',
-      website: null,
-      birth_date: new Date('1985-07-18'),
-    },
-    interests: ['Sports', 'News', 'Travel'],
-    hasCompletedOnboarding: true,
-    role: 'USER' as Role,
-  },
-  {
-    email: 'emily.davis@example.com',
-    username: 'emily_chef',
-    password: 'Password123!',
-    profile: {
-      name: 'Emily Davis',
-      bio: 'Chef | Food blogger 🍕 | Cooking with love',
-      location: 'Portland, OR',
-      website: 'https://emilyskitchen.com',
-      birth_date: new Date('1993-02-14'),
-    },
-    interests: ['Food', 'Travel', 'Art'],
-    hasCompletedOnboarding: true,
-    role: 'USER' as Role,
-  },
-  {
-    email: 'david.miller@example.com',
-    username: 'david_biz',
-    password: 'Password123!',
-    profile: {
-      name: 'David Miller',
-      bio: 'Entrepreneur | Investor 💼 | Building the future',
-      location: 'Seattle, WA',
-      website: 'https://davidmiller.biz',
-      birth_date: new Date('1982-09-25'),
-    },
-    interests: ['Business & Finance', 'Technology', 'News'],
-    hasCompletedOnboarding: true,
-    role: 'USER' as Role,
-  },
-  {
-    email: 'lisa.garcia@example.com',
-    username: 'lisa_music',
-    password: 'Password123!',
-    profile: {
-      name: 'Lisa Garcia',
-      bio: 'Musician | Singer-songwriter 🎵 | Music is life',
-      location: 'Nashville, TN',
-      website: 'https://lisagarcia.music',
-      birth_date: new Date('1996-12-05'),
-    },
-    interests: ['Music', 'Dance', 'Celebrity'],
-    hasCompletedOnboarding: true,
-    role: 'USER' as Role,
-  },
-  {
-    email: 'tom.wilson@example.com',
-    username: 'tom_gamer',
-    password: 'Password123!',
-    profile: {
-      name: 'Tom Wilson',
-      bio: "Pro gamer | Streamer 🎮 | Let's play!",
-      location: 'Boston, MA',
-      website: 'https://twitch.tv/tomwilson',
-      birth_date: new Date('1998-04-20'),
-    },
-    interests: ['Gaming', 'Technology', 'Movies & TV'],
-    hasCompletedOnboarding: true,
-    role: 'USER' as Role,
-  },
-  {
-    email: 'anna.lee@example.com',
-    username: 'anna_travel',
-    password: 'Password123!',
-    profile: {
-      name: 'Anna Lee',
-      bio: 'Travel blogger | Adventure seeker ✈️ | 50 countries and counting',
-      location: 'Miami, FL',
-      website: 'https://annatravel.blog',
-      birth_date: new Date('1991-06-08'),
-    },
-    interests: ['Travel', 'Food', 'Fashion'],
-    hasCompletedOnboarding: true,
-    role: 'USER' as Role,
-  },
-];
-
-const samplePosts = [
-  {
-    content: 'Just launched my new app! Check it out 🚀',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'Beautiful sunset today 🌅 #nature #photography',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'Anyone else working on weekends? 💻',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'New blog post is live! Link in bio 📝',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'Coffee and code. Perfect morning! ☕',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'Just finished an amazing workout 💪 Feeling great!',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'Game night with friends! 🎮',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'Trying out a new recipe today 🍝',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: "What's everyone reading this week? 📚",
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'Tech conference was mind-blowing! 🤯',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'Learning something new every day 📚',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'Best pizza in town! 🍕 You have to try this place',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'Morning run done! 5km in 30 minutes 🏃',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: 'New album dropping tonight! 🎵 So excited!',
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-  {
-    content: "Just booked my next adventure ✈️ Can't wait!",
-    type: PostType.POST,
-    visibility: PostVisibility.EVERY_ONE,
-  },
-];
-
-const hashtags = [
-  'technology',
-  'coding',
-  'javascript',
-  'react',
-  'nodejs',
-  'fitness',
-  'health',
-  'workout',
-  'motivation',
-  'travel',
-  'adventure',
-  'photography',
-  'nature',
-  'food',
-  'cooking',
-  'recipe',
-  'foodie',
-  'music',
-  'art',
-  'design',
-  'creative',
-  'business',
-  'entrepreneur',
-  'startup',
-  'innovation',
-  'gaming',
-  'esports',
-  'twitch',
-  'streamer',
-  'fashion',
-  'style',
-  'ootd',
-  'trends',
-];
-
 async function main() {
-  console.log('🌱 Starting database seeding...\n');
-  console.log(`📅 Current Date: ${new Date().toISOString()}\n`);
+  console.log('Starting seed...');
 
-  // Clear existing data
-  console.log('🧹 Cleaning existing data...');
-  await prisma.userInterest.deleteMany();
+  // Clear existing data (in reverse order of dependencies)
+  await prisma.message.deleteMany();
+  await prisma.conversation.deleteMany();
+  await prisma.media.deleteMany();
   await prisma.mention.deleteMany();
   await prisma.like.deleteMany();
   await prisma.repost.deleteMany();
-  await prisma.media.deleteMany();
-  await prisma.$executeRaw`DELETE FROM "_PostHashtags"`;
-  await prisma.hashtag.deleteMany();
-  await prisma.post.deleteMany();
-  await prisma.message.deleteMany();
-  await prisma.conversation.deleteMany();
-  await prisma.follow.deleteMany();
-  await prisma.block.deleteMany();
   await prisma.mute.deleteMany();
+  await prisma.block.deleteMany();
+  await prisma.follow.deleteMany();
+  await prisma.post.deleteMany();
+  await prisma.userInterest.deleteMany();
+  await prisma.interest.deleteMany();
   await prisma.profile.deleteMany();
   await prisma.emailVerification.deleteMany();
   await prisma.user.deleteMany();
-  await prisma.interest.deleteMany();
-  console.log('✅ Cleanup completed\n');
 
-  // 1. Seed Interests
-  console.log('📊 Seeding interests...');
-  const createdInterests: CreatedInterest[] = [];
+  console.log('Cleared existing data');
+
+  // Create interests
+  const interests = [
+    { name: 'News', slug: 'news', icon: '📰', description: 'Stay updated with current events' },
+    {
+      name: 'Sports',
+      slug: 'sports',
+      icon: '⚽',
+      description: 'Follow your favorite sports and teams',
+    },
+    { name: 'Music', slug: 'music', icon: '🎵', description: 'Discover new music and artists' },
+    {
+      name: 'Dance',
+      slug: 'dance',
+      icon: '💃',
+      description: 'Explore dance styles and performances',
+    },
+    {
+      name: 'Celebrity',
+      slug: 'celebrity',
+      icon: '⭐',
+      description: 'Keep up with celebrity news',
+    },
+    {
+      name: 'Relationships',
+      slug: 'relationships',
+      icon: '❤️',
+      description: 'Dating, love, and relationship advice',
+    },
+    { name: 'Movies & TV', slug: 'movies-tv', icon: '🎬', description: 'Latest in entertainment' },
+    {
+      name: 'Technology',
+      slug: 'technology',
+      icon: '💻',
+      description: 'Tech news and innovations',
+    },
+    {
+      name: 'Business & Finance',
+      slug: 'business-finance',
+      icon: '💼',
+      description: 'Business trends and financial news',
+    },
+    { name: 'Gaming', slug: 'gaming', icon: '🎮', description: 'Video games and esports' },
+    { name: 'Fashion', slug: 'fashion', icon: '👗', description: 'Style trends and fashion news' },
+    { name: 'Food', slug: 'food', icon: '🍕', description: 'Recipes and culinary adventures' },
+    { name: 'Travel', slug: 'travel', icon: '✈️', description: 'Travel tips and destinations' },
+    { name: 'Fitness', slug: 'fitness', icon: '💪', description: 'Health and fitness tips' },
+    {
+      name: 'Science',
+      slug: 'science',
+      icon: '🔬',
+      description: 'Scientific discoveries and research',
+    },
+    { name: 'Art', slug: 'art', icon: '🎨', description: 'Visual arts and creativity' },
+  ];
+
+  const createdInterests: any[] = [];
   for (const interest of interests) {
-    const created = await prisma.interest.upsert({
-      where: { slug: interest.slug },
-      update: {},
-      create: interest,
+    const created = await prisma.interest.create({
+      data: interest,
     });
     createdInterests.push(created);
   }
-  console.log(`✅ Created ${createdInterests.length} interests\n`);
+  console.log(`Created ${createdInterests.length} interests`);
 
-  // 2. Seed Users with Profiles
-  console.log('👥 Seeding users...');
-  const createdUsers: CreatedUser[] = [];
-  for (const userData of sampleUsers) {
-    const hashedPassword = await argon2.hash(userData.password);
+  // Create users
+  const users = [
+    {
+      id: 16,
+      email: 'karimzakzouk69@gmail.com',
+      username: 'karimzakzouk',
+      password: '',
+      is_verified: true,
+      provider_id: '147805022',
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-16T01:52:52.169Z'),
+      updated_at: new Date('2025-11-16T01:52:52.169Z'),
+    },
+    {
+      id: 17,
+      email: 'mazenfarid201269@gmail.com',
+      username: 'farid.ka2886',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$eqOf3z4CvT7Uj2PsFhQHyw$w6rgy0z1xS0PI+WUNiOGReDB14Mi3BYNnEnaPTw13nA',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-16T01:59:20.204Z'),
+      updated_at: new Date('2025-11-16T01:59:20.204Z'),
+    },
+    {
+      id: 18,
+      email: 'gptchat851@gmail.com',
+      username: 'gpt.ch8701',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$gX7JG4G4zjbsjZdNMA8eRw$XRWmuWiKVBdrODQdIAq6LK5t62o8Y2tjKfAHHgbLTVs',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-16T02:03:31.079Z'),
+      updated_at: new Date('2025-11-16T02:03:31.079Z'),
+    },
+    {
+      id: 19,
+      email: 'karimzakzouk@outlook.com',
+      username: 'karim.ka104',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$BxarIYgdOoTbwEhoP064rg$+N+5lyqTYe8kf2Q0SjrRq+D/RpU7Nm4uxTY6kg+w4WY',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-16T03:12:02.576Z'),
+      updated_at: new Date('2025-11-16T03:12:02.576Z'),
+    },
+    {
+      id: 20,
+      email: 'mazenrory@gmail.com',
+      username: 'mazen.ma4904',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$w9Th/ppqgNZHVEHJNI4xbw$tR1U2C0dFM5/uuy+V5vskG8ZS4dIGGpQMkimmPZx9YA',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-16T13:00:40.899Z'),
+      updated_at: new Date('2025-11-16T13:00:40.899Z'),
+    },
+    {
+      id: 21,
+      email: 'ahmedfathi20044002@gmail.com',
+      username: 'fathi.ah8581',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$a5xKn9FMFGiSf6uEcuHREQ$Axs6vlPAZfa6qv+ZL6IU2R3p73fF7JtwlKLXrklRvkc',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-17T15:25:11.012Z'),
+      updated_at: new Date('2025-11-17T15:25:11.012Z'),
+    },
+    {
+      id: 22,
+      email: 'ahmedfathy20044002@gmail.com',
+      username: 'fathy.ah2669',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$W5EntXTQGO3sJBiJPOVyoA$jHbxWH5b78+AplvP24Pjt8lz1GSEuva11qzUHe6mNdQ',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-17T15:25:25.406Z'),
+      updated_at: new Date('2025-11-17T15:25:25.406Z'),
+    },
+    {
+      id: 23,
+      email: 'engba80818233@gmail.com',
+      username: 'adel.ab1295',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$+DkFmIawOeN10PqpCNwIyQ$68EfLW+tByPPmksZ1qFxUzSCOQxM1znR/0+7GrVGIuw',
+      is_verified: true,
+      provider_id: '149705123',
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-17T15:34:12.790Z'),
+      updated_at: new Date('2025-11-18T10:59:47.748Z'),
+    },
+    {
+      id: 24,
+      email: 'warframe200469@gmail.com',
+      username: 'karim.ka169',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$4WcLnsm0Qj2L3nCDNYciYw$9spTbEH3KC9gYC69YRwDeHlQbSzYYOFL/iGHKqmt5Dc',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-17T15:47:03.278Z'),
+      updated_at: new Date('2025-11-17T15:47:03.278Z'),
+    },
+    {
+      id: 25,
+      email: 'hankers67@outlook.com',
+      username: 'karim.ka2562',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$vR3Xm9v/41JrLJlLgkoJWw$OnDT9XlOzzKNDnPVg/YkCPnyS7C1dVLG5liZlpWzW58',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-17T15:56:54.207Z'),
+      updated_at: new Date('2025-11-17T15:56:54.207Z'),
+    },
+    {
+      id: 41,
+      email: 'Mohamedalbaz492@gmail.com',
+      username: 'mohamed-sameh-albaz',
+      password: '',
+      is_verified: true,
+      provider_id: '136837275',
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-18T07:27:54.594Z'),
+      updated_at: new Date('2025-11-18T07:27:54.594Z'),
+    },
+    {
+      id: 45,
+      email: 'ahmedg.ellabban339@gmail.com',
+      username: 'ryuzaki',
+      password: '$argon2i$v=19$m=16,t=2,p=1$TmU1RDJrczRuTktraXVwYg$DPll4hwvRTv+omTCo2SpFA',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-18T11:12:23.516Z'),
+      updated_at: new Date('2025-11-18T11:12:23.516Z'),
+    },
+    {
+      id: 47,
+      email: 'Ahmed.ellabban04@eng-st.cu.edu.eg',
+      username: 'ahmedGamalEllabban',
+      password: '',
+      is_verified: true,
+      provider_id: '138603828',
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-18T16:16:11.820Z'),
+      updated_at: new Date('2025-11-18T16:16:11.820Z'),
+    },
+    {
+      id: 49,
+      email: 'omarnabil219@gmail.com',
+      username: 'nabil.om3149',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$A1zdLDjpMKgZ0s3gSpw1dg$hadZhQaEWU0D4dkieAq0hbzMLD0/TzCi09cCQdEeRuI',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-18T17:21:31.209Z'),
+      updated_at: new Date('2025-11-18T17:21:31.209Z'),
+    },
+    {
+      id: 50,
+      email: 'farouk.hussien03@eng-st.cu.edu.eg',
+      username: 'far.fa3409',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$F40HohKInxmct90G/CCZDg$vgtW+srJhZUXY1lOf/UmRP2mAaWm3QcTq/uYJVTqxQ8',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-18T21:14:57.000Z'),
+      updated_at: new Date('2025-11-18T21:14:57.000Z'),
+    },
+  ];
 
-    const user = await prisma.user.create({
-      data: {
-        email: userData.email,
-        username: userData.username,
-        password: hashedPassword,
-        is_verified: true,
-        role: userData.role,
-        has_completed_interests: userData.hasCompletedOnboarding,
-        has_completed_following: userData.hasCompletedOnboarding,
-        Profile: {
-          create: {
-            name: userData.profile.name,
-            bio: userData.profile.bio,
-            location: userData.profile.location,
-            website: userData.profile.website,
-            birth_date: userData.profile.birth_date,
-          },
-        },
-      },
-      include: {
-        Profile: true,
-      },
+  const createdUsers: any[] = [];
+  for (const user of users) {
+    const created = await prisma.user.create({
+      data: user,
     });
-
-    createdUsers.push(user as CreatedUser);
-    const roleEmoji = user.role === 'ADMIN' ? '👑' : '👤';
-    console.log(`  ${roleEmoji} Created user: ${user.username} (${user.role})`);
+    createdUsers.push(created);
   }
-  console.log(`✅ Created ${createdUsers.length} users\n`);
+  console.log(`Created ${createdUsers.length} users`);
 
-  // 3. Seed User Interests
-  console.log('🎯 Assigning interests to users...');
-  let interestCount = 0;
-  for (let i = 0; i < sampleUsers.length; i++) {
-    const user = createdUsers[i];
-    const userInterests = sampleUsers[i].interests;
+  // Create profiles for users
+  const profiles = [
+    {
+      user_id: 16,
+      name: 'Karim Zakzouk',
+      birth_date: new Date('1995-03-15'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=karimzakzouk',
+      bio: '🚀 Tech enthusiast | Full-stack developer | Coffee addict ☕',
+      location: 'Cairo, Egypt',
+      website: 'https://karimzakzouk.dev',
+    },
+    {
+      user_id: 17,
+      name: 'Mazen Farid',
+      birth_date: new Date('1998-07-22'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=mazenfarid',
+      bio: '💻 Software Engineer | Gaming enthusiast 🎮',
+      location: 'Alexandria, Egypt',
+      website: null,
+    },
+    {
+      user_id: 18,
+      name: 'GPT Chat',
+      birth_date: new Date('2000-01-01'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=gptchat',
+      bio: '🤖 AI exploring the human world | Tech & Innovation',
+      location: 'Cyberspace',
+      website: 'https://openai.com',
+    },
+    {
+      user_id: 19,
+      name: 'Karim K.',
+      birth_date: new Date('1996-11-08'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=karimk',
+      bio: '📸 Photography | Travel blogger ✈️',
+      location: 'Dubai, UAE',
+      website: 'https://karimtravels.com',
+    },
+    {
+      user_id: 20,
+      name: 'Mazen Rory',
+      birth_date: new Date('1997-05-12'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=mazenrory',
+      bio: '🏋️ Fitness coach | Nutrition expert | Living healthy',
+      location: 'Giza, Egypt',
+      website: 'https://fitwithmazen.com',
+    },
+    {
+      user_id: 21,
+      name: 'Ahmed Fathi',
+      birth_date: new Date('1999-09-30'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=ahmedfathi',
+      bio: '🎵 Music producer | Sound designer',
+      location: 'Cairo, Egypt',
+      website: null,
+    },
+    {
+      user_id: 22,
+      name: 'Ahmed Fathy',
+      birth_date: new Date('1999-02-14'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=ahmedfathy2',
+      bio: '🎬 Filmmaker | Content creator',
+      location: 'Cairo, Egypt',
+      website: 'https://fathyfilms.com',
+    },
+    {
+      user_id: 23,
+      name: 'Abdelrahman Adel',
+      birth_date: new Date('1998-06-20'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=adel',
+      bio: '⚽ Sports enthusiast | Football fan | Manchester United supporter',
+      location: 'Cairo, Egypt',
+      website: null,
+    },
+    {
+      user_id: 24,
+      name: 'Karim Warframe',
+      birth_date: new Date('1997-12-05'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=karimwar',
+      bio: '🎮 Pro gamer | Streamer | Warframe expert',
+      location: 'Cairo, Egypt',
+      website: 'https://twitch.tv/karimwar',
+    },
+    {
+      user_id: 25,
+      name: 'Hankers',
+      birth_date: new Date('2001-04-18'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=hankers',
+      bio: '🎨 Digital artist | NFT creator',
+      location: 'London, UK',
+      website: 'https://hankers.art',
+    },
+    {
+      user_id: 41,
+      name: 'Mohamed Sameh Albaz',
+      birth_date: new Date('1996-08-25'),
+      profile_image_url: 'https://avatars.githubusercontent.com/u/136837275',
+      bio: '👨‍💻 Full-stack developer | Open source contributor | Tech blogger',
+      location: 'Cairo, Egypt',
+      website: 'https://github.com/mohamed-sameh-albaz',
+    },
+    {
+      user_id: 45,
+      name: 'Ryuzaki',
+      birth_date: new Date('1998-10-31'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=ryuzaki',
+      bio: "🕵️ World's greatest detective | Sweets lover 🍰",
+      location: 'Undisclosed',
+      website: null,
+    },
+    {
+      user_id: 47,
+      name: 'Ahmed Gamal Ellabban',
+      birth_date: new Date('1999-03-07'),
+      profile_image_url: 'https://avatars.githubusercontent.com/u/138603828',
+      bio: '💼 Business analyst | Data enthusiast 📊',
+      location: 'Cairo, Egypt',
+      website: 'https://github.com/ahmedGamalEllabban',
+    },
+    {
+      user_id: 49,
+      name: 'Omar Nabil',
+      birth_date: new Date('2000-07-15'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=omarnabil',
+      bio: '🏗️ Civil engineer | Architecture lover',
+      location: 'Cairo, Egypt',
+      website: null,
+    },
+    {
+      user_id: 50,
+      name: 'Farouk Hussein',
+      birth_date: new Date('1997-01-28'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=farouk',
+      bio: '🔬 Research scientist | AI researcher',
+      location: 'Cairo, Egypt',
+      website: 'https://farouk-research.com',
+    },
+  ];
 
-    for (const interestName of userInterests) {
-      const interest = createdInterests.find((int) => int.name === interestName);
-      if (interest) {
-        await prisma.userInterest.create({
-          data: {
-            user_id: user.id,
-            interest_id: interest.id,
-          },
-        });
-        interestCount++;
-      }
+  for (const profile of profiles) {
+    await prisma.profile.create({
+      data: profile,
+    });
+  }
+  console.log(`Created ${profiles.length} profiles`);
+
+  // Assign random interests to users
+  const userInterestData: Array<{ user_id: number; interest_id: number }> = [];
+  for (const user of createdUsers) {
+    // Each user gets 3-6 random interests
+    const numInterests = Math.floor(Math.random() * 4) + 3;
+    const shuffled = [...createdInterests].sort(() => 0.5 - Math.random());
+    const selectedInterests = shuffled.slice(0, numInterests);
+
+    for (const interest of selectedInterests) {
+      userInterestData.push({
+        user_id: user.id,
+        interest_id: interest.id,
+      });
     }
   }
-  console.log(`✅ Created ${interestCount} user-interest relationships\n`);
 
-  // 4. Seed Follows
-  console.log('🔗 Creating follow relationships...');
-  let followCount = 0;
-  for (let i = 0; i < createdUsers.length; i++) {
-    const follower = createdUsers[i];
-    const numToFollow = Math.floor(Math.random() * 3) + 3;
-    const usersToFollow = createdUsers
-      .filter((u) => u.id !== follower.id)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, numToFollow);
-
-    for (const following of usersToFollow) {
-      try {
-        await prisma.follow.create({
-          data: {
-            followerId: follower.id,
-            followingId: following.id,
-          },
-        });
-        followCount++;
-      } catch (error) {
-        // Skip duplicates
-      }
-    }
+  for (const userInterest of userInterestData) {
+    await prisma.userInterest.create({
+      data: userInterest,
+    });
   }
-  console.log(`✅ Created ${followCount} follow relationships\n`);
+  console.log(`Created ${userInterestData.length} user interests`);
 
-  // 5. Seed Hashtags
-  console.log('#️⃣ Seeding hashtags...');
-  const createdHashtags: CreatedHashtag[] = [];
+  // Create follow relationships
+  const follows = [
+    // User 41 (mohamed-sameh-albaz) follows several users
+    { followerId: 41, followingId: 16 },
+    { followerId: 41, followingId: 17 },
+    { followerId: 41, followingId: 45 },
+    { followerId: 41, followingId: 47 },
+    { followerId: 41, followingId: 49 },
+
+    // Other users follow back
+    { followerId: 16, followingId: 41 },
+    { followerId: 17, followingId: 41 },
+    { followerId: 45, followingId: 41 },
+    { followerId: 47, followingId: 41 },
+
+    // Cross follows
+    { followerId: 16, followingId: 17 },
+    { followerId: 17, followingId: 16 },
+    { followerId: 18, followingId: 16 },
+    { followerId: 19, followingId: 18 },
+    { followerId: 20, followingId: 19 },
+    { followerId: 21, followingId: 20 },
+    { followerId: 22, followingId: 21 },
+    { followerId: 23, followingId: 22 },
+    { followerId: 24, followingId: 23 },
+    { followerId: 25, followingId: 24 },
+    { followerId: 45, followingId: 47 },
+    { followerId: 47, followingId: 45 },
+    { followerId: 49, followingId: 50 },
+    { followerId: 50, followingId: 49 },
+  ];
+
+  for (const follow of follows) {
+    await prisma.follow.create({
+      data: follow,
+    });
+  }
+  console.log(`Created ${follows.length} follow relationships`);
+
+  const hashtags = [
+    'technology',
+    'coding',
+    'javascript',
+    'typescript',
+    'nodejs',
+    'react',
+    'webdev',
+    'programming',
+    'ai',
+    'machinelearning',
+    'fitness',
+    'travel',
+    'photography',
+    'gaming',
+    'esports',
+    'music',
+    'art',
+    'design',
+    'food',
+    'health',
+  ];
+
+  const createdHashtags: any[] = [];
   for (const tag of hashtags) {
-    const hashtag = await prisma.hashtag.create({
-      data: { tag },
+    const created = await prisma.hashtag.create({
+      data: { tag: `#${tag}` },
     });
-    createdHashtags.push(hashtag);
+    createdHashtags.push(created);
   }
-  console.log(`✅ Created ${createdHashtags.length} hashtags\n`);
+  console.log(`✅ Created ${createdHashtags.length} hashtags`);
 
-  // 6. Seed Posts
-  console.log('📝 Seeding posts...');
-  const createdPosts: CreatedPost[] = [];
-  for (let i = 0; i < 40; i++) {
-    const randomUser = createdUsers[Math.floor(Math.random() * createdUsers.length)];
-    const randomContent = samplePosts[Math.floor(Math.random() * samplePosts.length)];
-    const randomDate = new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000);
+  // Create posts
+  const posts = [
+    {
+      user_id: 41,
+      content:
+        'Just deployed my new social media platform! 🚀 Excited to see everyone using it. #webdev #typescript #nodejs',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T10:00:00Z'),
+    },
+    {
+      user_id: 16,
+      content:
+        'Working on a new feature for authentication. OAuth2 is fascinating! 🔐 #coding #security',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T11:30:00Z'),
+    },
+    {
+      user_id: 17,
+      content:
+        'Just finished a 10-hour gaming session. My eyes hurt but it was worth it! 😅 #gaming #esports',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T14:00:00Z'),
+    },
+    {
+      user_id: 18,
+      content:
+        'AI is evolving faster than ever. The future is here! 🤖 #ai #machinelearning #technology',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T09:00:00Z'),
+    },
+    {
+      user_id: 19,
+      content: 'Captured the most beautiful sunset in Dubai today! 🌅 #photography #travel',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T18:00:00Z'),
+    },
+    {
+      user_id: 20,
+      content: 'Morning workout done! Remember: consistency is key 💪 #fitness #health',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T06:00:00Z'),
+    },
+    {
+      user_id: 21,
+      content: 'New track dropping this Friday! Stay tuned 🎵 #music',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T15:00:00Z'),
+    },
+    {
+      user_id: 45,
+      content: 'The cake is a lie, but this detective work is not 🍰🕵️',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T20:00:00Z'),
+    },
+    {
+      user_id: 47,
+      content: 'Data analysis reveals interesting patterns in user behavior 📊 #data #analytics',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T13:00:00Z'),
+    },
+    {
+      user_id: 49,
+      content: 'Architecture is frozen music 🏛️ #architecture #design',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T16:00:00Z'),
+    },
+    {
+      user_id: 50,
+      content:
+        'Published my latest research paper on neural networks! Link in bio 🔬 #ai #research',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T12:00:00Z'),
+    },
+    {
+      user_id: 23,
+      content: 'Manchester United won! What a match! ⚽🔴 #football #MUFC',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T21:00:00Z'),
+    },
+    {
+      user_id: 24,
+      content: 'Streaming live in 10 minutes! Come watch some Warframe action 🎮 #gaming #twitch',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T19:00:00Z'),
+    },
+    {
+      user_id: 25,
+      content: 'Just minted my new NFT collection! Check it out 🎨 #art #nft #crypto',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T17:00:00Z'),
+    },
+  ];
 
-    const post = await prisma.post.create({
-      data: {
-        user_id: randomUser.id,
-        content: randomContent.content,
-        type: randomContent.type,
-        visibility: randomContent.visibility,
-        created_at: randomDate,
-      },
+  const createdPosts: any[] = [];
+  for (const post of posts) {
+    const created = await prisma.post.create({
+      data: post,
     });
-
-    createdPosts.push(post);
-
-    if (Math.random() > 0.5) {
-      const numHashtags = Math.floor(Math.random() * 3) + 1;
-      const postHashtags = createdHashtags.sort(() => Math.random() - 0.5).slice(0, numHashtags);
-
-      await prisma.post.update({
-        where: { id: post.id },
-        data: {
-          hashtags: {
-            connect: postHashtags.map((h) => ({ id: h.id })),
-          },
-        },
-      });
-    }
+    createdPosts.push(created);
   }
-  console.log(`✅ Created ${createdPosts.length} posts\n`);
+  console.log(`Created ${createdPosts.length} posts`);
 
-  // 7. Seed Replies
-  console.log('💬 Seeding replies...');
+  // Create replies to posts
   const replies = [
-    'Great post! This is really interesting 👍',
-    'I totally agree with this!',
-    'Thanks for sharing! 🙌',
-    'This is so helpful, appreciate it!',
-    'Amazing content as always! 🔥',
-    "Couldn't have said it better myself!",
-    'This made my day! 😊',
-    'Absolutely love this! ❤️',
-    'Thanks for the inspiration!',
-    'This is exactly what I needed to hear!',
+    {
+      user_id: 16,
+      content: 'Congratulations! Looking forward to exploring it! 🎉',
+      type: PostType.REPLY,
+      parent_id: createdPosts[0].id,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T10:15:00Z'),
+    },
+    {
+      user_id: 45,
+      content: 'Great work! The authentication flow is smooth 👍',
+      type: PostType.REPLY,
+      parent_id: createdPosts[0].id,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T10:30:00Z'),
+    },
+    {
+      user_id: 41,
+      content: 'Thanks! Let me know if you find any bugs 🐛',
+      type: PostType.REPLY,
+      parent_id: createdPosts[0].id,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T10:45:00Z'),
+    },
+    {
+      user_id: 17,
+      content: 'Which game? 🎮',
+      type: PostType.REPLY,
+      parent_id: createdPosts[2].id,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T14:15:00Z'),
+    },
   ];
 
-  let replyCount = 0;
-  for (let i = 0; i < 25; i++) {
-    const randomPost = createdPosts[Math.floor(Math.random() * createdPosts.length)];
-    const eligibleUsers = createdUsers.filter((u) => u.id !== randomPost.user_id);
-    if (eligibleUsers.length === 0) continue;
-
-    const randomUser = eligibleUsers[Math.floor(Math.random() * eligibleUsers.length)];
-    const randomReply = replies[Math.floor(Math.random() * replies.length)];
-
+  for (const reply of replies) {
     await prisma.post.create({
-      data: {
-        user_id: randomUser.id,
-        content: randomReply,
-        type: PostType.REPLY,
-        parent_id: randomPost.id,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date(randomPost.created_at.getTime() + Math.random() * 24 * 60 * 60 * 1000),
-      },
+      data: reply,
     });
-    replyCount++;
   }
-  console.log(`✅ Created ${replyCount} replies\n`);
+  console.log(`Created ${replies.length} replies`);
 
-  // 8. Seed Likes
-  console.log('❤️ Seeding likes...');
-  let likeCount = 0;
-  for (const post of createdPosts) {
-    const numLikes = Math.floor(Math.random() * 9) + 2;
-    const usersWhoLike = createdUsers
-      .filter((u) => u.id !== post.user_id)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, numLikes);
-
-    for (const user of usersWhoLike) {
-      try {
-        await prisma.like.create({
-          data: {
-            post_id: post.id,
-            user_id: user.id,
-          },
-        });
-        likeCount++;
-      } catch (error) {
-        // Skip duplicates
-      }
-    }
-  }
-  console.log(`✅ Created ${likeCount} likes\n`);
-
-  // 9. Seed Reposts
-  console.log('🔄 Seeding reposts...');
-  let repostCount = 0;
-  for (let i = 0; i < 20; i++) {
-    const randomPost = createdPosts[Math.floor(Math.random() * createdPosts.length)];
-    const eligibleUsers = createdUsers.filter((u) => u.id !== randomPost.user_id);
-    if (eligibleUsers.length === 0) continue;
-
-    const randomUser = eligibleUsers[Math.floor(Math.random() * eligibleUsers.length)];
-
-    try {
-      await prisma.repost.create({
-        data: {
-          post_id: randomPost.id,
-          user_id: randomUser.id,
-        },
-      });
-      repostCount++;
-    } catch (error) {
-      // Skip duplicates
-    }
-  }
-  console.log(`✅ Created ${repostCount} reposts\n`);
-
-  // 10. Seed Media
-  console.log('🖼️ Seeding media...');
-  let mediaCount = 0;
-  for (let i = 0; i < 15; i++) {
-    const randomPost = createdPosts[Math.floor(Math.random() * createdPosts.length)];
-    const mediaType = Math.random() > 0.6 ? MediaType.IMAGE : MediaType.VIDEO;
-
-    await prisma.media.create({
-      data: {
-        post_id: randomPost.id,
-        media_url:
-          mediaType === MediaType.IMAGE
-            ? `https://picsum.photos/800/600?random=${i}`
-            : `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`,
-        type: mediaType,
-      },
-    });
-    mediaCount++;
-  }
-  console.log(`✅ Created ${mediaCount} media items\n`);
-
-  // 11. Seed Conversations
-  console.log('💬 Seeding conversations...');
-  const conversations: CreatedConversation[] = [];
-  for (let i = 0; i < 7; i++) {
-    const user1Index = i;
-    const user2Index = (i + 1) % createdUsers.length;
-
-    const conversation = await prisma.conversation.create({
-      data: {
-        user1Id: createdUsers[user1Index].id,
-        user2Id: createdUsers[user2Index].id,
-      },
-    });
-    conversations.push(conversation);
-  }
-  console.log(`✅ Created ${conversations.length} conversations\n`);
-
-  // 12. Seed Messages
-  console.log('✉️ Seeding messages...');
-  const messageTemplates = [
-    'Hey! How are you doing?',
-    'Did you see the latest update?',
-    'Thanks for your help yesterday!',
-    'We should catch up sometime!',
-    'That was an awesome post you shared!',
-    "Let me know when you're free",
-    "Hope you're having a great day! 😊",
-    'Check out this link I found',
-    'What do you think about this?',
-    "Can't wait to see you!",
+  // Create quote posts
+  const quotes = [
+    {
+      user_id: 47,
+      content: 'This is exactly what we needed! Amazing work 👏',
+      type: PostType.QUOTE,
+      parent_id: createdPosts[0].id,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T11:00:00Z'),
+    },
   ];
 
-  let messageCount = 0;
-  for (const conversation of conversations) {
-    const numMessages = Math.floor(Math.random() * 6) + 4;
-
-    for (let i = 0; i < numMessages; i++) {
-      const sender = i % 2 === 0 ? conversation.user1Id : conversation.user2Id;
-      const messageText = messageTemplates[Math.floor(Math.random() * messageTemplates.length)];
-
-      await prisma.message.create({
-        data: {
-          conversationId: conversation.id,
-          senderId: sender,
-          text: messageText,
-          isSeen: Math.random() > 0.4,
-          createdAt: new Date(Date.now() - (numMessages - i) * 60 * 60 * 1000),
-        },
-      });
-      messageCount++;
-    }
+  for (const quote of quotes) {
+    await prisma.post.create({
+      data: quote,
+    });
   }
-  console.log(`✅ Created ${messageCount} messages\n`);
+  console.log(`Created ${quotes.length} quote posts`);
 
-  // Summary
-  console.log('═══════════════════════════════════════');
-  console.log('🎉 Seeding completed successfully!\n');
-  console.log('📊 Summary:');
-  console.log('═══════════════════════════════════════');
-  console.log(`   • Interests:        ${createdInterests.length}`);
-  console.log(`   • Users:            ${createdUsers.length}`);
-  console.log(`   • User Interests:   ${interestCount}`);
-  console.log(`   • Follows:          ${followCount}`);
-  console.log(`   • Hashtags:         ${createdHashtags.length}`);
-  console.log(`   • Posts:            ${createdPosts.length}`);
-  console.log(`   • Replies:          ${replyCount}`);
-  console.log(`   • Likes:            ${likeCount}`);
-  console.log(`   • Reposts:          ${repostCount}`);
-  console.log(`   • Media:            ${mediaCount}`);
-  console.log(`   • Conversations:    ${conversations.length}`);
-  console.log(`   • Messages:         ${messageCount}`);
-  console.log('═══════════════════════════════════════\n');
-  console.log('✨ Your database is ready to use!\n');
-  console.log('📝 Login Credentials:');
-  console.log('═══════════════════════════════════════');
-  console.log('👑 ADMIN Account:');
-  console.log('   Email:    mohamed-sameh-albaz@example.com');
-  console.log('   Username: mohamed-sameh-albaz');
-  console.log('   Password: Password123!');
-  console.log('');
-  console.log('👤 Sample User Accounts:');
-  console.log('   Email:    john.doe@example.com');
-  console.log('   Username: john_doe');
-  console.log('   Password: Password123!');
-  console.log('');
-  console.log('   (All users have the same password)');
-  console.log('═══════════════════════════════════════\n');
+  // Connect posts to hashtags
+  await prisma.post.update({
+    where: { id: createdPosts[0].id },
+    data: {
+      hashtags: {
+        connect: [{ tag: '#webdev' }, { tag: '#typescript' }, { tag: '#nodejs' }],
+      },
+    },
+  });
+
+  await prisma.post.update({
+    where: { id: createdPosts[1].id },
+    data: {
+      hashtags: {
+        connect: [{ tag: '#coding' }],
+      },
+    },
+  });
+
+  await prisma.post.update({
+    where: { id: createdPosts[2].id },
+    data: {
+      hashtags: {
+        connect: [{ tag: '#gaming' }, { tag: '#esports' }],
+      },
+    },
+  });
+
+  console.log('Connected posts to hashtags');
+
+  // Create likes
+  const likes = [
+    { post_id: createdPosts[0].id, user_id: 16 },
+    { post_id: createdPosts[0].id, user_id: 17 },
+    { post_id: createdPosts[0].id, user_id: 45 },
+    { post_id: createdPosts[0].id, user_id: 47 },
+    { post_id: createdPosts[0].id, user_id: 49 },
+    { post_id: createdPosts[1].id, user_id: 41 },
+    { post_id: createdPosts[1].id, user_id: 17 },
+    { post_id: createdPosts[2].id, user_id: 24 },
+    { post_id: createdPosts[3].id, user_id: 41 },
+    { post_id: createdPosts[3].id, user_id: 50 },
+    { post_id: createdPosts[4].id, user_id: 25 },
+    { post_id: createdPosts[5].id, user_id: 20 },
+    { post_id: createdPosts[6].id, user_id: 21 },
+  ];
+
+  for (const like of likes) {
+    await prisma.like.create({
+      data: like,
+    });
+  }
+  console.log(`Created ${likes.length} likes`);
+
+  // Create reposts
+  const reposts = [
+    { post_id: createdPosts[0].id, user_id: 45 },
+    { post_id: createdPosts[0].id, user_id: 47 },
+    { post_id: createdPosts[3].id, user_id: 50 },
+  ];
+
+  for (const repost of reposts) {
+    await prisma.repost.create({
+      data: repost,
+    });
+  }
+  console.log(`Created ${reposts.length} reposts`);
+
+  // Create some media for posts
+  const media = [
+    {
+      post_id: createdPosts[4].id, // Photography post
+      media_url: 'https://picsum.photos/800/600?random=1',
+      type: MediaType.IMAGE,
+    },
+    {
+      post_id: createdPosts[4].id,
+      media_url: 'https://picsum.photos/800/600?random=2',
+      type: MediaType.IMAGE,
+    },
+    {
+      post_id: createdPosts[13].id, // NFT art post
+      media_url: 'https://picsum.photos/800/800?random=3',
+      type: MediaType.IMAGE,
+    },
+  ];
+
+  for (const m of media) {
+    await prisma.media.create({
+      data: m,
+    });
+  }
+  console.log(`Created ${media.length} media items`);
+
+  // Create conversations
+  const conversations = [
+    {
+      user1Id: 41,
+      user2Id: 16,
+      nextMessageIndex: 1,
+    },
+    {
+      user1Id: 41,
+      user2Id: 45,
+      nextMessageIndex: 1,
+    },
+    {
+      user1Id: 16,
+      user2Id: 17,
+      nextMessageIndex: 1,
+    },
+  ];
+
+  const createdConversations: any[] = [];
+  for (const conversation of conversations) {
+    const created = await prisma.conversation.create({
+      data: conversation,
+    });
+    createdConversations.push(created);
+  }
+  console.log(`Created ${createdConversations.length} conversations`);
+
+  // Create messages
+  const messages = [
+    {
+      conversationId: createdConversations[0].id,
+      messageIndex: 1,
+      senderId: 41,
+      text: 'Hey! How are you?',
+      createdAt: new Date('2025-11-20T08:00:00Z'),
+    },
+    {
+      conversationId: createdConversations[0].id,
+      messageIndex: 2,
+      senderId: 16,
+      text: "Hi! I'm good, thanks! Just working on the OAuth implementation.",
+      isSeen: true,
+      createdAt: new Date('2025-11-20T08:05:00Z'),
+    },
+    {
+      conversationId: createdConversations[0].id,
+      messageIndex: 3,
+      senderId: 41,
+      text: 'That sounds interesting! Let me know if you need any help.',
+      createdAt: new Date('2025-11-20T08:10:00Z'),
+    },
+    {
+      conversationId: createdConversations[1].id,
+      messageIndex: 1,
+      senderId: 45,
+      text: 'The platform looks amazing! Great job! 🎉',
+      createdAt: new Date('2025-11-20T10:20:00Z'),
+    },
+    {
+      conversationId: createdConversations[1].id,
+      messageIndex: 2,
+      senderId: 41,
+      text: 'Thanks! Your feedback means a lot!',
+      isSeen: true,
+      createdAt: new Date('2025-11-20T10:25:00Z'),
+    },
+    {
+      conversationId: createdConversations[2].id,
+      messageIndex: 1,
+      senderId: 16,
+      text: 'Want to play some games later?',
+      createdAt: new Date('2025-11-20T14:30:00Z'),
+    },
+    {
+      conversationId: createdConversations[2].id,
+      messageIndex: 2,
+      senderId: 17,
+      text: 'Sure! What time?',
+      isSeen: true,
+      createdAt: new Date('2025-11-20T14:35:00Z'),
+    },
+  ];
+
+  for (const message of messages) {
+    await prisma.message.create({
+      data: message,
+    });
+  }
+  console.log(`Created ${messages.length} messages`);
+
+  // Update conversation nextMessageIndex
+  await prisma.conversation.update({
+    where: { id: createdConversations[0].id },
+    data: { nextMessageIndex: 4 },
+  });
+  await prisma.conversation.update({
+    where: { id: createdConversations[1].id },
+    data: { nextMessageIndex: 3 },
+  });
+  await prisma.conversation.update({
+    where: { id: createdConversations[2].id },
+    data: { nextMessageIndex: 3 },
+  });
+
+  console.log('✅ Seed completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seeding failed:', e);
+    console.error('Error during seed:', e);
     process.exit(1);
   })
   .finally(async () => {

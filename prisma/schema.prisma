@@ -206,31 +206,34 @@ model Mention {
 }
 
 model Conversation {
-  id        Int       @id @default(autoincrement())
-  user1Id   Int
-  user2Id   Int
-  createdAt DateTime  @default(now())
-  updatedAt DateTime? @updatedAt
-  Messages  Message[]
-  User1     User      @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
-  User2     User      @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
+  id               Int       @id @default(autoincrement())
+  user1Id          Int
+  user2Id          Int
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime? @updatedAt
+  nextMessageIndex Int       @default(1)
+  User1            User      @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
+  User2            User      @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
+  Messages         Message[]
 
   @@unique([user1Id, user2Id])
   @@map("conversations")
 }
 
 model Message {
-  id             Int          @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   conversationId Int
+  messageIndex   Int?
   senderId       Int
-  text           String       @db.VarChar(1000)
-  isDeletedU1    Boolean      @default(false)
-  isDeletedU2    Boolean      @default(false)
-  isSeen         Boolean      @default(false)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime?    @updatedAt
-  Conversation   Conversation @relation(fields: [conversationId], references: [id])
-  Sender         User         @relation(fields: [senderId], references: [id])
+  text           String    @db.VarChar(1000)
+  isDeletedU1    Boolean   @default(false)
+  isDeletedU2    Boolean   @default(false)
+  isSeen         Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime? @updatedAt
+
+  Conversation Conversation @relation(fields: [conversationId], references: [id])
+  Sender       User         @relation(fields: [senderId], references: [id])
 
   @@map("messages")
 }
@@ -241,9 +244,8 @@ model Media {
   media_url  String
   created_at DateTime  @default(now())
   type       MediaType
-  post       Post      @relation(fields: [post_id], references: [id], onDelete: Cascade)
 
-  @@map("Media")
+  post Post @relation(fields: [post_id], references: [id], onDelete: Cascade)
 }
 
 enum MediaType {
