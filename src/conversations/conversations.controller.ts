@@ -53,12 +53,22 @@ export class ConversationsController {
       example: {
         status: 'success',
         data: {
-          id: 1,
-          user1Id: 1,
-          user2Id: 2,
-          createdAt: '2024-01-01T00:00:00.000Z',
-          updatedAt: '2024-01-01T00:00:00.000Z',
-          Messages: [],
+          id: 15,
+          updatedAt: '2025-11-21T12:27:21.174Z',
+          createdAt: '2025-11-21T12:27:21.174Z',
+          lastMessage: {
+            id: 1,
+            senderId: 47,
+            text: 'Hello there!',
+            createdAt: '2025-11-21T12:27:21.174Z',
+            updatedAt: '2025-11-21T12:27:21.174Z',
+          },
+          user: {
+            id: 47,
+            username: 'ahmedGamalEllabban',
+            profile_image_url: null,
+            displayName: 'Ahmed Gamal Ellabban',
+          },
         },
         metadata: {
           totalMessages: 0,
@@ -191,6 +201,73 @@ export class ConversationsController {
     return {
       status: 'success',
       unseenCount,
+    };
+  }
+
+  @Get('/:conversationId')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get a specific conversation by ID',
+    description: 'Retrieves a conversation by its ID if the authenticated user is a participant',
+  })
+  @ApiParam({
+    name: 'conversationId',
+    type: Number,
+    description: 'The ID of the conversation to retrieve',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Conversation retrieved successfully',
+    schema: {
+      example: {
+        status: 'success',
+        data: {
+          id: 15,
+          updatedAt: '2025-11-21T12:27:21.174Z',
+          createdAt: '2025-11-21T12:27:21.174Z',
+          lastMessage: {
+            id: 1,
+            senderId: 47,
+            text: 'Hello there!',
+            createdAt: '2025-11-21T12:27:21.174Z',
+            updatedAt: '2025-11-21T12:27:21.174Z',
+          },
+          user: {
+            id: 47,
+            username: 'ahmedGamalEllabban',
+            profile_image_url: null,
+            displayName: 'Ahmed Gamal Ellabban',
+          },
+        },
+      },
+    },
+    type: CreateConversationResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Conflict - User not part of the conversation',
+    schema: ErrorResponseDto.schemaExample('You are not part of this conversation', 'Conflict'),
+  })
+  async getConversationById(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('conversationId', ParseIntPipe) conversationId: number,
+  ) {
+    const conversation = await this.conversationsService.getConversationById(
+      conversationId,
+      user.id,
+    );
+    return {
+      status: 'success',
+      ...conversation,
     };
   }
 }
