@@ -23,7 +23,7 @@ export class OAuthProfileDto {
   })
   @IsOptional()
   @IsString()
-  username?: string;
+  username: string;
 
   @ApiProperty({
     description: 'User’s display name or full name',
@@ -38,7 +38,7 @@ export class OAuthProfileDto {
   })
   @IsOptional()
   @IsEmail()
-  email?: string;
+  email: string;
 
   @ApiPropertyOptional({
     description: 'URL of the user’s profile image',

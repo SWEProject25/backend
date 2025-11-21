@@ -3,14 +3,15 @@
 # Exit if any command fails
 set -e
 
-# Generate Prisma client
+#!/bin/bash
+
+echo "🔄 Generating Prisma Client..."
 npx prisma generate
 
-# Reset database (drops and re-applies migrations)
-npx prisma migrate reset --force
+echo "📊 Applying pending migrations (safe - won't delete data)..."
+npx prisma migrate deploy  # ✅ Safe - only applies pending migrations, doesn't reset
 
-# Run migrations and generate client again
-npx prisma migrate dev
+echo "✅ Migrations applied successfully!"
 
-# Start the app in dev mode
+echo "🚀 Starting the application..."
 npm run start:dev

@@ -55,6 +55,7 @@ import { AuthJwtPayload } from 'src/types/jwtPayload';
 import { AuthenticatedUser } from './interfaces/user.interface';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyPasswordDto } from './dto/verify-password.dto';
+import { UserService } from 'src/user/user.service';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -67,6 +68,8 @@ export class AuthController {
     private readonly jwtTokenService: JwtTokenService,
     @Inject(Services.PASSWORD)
     private readonly passwordService: PasswordService,
+    @Inject(Services.USER)
+    private readonly userServivce: UserService,
   ) {}
 
   @Post('register')
@@ -94,26 +97,27 @@ export class AuthController {
     @Body() createUserDto: CreateUserDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.registerUser(createUserDto);
-
-    const userProfile = result.userProfile;
-    const newUser = result.newUser;
-    const accessToken = await this.jwtTokenService.generateAccessToken(
-      newUser.id,
-      newUser.username,
-    );
+    const user = await this.authService.registerUser(createUserDto);
+    const accessToken = await this.jwtTokenService.generateAccessToken(user.id, user.username);
     this.jwtTokenService.setAuthCookies(res, accessToken);
     return {
       status: 'success',
       message: 'Account created successfully.',
       data: {
         user: {
-          id: newUser.id,
-          username: newUser.username,
-          role: newUser.role,
-          email: newUser.email,
-          name: userProfile.name,
-          profileImageUrl: userProfile.profile_image_url,
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          email: user.email,
+          profile: {
+            name: user.Profile?.name,
+            profileImageUrl: user.Profile?.profile_image_url,
+          },
+        },
+        onboardingStatus: {
+          hasCompeletedFollowing: user.has_completed_following,
+          hasCompeletedInterests: user.has_completed_interests,
+          hasCompletedBirthDate: user.Profile?.birth_date !== null,
         },
       },
     };
@@ -153,14 +157,8 @@ export class AuthController {
       status: 'success',
       message: 'Logged in successfully',
       data: {
-        user: {
-          id: req.user.sub,
-          username: req.user.username,
-          role: req.user.role,
-          email: req.user.email,
-          name: req.user.name,
-          profileImageUrl: req.user.profileImageUrl,
-        },
+        user: result.user,
+        onboardingStatus: result.onboarding,
       },
     };
   }
@@ -182,12 +180,27 @@ export class AuthController {
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
   })
-  getMe(@CurrentUser() user: AuthJwtPayload) {
-    // @TODO add user interface
+  public async getMe(@CurrentUser() user: AuthenticatedUser) {
+    const userData = await this.userServivce.findOne(user.id);
     return {
       status: 'success',
       data: {
-        user,
+        user: {
+          id: user.id,
+          username: userData?.username,
+          role: userData?.role,
+          email: userData?.email,
+          profile: {
+            name: userData?.Profile?.name,
+            profileImageUrl: userData?.Profile?.profile_image_url,
+            birthDate: userData?.Profile?.birth_date,
+          },
+        },
+        onboardingStatus: {
+          hasCompeletedFollowing: userData?.has_completed_following,
+          hasCompeletedInterests: userData?.has_completed_interests,
+          hasCompletedBirthDate: userData?.Profile?.birth_date !== null,
+        },
       },
     };
   }
@@ -461,7 +474,11 @@ export class AuthController {
   @Public()
   @UseGuards(GoogleAuthGuard)
   public async googleRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
-    const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
+    const { accessToken, ...user } = await this.authService.login(
+      req.user.sub ?? req.user?.id,
+      req.user.username,
+    );
+    console.log('google controller', user);
     this.jwtTokenService.setAuthCookies(res, accessToken);
     const html = `
       <!DOCTYPE html>
@@ -475,7 +492,7 @@ export class AuthController {
                   : process.env.FRONTEND_URL_PROD
               }";
               const url = frontendBase + '/home';
-              const user = ${JSON.stringify(req.user)};
+              const user = ${JSON.stringify(user)};
               const message = {
                 status: 'success',
                 data: {
@@ -521,6 +538,7 @@ export class AuthController {
   public async githubRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
     const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
     this.jwtTokenService.setAuthCookies(res, accessToken);
+    console.log('github controller', user);
     const html = `
       <!DOCTYPE html>
       <html lang="en">
@@ -533,7 +551,7 @@ export class AuthController {
                   : process.env.FRONTEND_URL_PROD
               }";
               const url = frontendBase + '/home';
-              const user = ${JSON.stringify(req.user)};
+              const user = ${JSON.stringify(user)};
               const message = {
                 status: 'success',
                 data: { url: url, user: user }

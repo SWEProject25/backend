@@ -3,2028 +3,933 @@ import { PrismaClient, Role, PostType, PostVisibility, MediaType } from '@prisma
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Start seeding...');
+  console.log('Starting seed...');
 
-  // --- Clear existing data in correct order (respecting foreign key constraints) ---
-  console.log('Clearing existing data...');
-  await prisma.message.deleteMany({});
-  await prisma.conversation.deleteMany({});
-  await prisma.media.deleteMany({});
-  await prisma.mention.deleteMany({});
-  await prisma.like.deleteMany({});
-  await prisma.repost.deleteMany({});
-  await prisma.mute.deleteMany({});
-  await prisma.block.deleteMany({});
-  await prisma.follow.deleteMany({});
-  await prisma.post.deleteMany({});
-  await prisma.profile.deleteMany({});
-  await prisma.emailVerification.deleteMany({});
-  await prisma.user.deleteMany({});
-  await prisma.hashtag.deleteMany({});
-  console.log('Existing data cleared.');
+  // Clear existing data (in reverse order of dependencies)
+  await prisma.message.deleteMany();
+  await prisma.conversation.deleteMany();
+  await prisma.media.deleteMany();
+  await prisma.mention.deleteMany();
+  await prisma.like.deleteMany();
+  await prisma.repost.deleteMany();
+  await prisma.mute.deleteMany();
+  await prisma.block.deleteMany();
+  await prisma.follow.deleteMany();
+  await prisma.post.deleteMany();
+  await prisma.userInterest.deleteMany();
+  await prisma.interest.deleteMany();
+  await prisma.profile.deleteMany();
+  await prisma.emailVerification.deleteMany();
+  await prisma.user.deleteMany();
 
-  // --- 1. User Table Data ---
-  await prisma.user.createMany({
-    data: [
-      {
-        id: 16,
-        email: 'karimzakzouk69@gmail.com',
-        password: '',
-        created_at: new Date('2025-11-16T01:52:52.169Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: '147805022',
-        role: Role.USER,
-        updated_at: new Date('2025-11-16T01:52:52.169Z'),
-        username: 'karimzakzouk',
+  console.log('Cleared existing data');
+
+  // Create interests
+  const interests = [
+    { name: 'News', slug: 'news', icon: '📰', description: 'Stay updated with current events' },
+    {
+      name: 'Sports',
+      slug: 'sports',
+      icon: '⚽',
+      description: 'Follow your favorite sports and teams',
+    },
+    { name: 'Music', slug: 'music', icon: '🎵', description: 'Discover new music and artists' },
+    {
+      name: 'Dance',
+      slug: 'dance',
+      icon: '💃',
+      description: 'Explore dance styles and performances',
+    },
+    {
+      name: 'Celebrity',
+      slug: 'celebrity',
+      icon: '⭐',
+      description: 'Keep up with celebrity news',
+    },
+    {
+      name: 'Relationships',
+      slug: 'relationships',
+      icon: '❤️',
+      description: 'Dating, love, and relationship advice',
+    },
+    { name: 'Movies & TV', slug: 'movies-tv', icon: '🎬', description: 'Latest in entertainment' },
+    {
+      name: 'Technology',
+      slug: 'technology',
+      icon: '💻',
+      description: 'Tech news and innovations',
+    },
+    {
+      name: 'Business & Finance',
+      slug: 'business-finance',
+      icon: '💼',
+      description: 'Business trends and financial news',
+    },
+    { name: 'Gaming', slug: 'gaming', icon: '🎮', description: 'Video games and esports' },
+    { name: 'Fashion', slug: 'fashion', icon: '👗', description: 'Style trends and fashion news' },
+    { name: 'Food', slug: 'food', icon: '🍕', description: 'Recipes and culinary adventures' },
+    { name: 'Travel', slug: 'travel', icon: '✈️', description: 'Travel tips and destinations' },
+    { name: 'Fitness', slug: 'fitness', icon: '💪', description: 'Health and fitness tips' },
+    {
+      name: 'Science',
+      slug: 'science',
+      icon: '🔬',
+      description: 'Scientific discoveries and research',
+    },
+    { name: 'Art', slug: 'art', icon: '🎨', description: 'Visual arts and creativity' },
+  ];
+
+  const createdInterests: any[] = [];
+  for (const interest of interests) {
+    const created = await prisma.interest.create({
+      data: interest,
+    });
+    createdInterests.push(created);
+  }
+  console.log(`Created ${createdInterests.length} interests`);
+
+  // Create users
+  const users = [
+    {
+      id: 16,
+      email: 'karimzakzouk69@gmail.com',
+      username: 'karimzakzouk',
+      password: '',
+      is_verified: true,
+      provider_id: '147805022',
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-16T01:52:52.169Z'),
+      updated_at: new Date('2025-11-16T01:52:52.169Z'),
+    },
+    {
+      id: 17,
+      email: 'mazenfarid201269@gmail.com',
+      username: 'farid.ka2886',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$eqOf3z4CvT7Uj2PsFhQHyw$w6rgy0z1xS0PI+WUNiOGReDB14Mi3BYNnEnaPTw13nA',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-16T01:59:20.204Z'),
+      updated_at: new Date('2025-11-16T01:59:20.204Z'),
+    },
+    {
+      id: 18,
+      email: 'gptchat851@gmail.com',
+      username: 'gpt.ch8701',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$gX7JG4G4zjbsjZdNMA8eRw$XRWmuWiKVBdrODQdIAq6LK5t62o8Y2tjKfAHHgbLTVs',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-16T02:03:31.079Z'),
+      updated_at: new Date('2025-11-16T02:03:31.079Z'),
+    },
+    {
+      id: 19,
+      email: 'karimzakzouk@outlook.com',
+      username: 'karim.ka104',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$BxarIYgdOoTbwEhoP064rg$+N+5lyqTYe8kf2Q0SjrRq+D/RpU7Nm4uxTY6kg+w4WY',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-16T03:12:02.576Z'),
+      updated_at: new Date('2025-11-16T03:12:02.576Z'),
+    },
+    {
+      id: 20,
+      email: 'mazenrory@gmail.com',
+      username: 'mazen.ma4904',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$w9Th/ppqgNZHVEHJNI4xbw$tR1U2C0dFM5/uuy+V5vskG8ZS4dIGGpQMkimmPZx9YA',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-16T13:00:40.899Z'),
+      updated_at: new Date('2025-11-16T13:00:40.899Z'),
+    },
+    {
+      id: 21,
+      email: 'ahmedfathi20044002@gmail.com',
+      username: 'fathi.ah8581',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$a5xKn9FMFGiSf6uEcuHREQ$Axs6vlPAZfa6qv+ZL6IU2R3p73fF7JtwlKLXrklRvkc',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-17T15:25:11.012Z'),
+      updated_at: new Date('2025-11-17T15:25:11.012Z'),
+    },
+    {
+      id: 22,
+      email: 'ahmedfathy20044002@gmail.com',
+      username: 'fathy.ah2669',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$W5EntXTQGO3sJBiJPOVyoA$jHbxWH5b78+AplvP24Pjt8lz1GSEuva11qzUHe6mNdQ',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-17T15:25:25.406Z'),
+      updated_at: new Date('2025-11-17T15:25:25.406Z'),
+    },
+    {
+      id: 23,
+      email: 'engba80818233@gmail.com',
+      username: 'adel.ab1295',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$+DkFmIawOeN10PqpCNwIyQ$68EfLW+tByPPmksZ1qFxUzSCOQxM1znR/0+7GrVGIuw',
+      is_verified: true,
+      provider_id: '149705123',
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-17T15:34:12.790Z'),
+      updated_at: new Date('2025-11-18T10:59:47.748Z'),
+    },
+    {
+      id: 24,
+      email: 'warframe200469@gmail.com',
+      username: 'karim.ka169',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$4WcLnsm0Qj2L3nCDNYciYw$9spTbEH3KC9gYC69YRwDeHlQbSzYYOFL/iGHKqmt5Dc',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-17T15:47:03.278Z'),
+      updated_at: new Date('2025-11-17T15:47:03.278Z'),
+    },
+    {
+      id: 25,
+      email: 'hankers67@outlook.com',
+      username: 'karim.ka2562',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$vR3Xm9v/41JrLJlLgkoJWw$OnDT9XlOzzKNDnPVg/YkCPnyS7C1dVLG5liZlpWzW58',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-17T15:56:54.207Z'),
+      updated_at: new Date('2025-11-17T15:56:54.207Z'),
+    },
+    {
+      id: 41,
+      email: 'Mohamedalbaz492@gmail.com',
+      username: 'mohamed-sameh-albaz',
+      password: '',
+      is_verified: true,
+      provider_id: '136837275',
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-18T07:27:54.594Z'),
+      updated_at: new Date('2025-11-18T07:27:54.594Z'),
+    },
+    {
+      id: 45,
+      email: 'ahmedg.ellabban339@gmail.com',
+      username: 'ryuzaki',
+      password: '$argon2i$v=19$m=16,t=2,p=1$TmU1RDJrczRuTktraXVwYg$DPll4hwvRTv+omTCo2SpFA',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-18T11:12:23.516Z'),
+      updated_at: new Date('2025-11-18T11:12:23.516Z'),
+    },
+    {
+      id: 47,
+      email: 'Ahmed.ellabban04@eng-st.cu.edu.eg',
+      username: 'ahmedGamalEllabban',
+      password: '',
+      is_verified: true,
+      provider_id: '138603828',
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-18T16:16:11.820Z'),
+      updated_at: new Date('2025-11-18T16:16:11.820Z'),
+    },
+    {
+      id: 49,
+      email: 'omarnabil219@gmail.com',
+      username: 'nabil.om3149',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$A1zdLDjpMKgZ0s3gSpw1dg$hadZhQaEWU0D4dkieAq0hbzMLD0/TzCi09cCQdEeRuI',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-18T17:21:31.209Z'),
+      updated_at: new Date('2025-11-18T17:21:31.209Z'),
+    },
+    {
+      id: 50,
+      email: 'farouk.hussien03@eng-st.cu.edu.eg',
+      username: 'far.fa3409',
+      password:
+        '$argon2id$v=19$m=65536,t=3,p=4$F40HohKInxmct90G/CCZDg$vgtW+srJhZUXY1lOf/UmRP2mAaWm3QcTq/uYJVTqxQ8',
+      is_verified: true,
+      provider_id: null,
+      role: Role.USER,
+      has_completed_interests: true,
+      has_completed_following: true,
+      created_at: new Date('2025-11-18T21:14:57.000Z'),
+      updated_at: new Date('2025-11-18T21:14:57.000Z'),
+    },
+  ];
+
+  const createdUsers: any[] = [];
+  for (const user of users) {
+    const created = await prisma.user.create({
+      data: user,
+    });
+    createdUsers.push(created);
+  }
+  console.log(`Created ${createdUsers.length} users`);
+
+  // Create profiles for users
+  const profiles = [
+    {
+      user_id: 16,
+      name: 'Karim Zakzouk',
+      birth_date: new Date('1995-03-15'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=karimzakzouk',
+      bio: '🚀 Tech enthusiast | Full-stack developer | Coffee addict ☕',
+      location: 'Cairo, Egypt',
+      website: 'https://karimzakzouk.dev',
+    },
+    {
+      user_id: 17,
+      name: 'Mazen Farid',
+      birth_date: new Date('1998-07-22'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=mazenfarid',
+      bio: '💻 Software Engineer | Gaming enthusiast 🎮',
+      location: 'Alexandria, Egypt',
+      website: null,
+    },
+    {
+      user_id: 18,
+      name: 'GPT Chat',
+      birth_date: new Date('2000-01-01'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=gptchat',
+      bio: '🤖 AI exploring the human world | Tech & Innovation',
+      location: 'Cyberspace',
+      website: 'https://openai.com',
+    },
+    {
+      user_id: 19,
+      name: 'Karim K.',
+      birth_date: new Date('1996-11-08'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=karimk',
+      bio: '📸 Photography | Travel blogger ✈️',
+      location: 'Dubai, UAE',
+      website: 'https://karimtravels.com',
+    },
+    {
+      user_id: 20,
+      name: 'Mazen Rory',
+      birth_date: new Date('1997-05-12'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=mazenrory',
+      bio: '🏋️ Fitness coach | Nutrition expert | Living healthy',
+      location: 'Giza, Egypt',
+      website: 'https://fitwithmazen.com',
+    },
+    {
+      user_id: 21,
+      name: 'Ahmed Fathi',
+      birth_date: new Date('1999-09-30'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=ahmedfathi',
+      bio: '🎵 Music producer | Sound designer',
+      location: 'Cairo, Egypt',
+      website: null,
+    },
+    {
+      user_id: 22,
+      name: 'Ahmed Fathy',
+      birth_date: new Date('1999-02-14'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=ahmedfathy2',
+      bio: '🎬 Filmmaker | Content creator',
+      location: 'Cairo, Egypt',
+      website: 'https://fathyfilms.com',
+    },
+    {
+      user_id: 23,
+      name: 'Abdelrahman Adel',
+      birth_date: new Date('1998-06-20'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=adel',
+      bio: '⚽ Sports enthusiast | Football fan | Manchester United supporter',
+      location: 'Cairo, Egypt',
+      website: null,
+    },
+    {
+      user_id: 24,
+      name: 'Karim Warframe',
+      birth_date: new Date('1997-12-05'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=karimwar',
+      bio: '🎮 Pro gamer | Streamer | Warframe expert',
+      location: 'Cairo, Egypt',
+      website: 'https://twitch.tv/karimwar',
+    },
+    {
+      user_id: 25,
+      name: 'Hankers',
+      birth_date: new Date('2001-04-18'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=hankers',
+      bio: '🎨 Digital artist | NFT creator',
+      location: 'London, UK',
+      website: 'https://hankers.art',
+    },
+    {
+      user_id: 41,
+      name: 'Mohamed Sameh Albaz',
+      birth_date: new Date('1996-08-25'),
+      profile_image_url: 'https://avatars.githubusercontent.com/u/136837275',
+      bio: '👨‍💻 Full-stack developer | Open source contributor | Tech blogger',
+      location: 'Cairo, Egypt',
+      website: 'https://github.com/mohamed-sameh-albaz',
+    },
+    {
+      user_id: 45,
+      name: 'Ryuzaki',
+      birth_date: new Date('1998-10-31'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=ryuzaki',
+      bio: "🕵️ World's greatest detective | Sweets lover 🍰",
+      location: 'Undisclosed',
+      website: null,
+    },
+    {
+      user_id: 47,
+      name: 'Ahmed Gamal Ellabban',
+      birth_date: new Date('1999-03-07'),
+      profile_image_url: 'https://avatars.githubusercontent.com/u/138603828',
+      bio: '💼 Business analyst | Data enthusiast 📊',
+      location: 'Cairo, Egypt',
+      website: 'https://github.com/ahmedGamalEllabban',
+    },
+    {
+      user_id: 49,
+      name: 'Omar Nabil',
+      birth_date: new Date('2000-07-15'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=omarnabil',
+      bio: '🏗️ Civil engineer | Architecture lover',
+      location: 'Cairo, Egypt',
+      website: null,
+    },
+    {
+      user_id: 50,
+      name: 'Farouk Hussein',
+      birth_date: new Date('1997-01-28'),
+      profile_image_url: 'https://i.pravatar.cc/150?u=farouk',
+      bio: '🔬 Research scientist | AI researcher',
+      location: 'Cairo, Egypt',
+      website: 'https://farouk-research.com',
+    },
+  ];
+
+  for (const profile of profiles) {
+    await prisma.profile.create({
+      data: profile,
+    });
+  }
+  console.log(`Created ${profiles.length} profiles`);
+
+  // Assign random interests to users
+  const userInterestData: Array<{ user_id: number; interest_id: number }> = [];
+  for (const user of createdUsers) {
+    // Each user gets 3-6 random interests
+    const numInterests = Math.floor(Math.random() * 4) + 3;
+    const shuffled = [...createdInterests].sort(() => 0.5 - Math.random());
+    const selectedInterests = shuffled.slice(0, numInterests);
+
+    for (const interest of selectedInterests) {
+      userInterestData.push({
+        user_id: user.id,
+        interest_id: interest.id,
+      });
+    }
+  }
+
+  for (const userInterest of userInterestData) {
+    await prisma.userInterest.create({
+      data: userInterest,
+    });
+  }
+  console.log(`Created ${userInterestData.length} user interests`);
+
+  // Create follow relationships
+  const follows = [
+    // User 41 (mohamed-sameh-albaz) follows several users
+    { followerId: 41, followingId: 16 },
+    { followerId: 41, followingId: 17 },
+    { followerId: 41, followingId: 45 },
+    { followerId: 41, followingId: 47 },
+    { followerId: 41, followingId: 49 },
+
+    // Other users follow back
+    { followerId: 16, followingId: 41 },
+    { followerId: 17, followingId: 41 },
+    { followerId: 45, followingId: 41 },
+    { followerId: 47, followingId: 41 },
+
+    // Cross follows
+    { followerId: 16, followingId: 17 },
+    { followerId: 17, followingId: 16 },
+    { followerId: 18, followingId: 16 },
+    { followerId: 19, followingId: 18 },
+    { followerId: 20, followingId: 19 },
+    { followerId: 21, followingId: 20 },
+    { followerId: 22, followingId: 21 },
+    { followerId: 23, followingId: 22 },
+    { followerId: 24, followingId: 23 },
+    { followerId: 25, followingId: 24 },
+    { followerId: 45, followingId: 47 },
+    { followerId: 47, followingId: 45 },
+    { followerId: 49, followingId: 50 },
+    { followerId: 50, followingId: 49 },
+  ];
+
+  for (const follow of follows) {
+    await prisma.follow.create({
+      data: follow,
+    });
+  }
+  console.log(`Created ${follows.length} follow relationships`);
+
+  const hashtags = [
+    'technology',
+    'coding',
+    'javascript',
+    'typescript',
+    'nodejs',
+    'react',
+    'webdev',
+    'programming',
+    'ai',
+    'machinelearning',
+    'fitness',
+    'travel',
+    'photography',
+    'gaming',
+    'esports',
+    'music',
+    'art',
+    'design',
+    'food',
+    'health',
+  ];
+
+  const createdHashtags: any[] = [];
+  for (const tag of hashtags) {
+    const created = await prisma.hashtag.create({
+      data: { tag: `#${tag}` },
+    });
+    createdHashtags.push(created);
+  }
+  console.log(`✅ Created ${createdHashtags.length} hashtags`);
+
+  // Create posts
+  const posts = [
+    {
+      user_id: 41,
+      content:
+        'Just deployed my new social media platform! 🚀 Excited to see everyone using it. #webdev #typescript #nodejs',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T10:00:00Z'),
+    },
+    {
+      user_id: 16,
+      content:
+        'Working on a new feature for authentication. OAuth2 is fascinating! 🔐 #coding #security',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T11:30:00Z'),
+    },
+    {
+      user_id: 17,
+      content:
+        'Just finished a 10-hour gaming session. My eyes hurt but it was worth it! 😅 #gaming #esports',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T14:00:00Z'),
+    },
+    {
+      user_id: 18,
+      content:
+        'AI is evolving faster than ever. The future is here! 🤖 #ai #machinelearning #technology',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T09:00:00Z'),
+    },
+    {
+      user_id: 19,
+      content: 'Captured the most beautiful sunset in Dubai today! 🌅 #photography #travel',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T18:00:00Z'),
+    },
+    {
+      user_id: 20,
+      content: 'Morning workout done! Remember: consistency is key 💪 #fitness #health',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T06:00:00Z'),
+    },
+    {
+      user_id: 21,
+      content: 'New track dropping this Friday! Stay tuned 🎵 #music',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T15:00:00Z'),
+    },
+    {
+      user_id: 45,
+      content: 'The cake is a lie, but this detective work is not 🍰🕵️',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T20:00:00Z'),
+    },
+    {
+      user_id: 47,
+      content: 'Data analysis reveals interesting patterns in user behavior 📊 #data #analytics',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T13:00:00Z'),
+    },
+    {
+      user_id: 49,
+      content: 'Architecture is frozen music 🏛️ #architecture #design',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T16:00:00Z'),
+    },
+    {
+      user_id: 50,
+      content:
+        'Published my latest research paper on neural networks! Link in bio 🔬 #ai #research',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T12:00:00Z'),
+    },
+    {
+      user_id: 23,
+      content: 'Manchester United won! What a match! ⚽🔴 #football #MUFC',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T21:00:00Z'),
+    },
+    {
+      user_id: 24,
+      content: 'Streaming live in 10 minutes! Come watch some Warframe action 🎮 #gaming #twitch',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T19:00:00Z'),
+    },
+    {
+      user_id: 25,
+      content: 'Just minted my new NFT collection! Check it out 🎨 #art #nft #crypto',
+      type: PostType.POST,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T17:00:00Z'),
+    },
+  ];
+
+  const createdPosts: any[] = [];
+  for (const post of posts) {
+    const created = await prisma.post.create({
+      data: post,
+    });
+    createdPosts.push(created);
+  }
+  console.log(`Created ${createdPosts.length} posts`);
+
+  // Create replies to posts
+  const replies = [
+    {
+      user_id: 16,
+      content: 'Congratulations! Looking forward to exploring it! 🎉',
+      type: PostType.REPLY,
+      parent_id: createdPosts[0].id,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T10:15:00Z'),
+    },
+    {
+      user_id: 45,
+      content: 'Great work! The authentication flow is smooth 👍',
+      type: PostType.REPLY,
+      parent_id: createdPosts[0].id,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T10:30:00Z'),
+    },
+    {
+      user_id: 41,
+      content: 'Thanks! Let me know if you find any bugs 🐛',
+      type: PostType.REPLY,
+      parent_id: createdPosts[0].id,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T10:45:00Z'),
+    },
+    {
+      user_id: 17,
+      content: 'Which game? 🎮',
+      type: PostType.REPLY,
+      parent_id: createdPosts[2].id,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T14:15:00Z'),
+    },
+  ];
+
+  for (const reply of replies) {
+    await prisma.post.create({
+      data: reply,
+    });
+  }
+  console.log(`Created ${replies.length} replies`);
+
+  // Create quote posts
+  const quotes = [
+    {
+      user_id: 47,
+      content: 'This is exactly what we needed! Amazing work 👏',
+      type: PostType.QUOTE,
+      parent_id: createdPosts[0].id,
+      visibility: PostVisibility.EVERY_ONE,
+      created_at: new Date('2025-11-20T11:00:00Z'),
+    },
+  ];
+
+  for (const quote of quotes) {
+    await prisma.post.create({
+      data: quote,
+    });
+  }
+  console.log(`Created ${quotes.length} quote posts`);
+
+  // Connect posts to hashtags
+  await prisma.post.update({
+    where: { id: createdPosts[0].id },
+    data: {
+      hashtags: {
+        connect: [{ tag: '#webdev' }, { tag: '#typescript' }, { tag: '#nodejs' }],
       },
-      {
-        id: 17,
-        email: 'mazenfarid201269@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$eqOf3z4CvT7Uj2PsFhQHyw$w6rgy0z1xS0PI+WUNiOGReDB14Mi3BYNnEnaPTw13nA',
-        created_at: new Date('2025-11-16T01:59:20.204Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-16T01:59:20.204Z'),
-        username: 'farid.ka2886',
-      },
-      {
-        id: 18,
-        email: 'gptchat851@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$gX7JG4G4zjbsjZdNMA8eRw$XRWmuWiKVBdrODQdIAq6LK5t62o8Y2tjKfAHHgbLTVs',
-        created_at: new Date('2025-11-16T02:03:31.079Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-16T02:03:31.079Z'),
-        username: 'gpt.ch8701',
-      },
-      {
-        id: 19,
-        email: 'karimzakzouk@outlook.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$BxarIYgdOoTbwEhoP064rg$+N+5lyqTYe8kf2Q0SjrRq+D/RpU7Nm4uxTY6kg+w4WY',
-        created_at: new Date('2025-11-16T03:12:02.576Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-16T03:12:02.576Z'),
-        username: 'karim.ka104',
-      },
-      {
-        id: 20,
-        email: 'mazenrory@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$w9Th/ppqgNZHVEHJNI4xbw$tR1U2C0dFM5/uuy+V5vskG8ZS4dIGGpQMkimmPZx9YA',
-        created_at: new Date('2025-11-16T13:00:40.899Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-16T13:00:40.899Z'),
-        username: 'mazen.ma4904',
-      },
-      {
-        id: 21,
-        email: 'ahmedfathi20044002@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$a5xKn9FMFGiSf6uEcuHREQ$Axs6vlPAZfa6qv+ZL6IU2R3p73fF7JtwlKLXrklRvkc',
-        created_at: new Date('2025-11-17T15:25:11.012Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T15:25:11.012Z'),
-        username: 'fathi.ah8581',
-      },
-      {
-        id: 22,
-        email: 'ahmedfathy20044002@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$W5EntXTQGO3sJBiJPOVyoA$jHbxWH5b78+AplvP24Pjt8lz1GSEuva11qzUHe6mNdQ',
-        created_at: new Date('2025-11-17T15:25:25.406Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T15:25:25.406Z'),
-        username: 'fathy.ah2669',
-      },
-      {
-        id: 24,
-        email: 'warframe200469@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$4WcLnsm0Qj2L3nCDNYciYw$9spTbEH3KC9gYC69YRwDeHlQbSzYYOFL/iGHKqmt5Dc',
-        created_at: new Date('2025-11-17T15:47:03.278Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T15:47:03.278Z'),
-        username: 'karim.ka169',
-      },
-      {
-        id: 25,
-        email: 'hankers67@outlook.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$vR3Xm9v/41JrLJlLgkoJWw$OnDT9XlOzzKNDnPVg/YkCPnyS7C1dVLG5liZlpWzW58',
-        created_at: new Date('2025-11-17T15:56:54.207Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T15:56:54.207Z'),
-        username: 'karim.ka2562',
-      },
-      {
-        id: 26,
-        email: 'u1@mailna.co',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$ngSEDZO524clFR6yAFZbKQ$4/st2a45la8AGZK4hI64E+WWA0zZTq58pnDZFZjv9DM',
-        created_at: new Date('2025-11-17T16:25:11.991Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T16:25:11.991Z'),
-        username: 'one.te9480',
-      },
-      {
-        id: 27,
-        email: 'u2@mailna.co',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$ekEOrFrfxQI4kk3Hlel7Ew$qWhODGN+WueNjGAoR1H7cCzzjcSoIBOmz4KFX00O5Tg',
-        created_at: new Date('2025-11-17T16:25:21.781Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T16:25:21.781Z'),
-        username: 'two.te5644',
-      },
-      {
-        id: 28,
-        email: 'test4@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$UkWxNo6qhMIfPw0eo2+7TQ$fTJKiTKEuQ2SDukAiCiOWCEREx0qy9R6vq8a0+yn7Cc',
-        created_at: new Date('2025-11-17T18:57:45.278Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T18:57:45.278Z'),
-        username: 'test.te5055',
-      },
-      {
-        id: 29,
-        email: 'farmo6995@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$AaO1h9hX9RV42M+5KVN6Jw$v/L3KUfNQNvu+hCRHwkxs7Z6HiEHLIIjV9mqZJfWLyc',
-        created_at: new Date('2025-11-17T19:42:45.900Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T19:42:45.900Z'),
-        username: 'far.fa5050',
-      },
-      {
-        id: 30,
-        email: 'fmf2694@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$npEiEyZMUpf7YxyNyKinFg$m+c16MbWLviHx6bXrWXLG4wGHTAWB3uoyohG5uCfhvg',
-        created_at: new Date('2025-11-17T19:43:47.351Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T19:43:47.351Z'),
-        username: 'farou.fa3098',
-      },
-      {
-        id: 31,
-        email: 'aaaa@aaaa.bdbdb',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$5zfJjPLQYXeZS6Cv4YuDFQ$T1E0/izyH/w+uKHd9lr+9FHzfhm2uyYwU2bTOtWYxgY',
-        created_at: new Date('2025-11-17T21:01:55.184Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T21:01:55.184Z'),
-        username: 'faro.fa4020',
-      },
-      {
-        id: 32,
-        email: 'abd@abc.nmm',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$wT5PBxNzJK0GbjT9EznTBg$YekFTTdA8fbePJ+mPbP8I+qIs8Drjjc7xCPfep/16Aw',
-        created_at: new Date('2025-11-17T21:14:28.107Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T21:14:28.107Z'),
-        username: 'aaa.aa3701',
-      },
-      {
-        id: 33,
-        email: 'newuser6@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$450XHs7znItCxqjBavVPpg$iGlRU590xpy7YBkO8i5TPIseuVPjpE4DkKhKktn7uWI',
-        created_at: new Date('2025-11-17T23:34:07.418Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T23:34:07.418Z'),
-        username: 'moayman.mo4433',
-      },
-      {
-        id: 34,
-        email: 'newuser7@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$B80w/qAInXnUfncmxl+IJQ$qla93fy3p4gi60VGVtkpOirsbSPo7BJWiynmG3S/KOg',
-        created_at: new Date('2025-11-17T23:36:08.285Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T23:36:08.285Z'),
-        username: 'moayman.mo9222',
-      },
-      {
-        id: 35,
-        email: 'newuser9@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$DytPmovfC3Qx+6CN2kyKHA$9OrzuLka/c5mzKYPgNlN87q9U80jc34n0ShY1F/sEZ0',
-        created_at: new Date('2025-11-17T23:41:02.680Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-17T23:41:02.680Z'),
-        username: 'moayman.mo8476',
-      },
-      {
-        id: 36,
-        email: 'test44@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$yMV7jn/bGWXEApgU7V/1zw$0/YzTlVhtcdi2+Y01HuQ50+OGQ7QenXfwRrZ0+vh+Tg',
-        created_at: new Date('2025-11-18T00:54:08.682Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T00:54:08.682Z'),
-        username: 'hejeh.he1060',
-      },
-      {
-        id: 37,
-        email: 'test12@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$elfGE3lpfQXfNBNtrUcNbQ$f4FnbAqwE9n6KF8k1EbyjKIW34JUJ8vgt5ONtM1VOXc',
-        created_at: new Date('2025-11-18T00:56:13.676Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T00:56:13.676Z'),
-        username: 'mkkj.mk9537',
-      },
-      {
-        id: 38,
-        email: 'test20@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$aNm5N7ANmq5zBYfag4WqjA$vCOaSppbLEiA/QegPKPI2CVuYNYQcx9u8MKEsy6Lzbk',
-        created_at: new Date('2025-11-18T00:57:48.508Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T00:57:48.508Z'),
-        username: 'moay.mo5810',
-      },
-      {
-        id: 39,
-        email: 'karimzakzouk69+new@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$78+IM0k5lmZRVFKzhrCacA$VFMHqdolbVsi9AwBmODcmZ83rQVh/thowaVJQYyua44',
-        created_at: new Date('2025-11-18T05:20:46.108Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T05:20:46.108Z'),
-        username: 'zakzouk.ka9229',
-      },
-      {
-        id: 40,
-        email: 'mohamedalbaz492@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$m9HbVVmRSd523TilZ/Oj5g$ar9VY/xFua/vvucegvfW/67Z1zdkl6G6LVzRYbdUr3M',
-        created_at: new Date('2025-11-18T07:25:35.039Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T07:25:35.039Z'),
-        username: 'albaz.mo867',
-      },
-      {
-        id: 41,
-        email: 'Mohamedalbaz492@gmail.com',
-        password: '',
-        created_at: new Date('2025-11-18T07:27:54.594Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: '136837275',
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T07:27:54.594Z'),
-        username: 'mohamed-sameh-albaz',
-      },
-      {
-        id: 42,
-        email: 'mohamedalbaz492+hankers@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$qPgvHMxld2e/Dgx01nTygQ$QBgXZlIgWhKo8mXQgSz8IPmBbaS3XiykFojXBk7OYAA',
-        created_at: new Date('2025-11-18T07:36:36.513Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T07:36:36.513Z'),
-        username: 'albaz.mo406',
-      },
-      {
-        id: 23,
-        email: 'engba80818233@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$+DkFmIawOeN10PqpCNwIyQ$68EfLW+tByPPmksZ1qFxUzSCOQxM1znR/0+7GrVGIuw',
-        created_at: new Date('2025-11-17T15:34:12.790Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: '149705123',
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T10:59:47.748Z'),
-        username: 'adel.ab1295',
-      },
-      {
-        id: 43,
-        email: 'engba8081823@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$ZGx55bElLarpJJnF+14tcg$yCGQ21Y8IpaCr0tKxIP2Esztea1qrimv+ab+DFGmXmo',
-        created_at: new Date('2025-11-18T11:00:51.906Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T11:00:51.906Z'),
-        username: 'adel.ab9163',
-      },
-      {
-        id: 44,
-        email: 'abdelrahman.mahmoud04@eng-st.cu.edu.eg',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$cwnBbeZ1eHRiZ3PLqFz/iQ$pKGbSywPTasstPE1e9XOAnziB9WSkDuoDwfSGsoIrmQ',
-        created_at: new Date('2025-11-18T11:02:26.036Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T11:02:26.036Z'),
-        username: 'adel.ab2348',
-      },
-      {
-        id: 45,
-        email: 'ahmedg.ellabban339@gmail.com',
-        password: '$argon2i$v=19$m=16,t=2,p=1$TmU1RDJrczRuTktraXVwYg$DPll4hwvRTv+omTCo2SpFA',
-        created_at: new Date('2025-11-18T11:12:23.516Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T11:12:23.516Z'),
-        username: 'ryuzaki',
-      },
-      {
-        id: 46,
-        email: 'ryuzakisan339@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$0QgfYFlDIyZkASoGRx1vcQ$op2TryztMn7PjwjINhFksuKxNmSpS82d/ND/NlpsLw0',
-        created_at: new Date('2025-11-18T16:15:47.310Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T16:15:47.310Z'),
-        username: 'ryuzaki.ry7879',
-      },
-      {
-        id: 47,
-        email: 'Ahmed.ellabban04@eng-st.cu.edu.eg',
-        password: '',
-        created_at: new Date('2025-11-18T16:16:11.820Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: '138603828',
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T16:16:11.820Z'),
-        username: 'ahmedGamalEllabban',
-      },
-      {
-        id: 48,
-        email: 'toughdays1234@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$bBRDT5Q0K/S7L7E/9v2KdA$RUH4zjorW9k8VAnZnWcYF8pgpqNOf+/34GP8glt07l8',
-        created_at: new Date('2025-11-18T16:33:59.212Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T16:33:59.212Z'),
-        username: 'days.to3757',
-      },
-      {
-        id: 49,
-        email: 'omarnabil219@gmail.com',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$A1zdLDjpMKgZ0s3gSpw1dg$hadZhQaEWU0D4dkieAq0hbzMLD0/TzCi09cCQdEeRuI',
-        created_at: new Date('2025-11-18T17:21:31.209Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T17:21:31.209Z'),
-        username: 'nabil.om3149',
-      },
-      {
-        id: 50,
-        email: 'farouk.hussien03@eng-st.cu.edu.eg',
-        password:
-          '$argon2id$v=19$m=65536,t=3,p=4$F40HohKInxmct90G/CCZDg$vgtW+srJhZUXY1lOf/UmRP2mAaWm3QcTq/uYJVTqxQ8',
-        created_at: new Date('2025-11-18T21:14:57.000Z'),
-        deleted_at: null,
-        is_verified: true,
-        provider_id: null,
-        role: Role.USER,
-        updated_at: new Date('2025-11-18T21:14:57.000Z'),
-        username: 'far.fa3409',
-      },
-    ],
-    skipDuplicates: true,
+    },
   });
 
-  // --- 2. Profiles Table Data ---
-  await prisma.profile.createMany({
-    data: [
-      {
-        id: 8,
-        user_id: 17,
-        name: 'Karim Farid',
-        birth_date: new Date('2025-11-16T01:59:19.318Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-16T01:59:20.209Z'),
-        updated_at: new Date('2025-11-16T01:59:20.209Z'),
+  await prisma.post.update({
+    where: { id: createdPosts[1].id },
+    data: {
+      hashtags: {
+        connect: [{ tag: '#coding' }],
       },
-      {
-        id: 9,
-        user_id: 18,
-        name: 'Chat Gpt',
-        birth_date: new Date('2025-11-16T02:03:30.057Z'),
-        profile_image_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/2449db86-ac01-4124-9b04-645255cb424f.png',
-        banner_image_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/8b54bf25-1540-4dc1-80f0-27c91cbb4835.png',
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-16T02:03:31.084Z'),
-        updated_at: new Date('2025-11-16T02:04:07.556Z'),
-      },
-      {
-        id: 7,
-        user_id: 16,
-        name: 'karimzakzouk',
-        birth_date: null,
-        profile_image_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/f055bbed-2e13-4680-9a49-7cd9f6f8233a.png',
-        banner_image_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/688525ea-b886-4c3c-a043-5119a459b148.png',
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-16T01:52:52.173Z'),
-        updated_at: new Date('2025-11-16T02:13:14.218Z'),
-      },
-      {
-        id: 10,
-        user_id: 19,
-        name: 'karim',
-        birth_date: new Date('1996-12-15T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-16T03:12:02.594Z'),
-        updated_at: new Date('2025-11-16T03:12:02.594Z'),
-      },
-      {
-        id: 11,
-        user_id: 20,
-        name: 'Mazen',
-        birth_date: new Date('2000-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-16T13:00:40.909Z'),
-        updated_at: new Date('2025-11-16T13:00:40.909Z'),
-      },
-      {
-        id: 12,
-        user_id: 21,
-        name: 'Ahmed Fathi',
-        birth_date: new Date('2025-11-17T15:25:10.524Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T15:25:11.128Z'),
-        updated_at: new Date('2025-11-17T15:25:11.128Z'),
-      },
-      {
-        id: 13,
-        user_id: 22,
-        name: 'Ahmed Fathy',
-        birth_date: new Date('2025-11-17T15:25:24.897Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T15:25:25.409Z'),
-        updated_at: new Date('2025-11-17T15:25:25.409Z'),
-      },
-      {
-        id: 14,
-        user_id: 23,
-        name: 'Abdelrahman Adel',
-        birth_date: new Date('2025-11-17T15:34:12.209Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T15:34:12.794Z'),
-        updated_at: new Date('2025-11-17T15:34:12.794Z'),
-      },
-      {
-        id: 15,
-        user_id: 24,
-        name: 'karim',
-        birth_date: new Date('2001-11-09T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T15:47:03.286Z'),
-        updated_at: new Date('2025-11-17T15:47:03.286Z'),
-      },
-      {
-        id: 16,
-        user_id: 25,
-        name: 'karim',
-        birth_date: new Date('1998-11-12T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T15:56:54.212Z'),
-        updated_at: new Date('2025-11-17T15:56:54.212Z'),
-      },
-      {
-        id: 17,
-        user_id: 26,
-        name: 'Test One',
-        birth_date: new Date('2004-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T16:25:11.997Z'),
-        updated_at: new Date('2025-11-17T16:25:11.997Z'),
-      },
-      {
-        id: 18,
-        user_id: 27,
-        name: 'Test Two',
-        birth_date: new Date('2004-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T16:25:21.787Z'),
-        updated_at: new Date('2025-11-17T16:25:21.787Z'),
-      },
-      {
-        id: 19,
-        user_id: 28,
-        name: 'test',
-        birth_date: new Date('2002-05-09T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T18:57:45.287Z'),
-        updated_at: new Date('2025-11-17T18:57:45.287Z'),
-      },
-      {
-        id: 20,
-        user_id: 29,
-        name: 'far',
-        birth_date: new Date('2000-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T19:42:45.913Z'),
-        updated_at: new Date('2025-11-17T19:42:45.913Z'),
-      },
-      {
-        id: 21,
-        user_id: 30,
-        name: 'farou',
-        birth_date: new Date('2000-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T19:43:47.354Z'),
-        updated_at: new Date('2025-11-17T19:43:47.354Z'),
-      },
-      {
-        id: 22,
-        user_id: 31,
-        name: 'faro',
-        birth_date: new Date('2000-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T21:01:55.193Z'),
-        updated_at: new Date('2025-11-17T21:01:55.193Z'),
-      },
-      {
-        id: 23,
-        user_id: 32,
-        name: 'aaa',
-        birth_date: new Date('2000-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T21:14:28.111Z'),
-        updated_at: new Date('2025-11-17T21:14:28.111Z'),
-      },
-      {
-        id: 24,
-        user_id: 33,
-        name: 'MoAyman',
-        birth_date: new Date('2000-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T23:34:07.424Z'),
-        updated_at: new Date('2025-11-17T23:34:07.424Z'),
-      },
-      {
-        id: 25,
-        user_id: 34,
-        name: 'MoAyman',
-        birth_date: new Date('2000-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T23:36:08.288Z'),
-        updated_at: new Date('2025-11-17T23:36:08.288Z'),
-      },
-      {
-        id: 26,
-        user_id: 35,
-        name: 'MoAyman',
-        birth_date: new Date('2000-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-17T23:41:02.685Z'),
-        updated_at: new Date('2025-11-17T23:41:02.685Z'),
-      },
-      {
-        id: 27,
-        user_id: 36,
-        name: 'hejeh',
-        birth_date: new Date('2000-01-10T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T00:54:08.687Z'),
-        updated_at: new Date('2025-11-18T00:54:08.687Z'),
-      },
-      {
-        id: 28,
-        user_id: 37,
-        name: 'mkkj',
-        birth_date: new Date('2000-01-23T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T00:56:13.680Z'),
-        updated_at: new Date('2025-11-18T00:56:13.680Z'),
-      },
-      {
-        id: 29,
-        user_id: 38,
-        name: 'moay',
-        birth_date: new Date('2000-01-16T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T00:57:48.510Z'),
-        updated_at: new Date('2025-11-18T00:57:48.510Z'),
-      },
-      {
-        id: 30,
-        user_id: 39,
-        name: 'Karim Zakzouk',
-        birth_date: new Date('1995-10-14T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T05:20:46.113Z'),
-        updated_at: new Date('2025-11-18T05:20:46.113Z'),
-      },
-      {
-        id: 31,
-        user_id: 40,
-        name: 'Mohameed Albaz',
-        birth_date: new Date('2004-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T07:25:35.452Z'),
-        updated_at: new Date('2025-11-18T07:25:35.452Z'),
-      },
-      {
-        id: 32,
-        user_id: 41,
-        name: 'Mohamed Albaz',
-        birth_date: null,
-        profile_image_url: 'https://avatars.githubusercontent.com/u/136837275?v=4',
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T07:27:54.597Z'),
-        updated_at: new Date('2025-11-18T07:27:54.597Z'),
-      },
-      {
-        id: 33,
-        user_id: 42,
-        name: 'Mohamed Albaz',
-        birth_date: new Date('2004-09-10T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T07:36:36.516Z'),
-        updated_at: new Date('2025-11-18T07:36:36.516Z'),
-      },
-      {
-        id: 34,
-        user_id: 43,
-        name: 'Abdelrahman Adel',
-        birth_date: new Date('2025-11-18T11:00:51.356Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T11:00:51.913Z'),
-        updated_at: new Date('2025-11-18T11:00:51.913Z'),
-      },
-      {
-        id: 35,
-        user_id: 44,
-        name: 'Abdelrahman Adel',
-        birth_date: new Date('2025-11-18T11:02:25.507Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T11:02:26.077Z'),
-        updated_at: new Date('2025-11-18T11:02:26.077Z'),
-      },
-      {
-        id: 36,
-        user_id: 45,
-        name: 'Geny',
-        birth_date: new Date('2004-07-14T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: 'Hello \nthere',
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T11:15:55.918Z'),
-        updated_at: new Date('2025-11-18T12:25:16.889Z'),
-      },
-      {
-        id: 37,
-        user_id: 46,
-        name: 'Ryuzaki',
-        birth_date: new Date('2000-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T16:15:47.310Z'),
-        updated_at: new Date('2025-11-18T16:15:47.310Z'),
-      },
-      {
-        id: 38,
-        user_id: 47,
-        name: 'Ahmed Ellabban',
-        birth_date: null,
-        profile_image_url: 'https://avatars.githubusercontent.com/u/138603828?v=4',
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T16:16:11.823Z'),
-        updated_at: new Date('2025-11-18T16:16:11.823Z'),
-      },
-      {
-        id: 39,
-        user_id: 48,
-        name: 'Tough Days',
-        birth_date: new Date('2025-11-18T16:33:58.545Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T16:33:59.217Z'),
-        updated_at: new Date('2025-11-18T16:33:59.217Z'),
-      },
-      {
-        id: 40,
-        user_id: 49,
-        name: 'Omar Nabil',
-        birth_date: new Date('2002-05-17T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T17:21:31.214Z'),
-        updated_at: new Date('2025-11-18T17:21:31.214Z'),
-      },
-      {
-        id: 41,
-        user_id: 50,
-        name: 'far',
-        birth_date: new Date('2000-01-01T00:00:00.000Z'),
-        profile_image_url: null,
-        banner_image_url: null,
-        bio: null,
-        location: null,
-        website: null,
-        is_deactivated: false,
-        created_at: new Date('2025-11-18T21:14:57.008Z'),
-        updated_at: new Date('2025-11-18T21:14:57.008Z'),
-      },
-    ],
-    skipDuplicates: true,
+    },
   });
 
-  // --- 3. Posts Table Data ---
-  await prisma.post.createMany({
-    data: [
-      {
-        id: 5,
-        content: 'Hello from AWS ',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T03:12:42.292Z'),
-        parent_id: null,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 6,
-        content: 'Hello from DevOps',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:15:54.109Z'),
-        parent_id: null,
-        user_id: 16,
-        is_deleted: false,
-      },
-      {
-        id: 7,
-        content: 'This deserves a standing ovation 👏',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:20.457Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 8,
-        content: 'This is so relatable!\n',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:21.077Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 9,
-        content: 'I completely agree with this perspective.',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:21.524Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 10,
-        content: "You're speaking my language",
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:22.493Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 11,
-        content: 'Amazing content!\nKeep it coming 🔥',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:23.029Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 12,
-        content: 'This resonates with me so much!\nNever thought about it this way before',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:23.548Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 13,
-        content: 'This deserves more attention!\n',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:24.158Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 14,
-        content: 'This is exactly what I needed to read today',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:24.775Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 15,
-        content: "This is really insightful, thanks for sharing!\nYou've got a point there",
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:25.390Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 16,
-        content: "Can't argue with that logic This changed my perspective",
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:25.936Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 17,
-        content: 'Big brain energy right here 🧠',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:26.464Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 18,
-        content: 'This deserves a standing ovation 👏',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:26.975Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 19,
-        content: "You're speaking my language",
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:27.557Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 20,
-        content: 'This post wins the internet today',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:28.137Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 21,
-        content: 'This is what I call quality',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:28.713Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 22,
-        content: 'You just made my day with this',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:29.284Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 23,
-        content: 'This is exactly what I needed to read today',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:29.762Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 24,
-        content: 'Preach!\n🙌',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:30.407Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 25,
-        content: 'Never thought about it this way before',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:30.969Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 26,
-        content: 'This is next level thinking',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:31.415Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 27,
-        content: 'Interesting point of view 🤔',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:31.876Z'),
-        parent_id: 6,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 28,
-        content: 'This is so relatable!\nThis is really insightful, thanks for sharing!',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:32.878Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 29,
-        content: 'Amazing content!\nKeep it coming 🔥 Saving this for future reference',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:33.326Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 30,
-        content: 'This changed my perspective Powerful message right here',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:33.885Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 31,
-        content: 'I completely agree with this perspective.\n',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:34.336Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 32,
-        content: "Couldn't have said it better myself",
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:34.808Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 33,
-        content: 'This is incredibly well put Big brain energy right here 🧠',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:35.318Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 34,
-        content: 'This deserves more attention!\nThis is what I call quality',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:35.966Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 35,
-        content: 'This deserves more attention!\n',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:36.767Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 36,
-        content: '10/10 would recommend this take',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:37.370Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 37,
-        content: 'Never thought about it this way before',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:37.849Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 38,
-        content: 'Preach! 🙌',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:38.319Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 39,
-        content: 'Amazing content!\nKeep it coming 🔥',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:38.801Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 40,
-        content: 'This is the content we need This is incredibly well put',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:39.412Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 41,
-        content: 'Mind blown!\n🤯 This changed my perspective',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:39.930Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 42,
-        content: 'This is the content we need',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:41.525Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 43,
-        content: 'Well said! Could you elaborate more on this?',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:41.981Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 44,
-        content: 'You just made my day with this',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:42.454Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 45,
-        content: "This is fire content 🔥 You're onto something here",
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:42.915Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 46,
-        content: 'This is next level thinking This needs to go viral',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:43.392Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 47,
-        content: 'Saving this for future reference This deserves a standing ovation 👏',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:43.865Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 48,
-        content: 'I have a different take on this... Speaking straight facts here',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:44.384Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 49,
-        content: 'Absolutely brilliant explanation',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:44.857Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 50,
-        content: 'Needed to hear this today Dropping knowledge bombs 💣',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:45.323Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 51,
-        content: 'This post wins the internet today',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:45.787Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 52,
-        content: 'Facts!\nNo printer 🖨️',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:46.256Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 53,
-        content: 'This is incredibly well put',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:46.721Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 54,
-        content: 'This is exactly what I needed to read today',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:47.181Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 55,
-        content: 'This needs to go viral Needed to hear this today',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:47.628Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 56,
-        content: 'Absolutely brilliant explanation',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:48.087Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 57,
-        content: 'Preach!\n🙌 I completely agree with this perspective.',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:48.536Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 58,
-        content: 'This changed my perspective This needs to go viral',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:49.219Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 59,
-        content: 'Saving this for future reference',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:49.696Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 60,
-        content: "Can't argue with that logic",
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:50.173Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 61,
-        content: 'This is next level thinking',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:50.676Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 62,
-        content: 'You just made my day with this Well said!\nCould you elaborate more on this?',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:51.118Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 63,
-        content: 'This is so relatable!\n',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:51.581Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 64,
-        content: 'Saving this for future reference',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:52.115Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 65,
-        content: 'Absolutely love this take',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:52.674Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 66,
-        content: 'This needs to go viral Big brain energy right here 🧠',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:53.240Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 67,
-        content: 'Absolutely love this take This deserves all the likes',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:53.753Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 68,
-        content: 'This changed my perspective',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:54.258Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 69,
-        content: "Speaking straight facts here You're speaking my language",
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:54.752Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 70,
-        content: 'Absolutely love this take',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:55.196Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 71,
-        content: 'This is the content we need Love the energy in this post!\n',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:55.792Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 72,
-        content: 'Dropping knowledge bombs 💣',
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:56.311Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 73,
-        content: "Can't argue with that logic",
-        type: PostType.REPLY,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T09:56:56.871Z'),
-        parent_id: 5,
-        user_id: 19,
-        is_deleted: false,
-      },
-      {
-        id: 74,
-        content: 'new tweet',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T13:01:53.652Z'),
-        parent_id: null,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 75,
-        content: '12',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T13:06:16.141Z'),
-        parent_id: null,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 76,
-        content: '23',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T13:06:24.370Z'),
-        parent_id: null,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 77,
-        content: 'what is happening',
-        type: PostType.QUOTE,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T13:43:29.376Z'),
-        parent_id: 6,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 78,
-        content: 'qoute',
-        type: PostType.QUOTE,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T14:22:38.428Z'),
-        parent_id: 6,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 79,
-        content: 'happening',
-        type: PostType.QUOTE,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T14:23:27.957Z'),
-        parent_id: 6,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 80,
-        content: 'hi',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T14:35:04.173Z'),
-        parent_id: null,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 81,
-        content: 'q',
-        type: PostType.QUOTE,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T14:35:23.658Z'),
-        parent_id: 6,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 82,
-        content: 'quote 1',
-        type: PostType.QUOTE,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-16T20:01:03.329Z'),
-        parent_id: 6,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 83,
-        content: 'The original Hankers\r\n',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-17T03:17:32.908Z'),
-        parent_id: null,
-        user_id: 16,
-        is_deleted: false,
-      },
-      {
-        id: 84,
-        content: 'the hankers',
-        type: PostType.QUOTE,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-17T14:50:58.812Z'),
-        parent_id: 83,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 85,
-        content: 'hi test perm',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-17T16:35:18.207Z'),
-        parent_id: null,
-        user_id: 20,
-        is_deleted: false,
-      },
-      {
-        id: 86,
-        content: 'Hi ya gama3a.\n',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-17T17:06:47.098Z'),
-        parent_id: null,
-        user_id: 26,
-        is_deleted: false,
-      },
-      {
-        id: 87,
-        content: 'hello test ',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-18T11:44:38.593Z'),
-        parent_id: null,
-        user_id: 16,
-        is_deleted: false,
-      },
-      {
-        id: 88,
-        content: 'This is a test post with media',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-18T11:58:42.789Z'),
-        parent_id: null,
-        user_id: 39,
-        is_deleted: false,
-      },
-      {
-        id: 89,
-        content: 'This is a test post with media',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-18T12:02:01.089Z'),
-        parent_id: null,
-        user_id: 39,
-        is_deleted: false,
-      },
-      {
-        id: 90,
-        content: 'مسا يرجالة ربنا يوفقكو ',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-18T16:35:53.023Z'),
-        parent_id: null,
-        user_id: 48,
-        is_deleted: false,
-      },
-      {
-        id: 91,
-        content: 'hello',
-        type: PostType.POST,
-        visibility: PostVisibility.EVERY_ONE,
-        created_at: new Date('2025-11-18T21:23:58.631Z'),
-        parent_id: null,
-        user_id: 50,
-        is_deleted: false,
-      },
-    ],
-    skipDuplicates: true,
+  await prisma.post.update({
+    where: { id: createdPosts[2].id },
+    data: {
+      hashtags: {
+        connect: [{ tag: '#gaming' }, { tag: '#esports' }],
+      },
+    },
   });
 
-  // --- 4. Media Table Data ---
-  await prisma.media.createMany({
-    data: [
-      // Note: Data is missing for post_id 4. I'm skipping it as it violates FK constraint.
-      {
-        id: 2,
-        post_id: 5,
-        media_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/4dfffc76-8870-416c-88bf-cd42a23e509e.png',
-        created_at: new Date('2025-11-16T03:12:42.332Z'),
-        type: MediaType.IMAGE,
-      },
-      {
-        id: 3,
-        post_id: 6,
-        media_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/7bdcc8bc-8d17-4812-931b-2d10e1ab468f.mp4',
-        created_at: new Date('2025-11-16T09:15:54.140Z'),
-        type: MediaType.VIDEO,
-      },
-      {
-        id: 4,
-        post_id: 74,
-        media_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/d6a3f94f-11ee-4d58-a611-70fd4de820d2.jpg',
-        created_at: new Date('2025-11-16T13:01:53.677Z'),
-        type: MediaType.IMAGE,
-      },
-      {
-        id: 5,
-        post_id: 83,
-        media_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/ce991a25-64de-4bcb-9c41-389cace54220.jpg',
-        created_at: new Date('2025-11-17T03:17:32.934Z'),
-        type: MediaType.IMAGE,
-      },
-      {
-        id: 6,
-        post_id: 85,
-        media_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/f626df0b-2b83-414f-bdbb-49d0c3d33069.jpg',
-        created_at: new Date('2025-11-17T16:35:18.229Z'),
-        type: MediaType.IMAGE,
-      },
-      {
-        id: 7,
-        post_id: 85,
-        media_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/136293d9-f20e-4ce0-bd59-91e3be36c5f2.mp4',
-        created_at: new Date('2025-11-17T16:35:18.229Z'),
-        type: MediaType.VIDEO,
-      },
-      {
-        id: 8,
-        post_id: 87,
-        media_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/06bf53d2-0079-40c2-88dc-1168d397e90e.png',
-        created_at: new Date('2025-11-18T11:44:38.621Z'),
-        type: MediaType.IMAGE,
-      },
-      {
-        id: 9,
-        post_id: 88,
-        media_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/b3a2e6e0-fef2-4171-98dc-cc2176504b09.png',
-        created_at: new Date('2025-11-18T11:58:43.832Z'),
-        type: MediaType.IMAGE,
-      },
-      {
-        id: 10,
-        post_id: 89,
-        media_url:
-          'https://hankers-uploads-prod.s3.us-east-1.amazonaws.com/1ed15c23-566d-438c-b450-47c410099805.png',
-        created_at: new Date('2025-11-18T12:02:02.083Z'),
-        type: MediaType.IMAGE,
-      },
-    ],
-    skipDuplicates: true,
+  console.log('Connected posts to hashtags');
+
+  // Create likes
+  const likes = [
+    { post_id: createdPosts[0].id, user_id: 16 },
+    { post_id: createdPosts[0].id, user_id: 17 },
+    { post_id: createdPosts[0].id, user_id: 45 },
+    { post_id: createdPosts[0].id, user_id: 47 },
+    { post_id: createdPosts[0].id, user_id: 49 },
+    { post_id: createdPosts[1].id, user_id: 41 },
+    { post_id: createdPosts[1].id, user_id: 17 },
+    { post_id: createdPosts[2].id, user_id: 24 },
+    { post_id: createdPosts[3].id, user_id: 41 },
+    { post_id: createdPosts[3].id, user_id: 50 },
+    { post_id: createdPosts[4].id, user_id: 25 },
+    { post_id: createdPosts[5].id, user_id: 20 },
+    { post_id: createdPosts[6].id, user_id: 21 },
+  ];
+
+  for (const like of likes) {
+    await prisma.like.create({
+      data: like,
+    });
+  }
+  console.log(`Created ${likes.length} likes`);
+
+  // Create reposts
+  const reposts = [
+    { post_id: createdPosts[0].id, user_id: 45 },
+    { post_id: createdPosts[0].id, user_id: 47 },
+    { post_id: createdPosts[3].id, user_id: 50 },
+  ];
+
+  for (const repost of reposts) {
+    await prisma.repost.create({
+      data: repost,
+    });
+  }
+  console.log(`Created ${reposts.length} reposts`);
+
+  // Create some media for posts
+  const media = [
+    {
+      post_id: createdPosts[4].id, // Photography post
+      media_url: 'https://picsum.photos/800/600?random=1',
+      type: MediaType.IMAGE,
+    },
+    {
+      post_id: createdPosts[4].id,
+      media_url: 'https://picsum.photos/800/600?random=2',
+      type: MediaType.IMAGE,
+    },
+    {
+      post_id: createdPosts[13].id, // NFT art post
+      media_url: 'https://picsum.photos/800/800?random=3',
+      type: MediaType.IMAGE,
+    },
+  ];
+
+  for (const m of media) {
+    await prisma.media.create({
+      data: m,
+    });
+  }
+  console.log(`Created ${media.length} media items`);
+
+  // Create conversations
+  const conversations = [
+    {
+      user1Id: 41,
+      user2Id: 16,
+      nextMessageIndex: 1,
+    },
+    {
+      user1Id: 41,
+      user2Id: 45,
+      nextMessageIndex: 1,
+    },
+    {
+      user1Id: 16,
+      user2Id: 17,
+      nextMessageIndex: 1,
+    },
+  ];
+
+  const createdConversations: any[] = [];
+  for (const conversation of conversations) {
+    const created = await prisma.conversation.create({
+      data: conversation,
+    });
+    createdConversations.push(created);
+  }
+  console.log(`Created ${createdConversations.length} conversations`);
+
+  // Create messages
+  const messages = [
+    {
+      conversationId: createdConversations[0].id,
+      messageIndex: 1,
+      senderId: 41,
+      text: 'Hey! How are you?',
+      createdAt: new Date('2025-11-20T08:00:00Z'),
+    },
+    {
+      conversationId: createdConversations[0].id,
+      messageIndex: 2,
+      senderId: 16,
+      text: "Hi! I'm good, thanks! Just working on the OAuth implementation.",
+      isSeen: true,
+      createdAt: new Date('2025-11-20T08:05:00Z'),
+    },
+    {
+      conversationId: createdConversations[0].id,
+      messageIndex: 3,
+      senderId: 41,
+      text: 'That sounds interesting! Let me know if you need any help.',
+      createdAt: new Date('2025-11-20T08:10:00Z'),
+    },
+    {
+      conversationId: createdConversations[1].id,
+      messageIndex: 1,
+      senderId: 45,
+      text: 'The platform looks amazing! Great job! 🎉',
+      createdAt: new Date('2025-11-20T10:20:00Z'),
+    },
+    {
+      conversationId: createdConversations[1].id,
+      messageIndex: 2,
+      senderId: 41,
+      text: 'Thanks! Your feedback means a lot!',
+      isSeen: true,
+      createdAt: new Date('2025-11-20T10:25:00Z'),
+    },
+    {
+      conversationId: createdConversations[2].id,
+      messageIndex: 1,
+      senderId: 16,
+      text: 'Want to play some games later?',
+      createdAt: new Date('2025-11-20T14:30:00Z'),
+    },
+    {
+      conversationId: createdConversations[2].id,
+      messageIndex: 2,
+      senderId: 17,
+      text: 'Sure! What time?',
+      isSeen: true,
+      createdAt: new Date('2025-11-20T14:35:00Z'),
+    },
+  ];
+
+  for (const message of messages) {
+    await prisma.message.create({
+      data: message,
+    });
+  }
+  console.log(`Created ${messages.length} messages`);
+
+  // Update conversation nextMessageIndex
+  await prisma.conversation.update({
+    where: { id: createdConversations[0].id },
+    data: { nextMessageIndex: 4 },
+  });
+  await prisma.conversation.update({
+    where: { id: createdConversations[1].id },
+    data: { nextMessageIndex: 3 },
+  });
+  await prisma.conversation.update({
+    where: { id: createdConversations[2].id },
+    data: { nextMessageIndex: 3 },
   });
 
-  // --- 5. Like Table Data ---
-  await prisma.like.createMany({
-    data: [
-      { post_id: 6, user_id: 20, created_at: new Date('2025-11-16T13:01:25.699Z') },
-      { post_id: 74, user_id: 20, created_at: new Date('2025-11-16T19:34:28.369Z') },
-      { post_id: 5, user_id: 20, created_at: new Date('2025-11-16T19:51:33.477Z') },
-      { post_id: 27, user_id: 40, created_at: new Date('2025-11-18T19:05:03.626Z') },
-      { post_id: 80, user_id: 16, created_at: new Date('2025-11-17T03:13:10.347Z') },
-      { post_id: 83, user_id: 20, created_at: new Date('2025-11-17T14:50:25.232Z') },
-      { post_id: 84, user_id: 20, created_at: new Date('2025-11-17T15:13:44.090Z') },
-      { post_id: 78, user_id: 22, created_at: new Date('2025-11-17T16:09:50.718Z') },
-      { post_id: 72, user_id: 40, created_at: new Date('2025-11-18T19:05:57.314Z') },
-      { post_id: 5, user_id: 40, created_at: new Date('2025-11-18T19:16:18.756Z') },
-      { post_id: 83, user_id: 22, created_at: new Date('2025-11-17T16:10:27.105Z') },
-      { post_id: 26, user_id: 40, created_at: new Date('2025-11-18T12:41:21.469Z') },
-      { post_id: 84, user_id: 40, created_at: new Date('2025-11-18T17:35:22.444Z') },
-      { post_id: 80, user_id: 40, created_at: new Date('2025-11-18T17:50:24.485Z') },
-      { post_id: 87, user_id: 40, created_at: new Date('2025-11-18T17:58:54.769Z') },
-      { post_id: 83, user_id: 40, created_at: new Date('2025-11-18T18:58:28.962Z') },
-      { post_id: 70, user_id: 40, created_at: new Date('2025-11-18T19:04:40.081Z') },
-    ],
-    skipDuplicates: true,
-  });
-
-  // --- 6. Repost Table Data ---
-  await prisma.repost.createMany({
-    data: [
-      { post_id: 5, user_id: 20, created_at: new Date('2025-11-16T13:15:01.426Z') },
-      { post_id: 76, user_id: 20, created_at: new Date('2025-11-16T15:06:34.513Z') },
-      { post_id: 83, user_id: 20, created_at: new Date('2025-11-17T15:13:28.492Z') },
-      { post_id: 84, user_id: 20, created_at: new Date('2025-11-17T15:13:39.222Z') },
-      { post_id: 87, user_id: 40, created_at: new Date('2025-11-18T12:39:41.540Z') },
-      { post_id: 84, user_id: 40, created_at: new Date('2025-11-18T14:46:06.466Z') },
-      { post_id: 83, user_id: 40, created_at: new Date('2025-11-18T17:45:12.700Z') },
-      { post_id: 78, user_id: 40, created_at: new Date('2025-11-18T17:48:37.022Z') },
-      { post_id: 80, user_id: 40, created_at: new Date('2025-11-18T17:50:25.831Z') },
-      { post_id: 70, user_id: 40, created_at: new Date('2025-11-18T19:04:37.842Z') },
-      { post_id: 27, user_id: 40, created_at: new Date('2025-11-18T19:05:06.660Z') },
-      { post_id: 72, user_id: 40, created_at: new Date('2025-11-18T19:05:58.896Z') },
-      { post_id: 73, user_id: 40, created_at: new Date('2025-11-18T19:16:16.713Z') },
-      { post_id: 5, user_id: 40, created_at: new Date('2025-11-18T19:16:59.850Z') },
-    ],
-    skipDuplicates: true,
-  });
-
-  // --- 7. Follows Table Data ---
-  await prisma.follow.createMany({
-    data: [
-      { followerId: 45, followingId: 43, createdAt: new Date('2025-11-18T12:22:05.067Z') },
-      { followerId: 45, followingId: 44, createdAt: new Date('2025-11-18T12:22:10.608Z') },
-      { followerId: 22, followingId: 16, createdAt: new Date('2025-11-18T13:11:37.388Z') },
-      { followerId: 40, followingId: 20, createdAt: new Date('2025-11-18T14:38:53.880Z') },
-      { followerId: 40, followingId: 16, createdAt: new Date('2025-11-18T14:38:56.204Z') },
-    ],
-    skipDuplicates: true,
-  });
-
-  // --- 8. Other Tables (Empty Data in Dump) ---
-  // Hashtag: No data to insert.
-  // Mention: No data to insert.
-  // _PostHashtags: No data to insert.
-  // blocks: No data to insert.
-  // email_verification: No data to insert.
-  // mutes: No data to insert.
-
-  // --- 9. Reset Sequences ---
-  // This ensures that auto-increment IDs continue from the max inserted ID
-  await prisma.$executeRawUnsafe(`
-    SELECT setval(pg_get_serial_sequence('"User"', 'id'), COALESCE((SELECT MAX(id) FROM "User"), 1), true);
-  `);
-  await prisma.$executeRawUnsafe(`
-    SELECT setval(pg_get_serial_sequence('"profiles"', 'id'), COALESCE((SELECT MAX(id) FROM "profiles"), 1), true);
-  `);
-  await prisma.$executeRawUnsafe(`
-    SELECT setval(pg_get_serial_sequence('"posts"', 'id'), COALESCE((SELECT MAX(id) FROM "posts"), 1), true);
-  `);
-  await prisma.$executeRawUnsafe(`
-    SELECT setval(pg_get_serial_sequence('"media"', 'id'), COALESCE((SELECT MAX(id) FROM "media"), 1), true);
-  `);
-
-  console.log('Seeding finished.');
+  console.log('✅ Seed completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('Error during seed:', e);
     process.exit(1);
   })
   .finally(async () => {

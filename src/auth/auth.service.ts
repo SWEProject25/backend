@@ -30,6 +30,9 @@ export class AuthService {
   ) {}
 
   public async registerUser(createUserDto: CreateUserDto) {
+    if (!createUserDto.birthDate) {
+      throw new BadRequestException('Birth date is required for signup');
+    }
     const existingUser = await this.userService.findByEmail(createUserDto.email);
     if (existingUser) {
       throw new ConflictException('User is already exists');
@@ -55,12 +58,34 @@ export class AuthService {
   }
 
   public async login(userId: number, username: string) {
+    const userData = await this.userService.findOne(userId);
+
+    if (!userData) {
+      throw new UnauthorizedException('User not found');
+    }
+    if (userData.deleted_at) {
+      throw new UnauthorizedException('Account has been deleted');
+    }
+
     const accessToken = await this.jwtTokenService.generateAccessToken(userId, username);
 
     return {
       user: {
         id: userId,
         username,
+        email: userData.email,
+        role: userData.role,
+        profile: userData.Profile
+          ? {
+              name: userData.Profile.name,
+              profileImageUrl: userData.Profile.profile_image_url,
+            }
+          : null,
+      },
+      onboarding: {
+        hasCompeletedFollowing: userData.has_completed_following,
+        hasCompeletedInterests: userData.has_completed_interests,
+        hasCompletedBirthDate: userData.Profile?.birth_date !== null,
       },
       accessToken,
     };
@@ -73,28 +98,27 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.deleted_at) {
+      throw new UnauthorizedException('Account has been deleted');
+    }
+
+    if (!user.is_verified) {
+      throw new UnauthorizedException('Please verify your email before logging in');
+    }
+
     const isPasswordValid = await this.passwordService.verify(user.password, password);
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const userData = await this.userService.getUserData(email);
 
-    if (userData?.profile && userData?.user) {
-      return {
-        sub: userData.user.id,
-        username: userData.user.username,
-        role: userData.user.role,
-        email: userData.user.email!,
-        name: userData.profile.name,
-        profileImageUrl: userData.profile.profile_image_url!,
-      };
-    }
     // return to req.user
     return {
       sub: user.id,
       username: user.username,
       role: user.role,
+      email,
+      profileImageUrl: user.Profile?.profile_image_url,
     };
   }
 
@@ -103,6 +127,10 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException('Invalid Credentials');
+    }
+
+    if (user.deleted_at) {
+      throw new UnauthorizedException('Account has been deleted');
     }
 
     return {
@@ -115,29 +143,27 @@ export class AuthService {
     };
   }
 
-  public async validateGoogleUser(googleUser: CreateUserDto) {
+  public async validateGoogleUser(googleUser: OAuthProfileDto) {
     const email = googleUser.email;
-    const existingUser = await this.userService.getUserData(email);
-    if (existingUser?.user && existingUser?.profile) {
-      return {
-        sub: existingUser.user.id,
-        username: existingUser.user.username,
-        role: existingUser.user.role,
-        email: existingUser.user.email,
-        name: existingUser.profile.name,
-        profileImageUrl: existingUser.profile.profile_image_url,
-      };
+    const existingUser = await this.userService.findByEmail(email);
+    if (existingUser) {
+      return existingUser;
     }
-    const newUser = await this.userService.create(googleUser, true);
-    const user = {
-      sub: newUser.newUser.id,
-      username: newUser.newUser.username,
-      role: newUser.newUser.role,
-      email: newUser.newUser.email,
-      name: newUser.userProfile.name,
-      profileImageUrl: newUser.userProfile.profile_image_url,
+    const createUserDto: CreateUserDto = {
+      email,
+      name: googleUser.displayName,
+      password: '',
     };
-    return user;
+    const { email: _, displayName, ...restData } = googleUser;
+    const user = await this.userService.create(createUserDto, true, restData);
+    return {
+      sub: user.id,
+      username: user.username,
+      role: user.role,
+      email: user.email,
+      name: user.Profile?.name,
+      profileImageUrl: user.Profile?.profile_image_url,
+    };
   }
 
   public async validateGithubUser(githubUserData: OAuthProfileDto) {
@@ -147,11 +173,13 @@ export class AuthService {
       providerId: githubUserData.providerId,
       email: githubUserData.email || 'NO EMAIL',
     });
-    
+
     // First, check if user exists by provider_id (most reliable for OAuth)
-    const existingUserByProvider = await this.userService.findByProviderId(githubUserData.providerId);
+    const existingUserByProvider = await this.userService.findByProviderId(
+      githubUserData.providerId,
+    );
     console.log('[GitHub OAuth] User found by provider_id:', !!existingUserByProvider);
-    
+
     if (existingUserByProvider) {
       return {
         sub: existingUserByProvider.id,
@@ -167,7 +195,7 @@ export class AuthService {
     if (githubUserData.email) {
       const existingUserByEmail = await this.userService.getUserData(githubUserData.email);
       console.log('[GitHub OAuth] User found by email:', !!existingUserByEmail?.user);
-      
+
       if (existingUserByEmail?.user && existingUserByEmail?.profile) {
         // Link GitHub OAuth to existing account
         if (!existingUserByEmail.user.provider_id) {
@@ -178,7 +206,7 @@ export class AuthService {
             githubUserData.email,
           );
         }
-        
+
         return {
           sub: existingUserByEmail.user.id,
           username: existingUserByEmail.user.username,
@@ -193,7 +221,7 @@ export class AuthService {
     // Check by username (for backwards compatibility with old OAuth users)
     const existingUser = await this.userService.getUserData(githubUserData.username!);
     console.log('[GitHub OAuth] User found by username:', !!existingUser?.user);
-    
+
     if (existingUser?.user && existingUser?.profile) {
       // If user exists but doesn't have provider_id set, update it (migration path)
       if (!existingUser.user.provider_id) {
@@ -203,7 +231,7 @@ export class AuthService {
           githubUserData.email,
         );
       }
-      
+
       return {
         sub: existingUser.user.id,
         username: existingUser.user.username,
@@ -213,7 +241,7 @@ export class AuthService {
         profileImageUrl: existingUser.profile.profile_image_url,
       };
     }
-    
+
     // Create new user if none exists
     console.log('[GitHub OAuth] Creating new user - no existing user found');
     const newUser = await this.userService.createOAuthUser(githubUserData);
