@@ -31,21 +31,28 @@ export class MessagesService {
       throw new Error('Conversation not found');
     }
 
-    // Create and return the message
-    return this.prismaService.message.create({
-      data: {
-        text,
-        senderId,
-        conversationId,
-      },
-      select: {
-        id: true,
-        conversationId: true,
-        messageIndex: true,
-        senderId: true,
-        text: true,
-        createdAt: true,
-      },
+    // Create the message and update conversation timestamp in a transaction
+    return this.prismaService.$transaction(async (prisma) => {
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: {}, // Empty update triggers @updatedAt
+      });
+
+      return prisma.message.create({
+        data: {
+          text,
+          senderId,
+          conversationId,
+        },
+        select: {
+          id: true,
+          conversationId: true,
+          messageIndex: true,
+          senderId: true,
+          text: true,
+          createdAt: true,
+        },
+      });
     });
   }
 
