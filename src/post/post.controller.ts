@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,6 +9,7 @@ import {
   Inject,
   MaxFileSizeValidator,
   Param,
+  ParseArrayPipe,
   ParseFilePipe,
   Post,
   Query,
@@ -55,6 +57,7 @@ import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
 import { Mention, Post as PostModel, PostVisibility, User } from '@prisma/client';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ImageVideoUploadPipe } from 'src/storage/pipes/file-upload.pipe';
+import { TimelineFeedResponseDto } from './dto/timeline-feed-reponse.dto';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -69,52 +72,6 @@ export class PostController {
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
   ) {}
-
-  @Get('timeline/for-you')
-  @UseGuards(JwtAuthGuard)
-  @ApiCookieAuth()
-  @ApiOperation({
-    summary: 'Get personalized "For You" feed',
-    description:
-      'Returns a ranked list of posts personalized for the authenticated user. Requires authentication.',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Personalized posts retrieved successfully',
-    type: GetPostsResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number for pagination',
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of likers per page',
-    example: 10,
-  })
-  async getForYouFeed(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    const posts = await this.postService.getForYouFeed(user.id, page, limit);
-
-    return {
-      status: 'success',
-      message: 'Posts retrieved successfully',
-      data: posts,
-    };
-  }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -1116,12 +1073,23 @@ export class PostController {
     };
   }
 
-  @Get('timeline/following')
+  @Get('timeline/for-you')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
-    summary: 'Get user timeline posts',
-    description: 'Retrieves a paginated list of posts for the authenticated user timeline',
+    summary: 'Get personalized "For You" feed',
+    description:
+      'Returns a ranked list of personalized posts for the authenticated user. Requires authentication.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Personalized posts retrieved successfully',
+    type: TimelineFeedResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
   })
   @ApiQuery({
     name: 'page',
@@ -1137,15 +1105,51 @@ export class PostController {
     description: 'Number of posts per page',
     example: 10,
   })
+  async getForYouFeed(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const posts = await this.postService.getForYouFeed(user.id, page, limit);
+
+    return {
+      status: 'success',
+      message: 'Posts retrieved successfully',
+      data: posts,
+    };
+  }
+
+  @Get('timeline/following')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get personalized "Following" feed',
+    description:
+      'Returns a ranked list of posts from users the authenticated user follows. Requires authentication.',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Timeline posts retrieved successfully',
-    type: ApiResponseDto<PostModel[]>,
+    description: 'Personalized posts retrieved successfully',
+    type: TimelineFeedResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
   })
   async getUserTimeline(
     @Query('page') page: number = 1,
@@ -1156,7 +1160,113 @@ export class PostController {
 
     return {
       status: 'success',
-      message: 'Timeline posts retrieved successfully',
+      message: 'Posts retrieved successfully',
+      data: posts,
+    };
+  }
+
+  @Get('timeline/explore')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get personalized "Explore" feed',
+    description:
+      'Returns posts matching user interests with personalized ranking. Requires authentication.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Interest-based posts retrieved successfully',
+    type: TimelineFeedResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  async getExploreFeed(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const posts = await this.postService.getExploreFeed(user.id, page, limit);
+
+    return {
+      status: 'success',
+      message: 'Explore posts retrieved successfully',
+      data: posts,
+    };
+  }
+
+  @Get('timeline/explore/interests')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get posts filtered by specific interests',
+    description:
+      'Returns posts matching provided interest names with personalized ranking. Requires authentication. Posts matching the specified interests get boosted in ranking, but all posts are shown.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Interest-filtered posts retrieved successfully',
+    type: TimelineFeedResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Interests array is required',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiQuery({
+    name: 'interests',
+    required: true,
+    type: [String],
+    isArray: true,
+    description: 'Array of interest names to boost ranking (required, minimum 1 interest)',
+    example: ['Technology', 'Sports'],
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  async getExploreByInterestsFeed(
+    @Query('interests', new ParseArrayPipe({ items: String, optional: false })) interests: string[],
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const posts = await this.postService.getExploreByInterestsFeed(user.id, interests, page, limit);
+
+    return {
+      status: 'success',
+      message: 'Interest-filtered posts retrieved successfully',
       data: posts,
     };
   }

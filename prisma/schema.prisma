@@ -87,10 +87,10 @@ model Interest {
   created_at  DateTime       @default(now())
   updated_at  DateTime       @updatedAt
   users       UserInterest[]
+  posts       Post[]
 
   @@map("interests")
 }
-
 model UserInterest {
   user_id     Int
   interest_id Int
@@ -103,22 +103,24 @@ model UserInterest {
 }
 
 model Post {
-  id         Int            @id @default(autoincrement())
-  user_id    Int
-  content    String
-  type       PostType
-  parent_id  Int?
-  visibility PostVisibility
-  created_at DateTime       @default(now())
-  is_deleted Boolean        @default(false)
-  User       User           @relation(fields: [user_id], references: [id])
-  ParentPost Post?          @relation("PostToReplies", fields: [parent_id], references: [id])
-  Replies    Post[]         @relation("PostToReplies")
-  repostedBy Repost[]
-  likes      Like[]
-  mentions   Mention[]
-  hashtags   Hashtag[]      @relation("PostHashtags")
-  media      Media[]
+  id          Int            @id @default(autoincrement())
+  user_id     Int
+  content     String
+  type        PostType
+  parent_id   Int?
+  visibility  PostVisibility
+  interest_id Int?
+  created_at  DateTime       @default(now())
+  is_deleted  Boolean        @default(false)
+  likes       Like[]
+  media       Media[]
+  mentions    Mention[]
+  repostedBy  Repost[]
+  ParentPost  Post?          @relation("PostToReplies", fields: [parent_id], references: [id])
+  Replies     Post[]         @relation("PostToReplies")
+  User        User           @relation(fields: [user_id], references: [id])
+  Interest    Interest?      @relation(fields: [interest_id], references: [id])
+  hashtags    Hashtag[]      @relation("PostHashtags")
 
   @@map("posts")
 }
