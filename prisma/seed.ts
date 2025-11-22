@@ -91,7 +91,6 @@ async function main() {
   // Create users
   const users = [
     {
-      id: 16,
       email: 'karimzakzouk69@gmail.com',
       username: 'karimzakzouk',
       password: '',
@@ -104,7 +103,6 @@ async function main() {
       updated_at: new Date('2025-11-16T01:52:52.169Z'),
     },
     {
-      id: 17,
       email: 'mazenfarid201269@gmail.com',
       username: 'farid.ka2886',
       password:
@@ -118,7 +116,6 @@ async function main() {
       updated_at: new Date('2025-11-16T01:59:20.204Z'),
     },
     {
-      id: 18,
       email: 'gptchat851@gmail.com',
       username: 'gpt.ch8701',
       password:
@@ -132,7 +129,6 @@ async function main() {
       updated_at: new Date('2025-11-16T02:03:31.079Z'),
     },
     {
-      id: 19,
       email: 'karimzakzouk@outlook.com',
       username: 'karim.ka104',
       password:
@@ -146,7 +142,6 @@ async function main() {
       updated_at: new Date('2025-11-16T03:12:02.576Z'),
     },
     {
-      id: 20,
       email: 'mazenrory@gmail.com',
       username: 'mazen.ma4904',
       password:
@@ -160,7 +155,6 @@ async function main() {
       updated_at: new Date('2025-11-16T13:00:40.899Z'),
     },
     {
-      id: 21,
       email: 'ahmedfathi20044002@gmail.com',
       username: 'fathi.ah8581',
       password:
@@ -174,7 +168,6 @@ async function main() {
       updated_at: new Date('2025-11-17T15:25:11.012Z'),
     },
     {
-      id: 22,
       email: 'ahmedfathy20044002@gmail.com',
       username: 'fathy.ah2669',
       password:
@@ -188,7 +181,6 @@ async function main() {
       updated_at: new Date('2025-11-17T15:25:25.406Z'),
     },
     {
-      id: 23,
       email: 'engba80818233@gmail.com',
       username: 'adel.ab1295',
       password:
@@ -202,7 +194,6 @@ async function main() {
       updated_at: new Date('2025-11-18T10:59:47.748Z'),
     },
     {
-      id: 24,
       email: 'warframe200469@gmail.com',
       username: 'karim.ka169',
       password:
@@ -216,7 +207,6 @@ async function main() {
       updated_at: new Date('2025-11-17T15:47:03.278Z'),
     },
     {
-      id: 25,
       email: 'hankers67@outlook.com',
       username: 'karim.ka2562',
       password:
@@ -230,7 +220,6 @@ async function main() {
       updated_at: new Date('2025-11-17T15:56:54.207Z'),
     },
     {
-      id: 41,
       email: 'Mohamedalbaz492@gmail.com',
       username: 'mohamed-sameh-albaz',
       password: '',
@@ -243,7 +232,6 @@ async function main() {
       updated_at: new Date('2025-11-18T07:27:54.594Z'),
     },
     {
-      id: 45,
       email: 'ahmedg.ellabban339@gmail.com',
       username: 'ryuzaki',
       password: '$argon2i$v=19$m=16,t=2,p=1$TmU1RDJrczRuTktraXVwYg$DPll4hwvRTv+omTCo2SpFA',
@@ -256,7 +244,6 @@ async function main() {
       updated_at: new Date('2025-11-18T11:12:23.516Z'),
     },
     {
-      id: 47,
       email: 'Ahmed.ellabban04@eng-st.cu.edu.eg',
       username: 'ahmedGamalEllabban',
       password: '',
@@ -269,7 +256,6 @@ async function main() {
       updated_at: new Date('2025-11-18T16:16:11.820Z'),
     },
     {
-      id: 49,
       email: 'omarnabil219@gmail.com',
       username: 'nabil.om3149',
       password:
@@ -283,7 +269,6 @@ async function main() {
       updated_at: new Date('2025-11-18T17:21:31.209Z'),
     },
     {
-      id: 50,
       email: 'farouk.hussien03@eng-st.cu.edu.eg',
       username: 'far.fa3409',
       password:
@@ -310,7 +295,7 @@ async function main() {
   // Create profiles for users
   const profiles = [
     {
-      user_id: 16,
+      user_id: createdUsers[0].id, // karimzakzouk
       name: 'Karim Zakzouk',
       birth_date: new Date('1995-03-15'),
       bio: '🚀 Tech enthusiast | Full-stack developer | Coffee addict ☕',
@@ -318,7 +303,7 @@ async function main() {
       website: 'https://karimzakzouk.dev',
     },
     {
-      user_id: 17,
+      user_id: createdUsers[1].id, // farid.ka2886
       name: 'Mazen Farid',
       birth_date: new Date('1998-07-22'),
       bio: '💻 Software Engineer | Gaming enthusiast 🎮',
@@ -326,7 +311,7 @@ async function main() {
       website: null,
     },
     {
-      user_id: 18,
+      user_id: createdUsers[2].id, // gpt.ch8701
       name: 'GPT Chat',
       birth_date: new Date('2000-01-01'),
       bio: '🤖 AI exploring the human world | Tech & Innovation',
@@ -334,7 +319,7 @@ async function main() {
       website: 'https://openai.com',
     },
     {
-      user_id: 19,
+      user_id: createdUsers[3].id, // karim.ka104
       name: 'Karim K.',
       birth_date: new Date('1996-11-08'),
       bio: '📸 Photography | Travel blogger ✈️',
@@ -342,7 +327,7 @@ async function main() {
       website: 'https://karimtravels.com',
     },
     {
-      user_id: 20,
+      user_id: createdUsers[4].id, // mazen.ma4904
       name: 'Mazen Rory',
       birth_date: new Date('1997-05-12'),
       bio: '🏋️ Fitness coach | Nutrition expert | Living healthy',
@@ -350,7 +335,7 @@ async function main() {
       website: 'https://fitwithmazen.com',
     },
     {
-      user_id: 21,
+      user_id: createdUsers[5].id, // fathi.ah8581
       name: 'Ahmed Fathi',
       birth_date: new Date('1999-09-30'),
       bio: '🎵 Music producer | Sound designer',
@@ -358,7 +343,7 @@ async function main() {
       website: null,
     },
     {
-      user_id: 22,
+      user_id: createdUsers[6].id, // fathy.ah2669
       name: 'Ahmed Fathy',
       birth_date: new Date('1999-02-14'),
       bio: '🎬 Filmmaker | Content creator',
@@ -366,7 +351,7 @@ async function main() {
       website: 'https://fathyfilms.com',
     },
     {
-      user_id: 23,
+      user_id: createdUsers[7].id, // adel.ab1295
       name: 'Abdelrahman Adel',
       birth_date: new Date('1998-06-20'),
       bio: '⚽ Sports enthusiast | Football fan | Manchester United supporter',
@@ -374,7 +359,7 @@ async function main() {
       website: null,
     },
     {
-      user_id: 24,
+      user_id: createdUsers[8].id, // karim.ka169
       name: 'Karim Warframe',
       birth_date: new Date('1997-12-05'),
       bio: '🎮 Pro gamer | Streamer | Warframe expert',
@@ -382,7 +367,7 @@ async function main() {
       website: 'https://twitch.tv/karimwar',
     },
     {
-      user_id: 25,
+      user_id: createdUsers[9].id, // karim.ka2562
       name: 'Hankers',
       birth_date: new Date('2001-04-18'),
       bio: '🎨 Digital artist | NFT creator',
@@ -390,7 +375,7 @@ async function main() {
       website: 'https://hankers.art',
     },
     {
-      user_id: 41,
+      user_id: createdUsers[10].id, // mohamed-sameh-albaz
       name: 'Mohamed Sameh Albaz',
       birth_date: new Date('1996-08-25'),
       bio: '👨‍💻 Full-stack developer | Open source contributor | Tech blogger',
@@ -398,7 +383,7 @@ async function main() {
       website: 'https://github.com/mohamed-sameh-albaz',
     },
     {
-      user_id: 45,
+      user_id: createdUsers[11].id, // ryuzaki
       name: 'Ryuzaki',
       birth_date: new Date('1998-10-31'),
       bio: "🕵️ World's greatest detective | Sweets lover 🍰",
@@ -406,7 +391,7 @@ async function main() {
       website: null,
     },
     {
-      user_id: 47,
+      user_id: createdUsers[12].id, // ahmedGamalEllabban
       name: 'Ahmed Gamal Ellabban',
       birth_date: new Date('1999-03-07'),
       bio: '💼 Business analyst | Data enthusiast 📊',
@@ -414,7 +399,7 @@ async function main() {
       website: 'https://github.com/ahmedGamalEllabban',
     },
     {
-      user_id: 49,
+      user_id: createdUsers[13].id, // nabil.om3149
       name: 'Omar Nabil',
       birth_date: new Date('2000-07-15'),
       bio: '🏗️ Civil engineer | Architecture lover',
@@ -422,7 +407,7 @@ async function main() {
       website: null,
     },
     {
-      user_id: 50,
+      user_id: createdUsers[14].id, // far.fa3409
       name: 'Farouk Hussein',
       birth_date: new Date('1997-01-28'),
       bio: '🔬 Research scientist | AI researcher',
@@ -463,34 +448,34 @@ async function main() {
 
   // Create follow relationships
   const follows = [
-    // User 41 (mohamed-sameh-albaz) follows several users
-    { followerId: 41, followingId: 16 },
-    { followerId: 41, followingId: 17 },
-    { followerId: 41, followingId: 45 },
-    { followerId: 41, followingId: 47 },
-    { followerId: 41, followingId: 49 },
+    // User 10 (mohamed-sameh-albaz) follows several users
+    { followerId: createdUsers[10].id, followingId: createdUsers[0].id },
+    { followerId: createdUsers[10].id, followingId: createdUsers[1].id },
+    { followerId: createdUsers[10].id, followingId: createdUsers[11].id },
+    { followerId: createdUsers[10].id, followingId: createdUsers[12].id },
+    { followerId: createdUsers[10].id, followingId: createdUsers[13].id },
 
     // Other users follow back
-    { followerId: 16, followingId: 41 },
-    { followerId: 17, followingId: 41 },
-    { followerId: 45, followingId: 41 },
-    { followerId: 47, followingId: 41 },
+    { followerId: createdUsers[0].id, followingId: createdUsers[10].id },
+    { followerId: createdUsers[1].id, followingId: createdUsers[10].id },
+    { followerId: createdUsers[11].id, followingId: createdUsers[10].id },
+    { followerId: createdUsers[12].id, followingId: createdUsers[10].id },
 
     // Cross follows
-    { followerId: 16, followingId: 17 },
-    { followerId: 17, followingId: 16 },
-    { followerId: 18, followingId: 16 },
-    { followerId: 19, followingId: 18 },
-    { followerId: 20, followingId: 19 },
-    { followerId: 21, followingId: 20 },
-    { followerId: 22, followingId: 21 },
-    { followerId: 23, followingId: 22 },
-    { followerId: 24, followingId: 23 },
-    { followerId: 25, followingId: 24 },
-    { followerId: 45, followingId: 47 },
-    { followerId: 47, followingId: 45 },
-    { followerId: 49, followingId: 50 },
-    { followerId: 50, followingId: 49 },
+    { followerId: createdUsers[0].id, followingId: createdUsers[1].id },
+    { followerId: createdUsers[1].id, followingId: createdUsers[0].id },
+    { followerId: createdUsers[2].id, followingId: createdUsers[0].id },
+    { followerId: createdUsers[3].id, followingId: createdUsers[2].id },
+    { followerId: createdUsers[4].id, followingId: createdUsers[3].id },
+    { followerId: createdUsers[5].id, followingId: createdUsers[4].id },
+    { followerId: createdUsers[6].id, followingId: createdUsers[5].id },
+    { followerId: createdUsers[7].id, followingId: createdUsers[6].id },
+    { followerId: createdUsers[8].id, followingId: createdUsers[7].id },
+    { followerId: createdUsers[9].id, followingId: createdUsers[8].id },
+    { followerId: createdUsers[11].id, followingId: createdUsers[12].id },
+    { followerId: createdUsers[12].id, followingId: createdUsers[11].id },
+    { followerId: createdUsers[13].id, followingId: createdUsers[14].id },
+    { followerId: createdUsers[14].id, followingId: createdUsers[13].id },
   ];
 
   for (const follow of follows) {
@@ -535,7 +520,7 @@ async function main() {
   // Create posts
   const posts = [
     {
-      user_id: 41,
+      user_id: createdUsers[10].id, // mohamed-sameh-albaz
       content:
         'Just deployed my new social media platform! 🚀 Excited to see everyone using it. #webdev #typescript #nodejs',
       type: PostType.POST,
@@ -543,7 +528,7 @@ async function main() {
       created_at: new Date('2025-11-20T10:00:00Z'),
     },
     {
-      user_id: 16,
+      user_id: createdUsers[0].id, // karimzakzouk
       content:
         'Working on a new feature for authentication. OAuth2 is fascinating! 🔐 #coding #security',
       type: PostType.POST,
@@ -551,7 +536,7 @@ async function main() {
       created_at: new Date('2025-11-20T11:30:00Z'),
     },
     {
-      user_id: 17,
+      user_id: createdUsers[1].id, // farid.ka2886
       content:
         'Just finished a 10-hour gaming session. My eyes hurt but it was worth it! 😅 #gaming #esports',
       type: PostType.POST,
@@ -559,7 +544,7 @@ async function main() {
       created_at: new Date('2025-11-20T14:00:00Z'),
     },
     {
-      user_id: 18,
+      user_id: createdUsers[2].id, // gpt.ch8701
       content:
         'AI is evolving faster than ever. The future is here! 🤖 #ai #machinelearning #technology',
       type: PostType.POST,
@@ -567,49 +552,49 @@ async function main() {
       created_at: new Date('2025-11-20T09:00:00Z'),
     },
     {
-      user_id: 19,
+      user_id: createdUsers[3].id, // karim.ka104
       content: 'Captured the most beautiful sunset in Dubai today! 🌅 #photography #travel',
       type: PostType.POST,
       visibility: PostVisibility.EVERY_ONE,
       created_at: new Date('2025-11-20T18:00:00Z'),
     },
     {
-      user_id: 20,
+      user_id: createdUsers[4].id, // mazen.ma4904
       content: 'Morning workout done! Remember: consistency is key 💪 #fitness #health',
       type: PostType.POST,
       visibility: PostVisibility.EVERY_ONE,
       created_at: new Date('2025-11-20T06:00:00Z'),
     },
     {
-      user_id: 21,
+      user_id: createdUsers[5].id, // fathi.ah8581
       content: 'New track dropping this Friday! Stay tuned 🎵 #music',
       type: PostType.POST,
       visibility: PostVisibility.EVERY_ONE,
       created_at: new Date('2025-11-20T15:00:00Z'),
     },
     {
-      user_id: 45,
+      user_id: createdUsers[11].id, // ryuzaki
       content: 'The cake is a lie, but this detective work is not 🍰🕵️',
       type: PostType.POST,
       visibility: PostVisibility.EVERY_ONE,
       created_at: new Date('2025-11-20T20:00:00Z'),
     },
     {
-      user_id: 47,
+      user_id: createdUsers[12].id, // ahmedGamalEllabban
       content: 'Data analysis reveals interesting patterns in user behavior 📊 #data #analytics',
       type: PostType.POST,
       visibility: PostVisibility.EVERY_ONE,
       created_at: new Date('2025-11-20T13:00:00Z'),
     },
     {
-      user_id: 49,
+      user_id: createdUsers[13].id, // nabil.om3149
       content: 'Architecture is frozen music 🏛️ #architecture #design',
       type: PostType.POST,
       visibility: PostVisibility.EVERY_ONE,
       created_at: new Date('2025-11-20T16:00:00Z'),
     },
     {
-      user_id: 50,
+      user_id: createdUsers[14].id, // far.fa3409
       content:
         'Published my latest research paper on neural networks! Link in bio 🔬 #ai #research',
       type: PostType.POST,
@@ -617,21 +602,21 @@ async function main() {
       created_at: new Date('2025-11-20T12:00:00Z'),
     },
     {
-      user_id: 23,
+      user_id: createdUsers[7].id, // adel.ab1295
       content: 'Manchester United won! What a match! ⚽🔴 #football #MUFC',
       type: PostType.POST,
       visibility: PostVisibility.EVERY_ONE,
       created_at: new Date('2025-11-20T21:00:00Z'),
     },
     {
-      user_id: 24,
+      user_id: createdUsers[8].id, // karim.ka169
       content: 'Streaming live in 10 minutes! Come watch some Warframe action 🎮 #gaming #twitch',
       type: PostType.POST,
       visibility: PostVisibility.EVERY_ONE,
       created_at: new Date('2025-11-20T19:00:00Z'),
     },
     {
-      user_id: 25,
+      user_id: createdUsers[9].id, // karim.ka2562
       content: 'Just minted my new NFT collection! Check it out 🎨 #art #nft #crypto',
       type: PostType.POST,
       visibility: PostVisibility.EVERY_ONE,
@@ -651,7 +636,7 @@ async function main() {
   // Create replies to posts
   const replies = [
     {
-      user_id: 16,
+      user_id: createdUsers[0].id, // karimzakzouk
       content: 'Congratulations! Looking forward to exploring it! 🎉',
       type: PostType.REPLY,
       parent_id: createdPosts[0].id,
@@ -659,7 +644,7 @@ async function main() {
       created_at: new Date('2025-11-20T10:15:00Z'),
     },
     {
-      user_id: 45,
+      user_id: createdUsers[11].id, // ryuzaki
       content: 'Great work! The authentication flow is smooth 👍',
       type: PostType.REPLY,
       parent_id: createdPosts[0].id,
@@ -667,7 +652,7 @@ async function main() {
       created_at: new Date('2025-11-20T10:30:00Z'),
     },
     {
-      user_id: 41,
+      user_id: createdUsers[10].id, // mohamed-sameh-albaz
       content: 'Thanks! Let me know if you find any bugs 🐛',
       type: PostType.REPLY,
       parent_id: createdPosts[0].id,
@@ -675,7 +660,7 @@ async function main() {
       created_at: new Date('2025-11-20T10:45:00Z'),
     },
     {
-      user_id: 17,
+      user_id: createdUsers[1].id, // farid.ka2886
       content: 'Which game? 🎮',
       type: PostType.REPLY,
       parent_id: createdPosts[2].id,
@@ -694,7 +679,7 @@ async function main() {
   // Create quote posts
   const quotes = [
     {
-      user_id: 47,
+      user_id: createdUsers[12].id, // ahmedGamalEllabban
       content: 'This is exactly what we needed! Amazing work 👏',
       type: PostType.QUOTE,
       parent_id: createdPosts[0].id,
@@ -742,19 +727,19 @@ async function main() {
 
   // Create likes
   const likes = [
-    { post_id: createdPosts[0].id, user_id: 16 },
-    { post_id: createdPosts[0].id, user_id: 17 },
-    { post_id: createdPosts[0].id, user_id: 45 },
-    { post_id: createdPosts[0].id, user_id: 47 },
-    { post_id: createdPosts[0].id, user_id: 49 },
-    { post_id: createdPosts[1].id, user_id: 41 },
-    { post_id: createdPosts[1].id, user_id: 17 },
-    { post_id: createdPosts[2].id, user_id: 24 },
-    { post_id: createdPosts[3].id, user_id: 41 },
-    { post_id: createdPosts[3].id, user_id: 50 },
-    { post_id: createdPosts[4].id, user_id: 25 },
-    { post_id: createdPosts[5].id, user_id: 20 },
-    { post_id: createdPosts[6].id, user_id: 21 },
+    { post_id: createdPosts[0].id, user_id: createdUsers[0].id },
+    { post_id: createdPosts[0].id, user_id: createdUsers[1].id },
+    { post_id: createdPosts[0].id, user_id: createdUsers[11].id },
+    { post_id: createdPosts[0].id, user_id: createdUsers[12].id },
+    { post_id: createdPosts[0].id, user_id: createdUsers[13].id },
+    { post_id: createdPosts[1].id, user_id: createdUsers[10].id },
+    { post_id: createdPosts[1].id, user_id: createdUsers[1].id },
+    { post_id: createdPosts[2].id, user_id: createdUsers[8].id },
+    { post_id: createdPosts[3].id, user_id: createdUsers[10].id },
+    { post_id: createdPosts[3].id, user_id: createdUsers[14].id },
+    { post_id: createdPosts[4].id, user_id: createdUsers[9].id },
+    { post_id: createdPosts[5].id, user_id: createdUsers[4].id },
+    { post_id: createdPosts[6].id, user_id: createdUsers[5].id },
   ];
 
   for (const like of likes) {
@@ -766,9 +751,9 @@ async function main() {
 
   // Create reposts
   const reposts = [
-    { post_id: createdPosts[0].id, user_id: 45 },
-    { post_id: createdPosts[0].id, user_id: 47 },
-    { post_id: createdPosts[3].id, user_id: 50 },
+    { post_id: createdPosts[0].id, user_id: createdUsers[11].id },
+    { post_id: createdPosts[0].id, user_id: createdUsers[12].id },
+    { post_id: createdPosts[3].id, user_id: createdUsers[14].id },
   ];
 
   for (const repost of reposts) {
@@ -782,17 +767,20 @@ async function main() {
   const media = [
     {
       post_id: createdPosts[4].id, // Photography post
-      media_url: 'https://fastly.picsum.photos/id/413/800/600.jpg?hmac=VEaKKcAaCdhHoKRA0lKgXJxwgrLYJnLeI-6sc_9ExBM',
+      media_url:
+        'https://fastly.picsum.photos/id/413/800/600.jpg?hmac=VEaKKcAaCdhHoKRA0lKgXJxwgrLYJnLeI-6sc_9ExBM',
       type: MediaType.IMAGE,
     },
     {
       post_id: createdPosts[4].id,
-      media_url: 'https://fastly.picsum.photos/id/356/800/600.jpg?hmac=mqpR-bEfsxbcxdPMKHlvzxoryEFa__KAuFIK7QOSL1c',
+      media_url:
+        'https://fastly.picsum.photos/id/356/800/600.jpg?hmac=mqpR-bEfsxbcxdPMKHlvzxoryEFa__KAuFIK7QOSL1c',
       type: MediaType.IMAGE,
     },
     {
       post_id: createdPosts[13].id, // NFT art post
-      media_url: 'https://fastly.picsum.photos/id/842/800/800.jpg?hmac=V0Kdv88qg256F311iJNd5xBn5EWJXP7NUACcMILCy9Q',
+      media_url:
+        'https://fastly.picsum.photos/id/842/800/800.jpg?hmac=V0Kdv88qg256F311iJNd5xBn5EWJXP7NUACcMILCy9Q',
       type: MediaType.IMAGE,
     },
   ];
@@ -807,18 +795,18 @@ async function main() {
   // Create conversations
   const conversations = [
     {
-      user1Id: 41,
-      user2Id: 16,
+      user1Id: createdUsers[10].id, // mohamed-sameh-albaz
+      user2Id: createdUsers[0].id, // karimzakzouk
       nextMessageIndex: 1,
     },
     {
-      user1Id: 41,
-      user2Id: 45,
+      user1Id: createdUsers[10].id, // mohamed-sameh-albaz
+      user2Id: createdUsers[11].id, // ryuzaki
       nextMessageIndex: 1,
     },
     {
-      user1Id: 16,
-      user2Id: 17,
+      user1Id: createdUsers[0].id, // karimzakzouk
+      user2Id: createdUsers[1].id, // farid.ka2886
       nextMessageIndex: 1,
     },
   ];
@@ -837,14 +825,14 @@ async function main() {
     {
       conversationId: createdConversations[0].id,
       messageIndex: 1,
-      senderId: 41,
+      senderId: createdUsers[10].id, // mohamed-sameh-albaz
       text: 'Hey! How are you?',
       createdAt: new Date('2025-11-20T08:00:00Z'),
     },
     {
       conversationId: createdConversations[0].id,
       messageIndex: 2,
-      senderId: 16,
+      senderId: createdUsers[0].id, // karimzakzouk
       text: "Hi! I'm good, thanks! Just working on the OAuth implementation.",
       isSeen: true,
       createdAt: new Date('2025-11-20T08:05:00Z'),
@@ -852,21 +840,21 @@ async function main() {
     {
       conversationId: createdConversations[0].id,
       messageIndex: 3,
-      senderId: 41,
+      senderId: createdUsers[10].id, // mohamed-sameh-albaz
       text: 'That sounds interesting! Let me know if you need any help.',
       createdAt: new Date('2025-11-20T08:10:00Z'),
     },
     {
       conversationId: createdConversations[1].id,
       messageIndex: 1,
-      senderId: 45,
+      senderId: createdUsers[11].id, // ryuzaki
       text: 'The platform looks amazing! Great job! 🎉',
       createdAt: new Date('2025-11-20T10:20:00Z'),
     },
     {
       conversationId: createdConversations[1].id,
       messageIndex: 2,
-      senderId: 41,
+      senderId: createdUsers[10].id, // mohamed-sameh-albaz
       text: 'Thanks! Your feedback means a lot!',
       isSeen: true,
       createdAt: new Date('2025-11-20T10:25:00Z'),
@@ -874,14 +862,14 @@ async function main() {
     {
       conversationId: createdConversations[2].id,
       messageIndex: 1,
-      senderId: 16,
+      senderId: createdUsers[0].id, // karimzakzouk
       text: 'Want to play some games later?',
       createdAt: new Date('2025-11-20T14:30:00Z'),
     },
     {
       conversationId: createdConversations[2].id,
       messageIndex: 2,
-      senderId: 17,
+      senderId: createdUsers[1].id, // farid.ka2886
       text: 'Sure! What time?',
       isSeen: true,
       createdAt: new Date('2025-11-20T14:35:00Z'),
