@@ -168,6 +168,7 @@ enum PostVisibility {
   EVERY_ONE
   FOLLOWERS
   MENTIONED
+  VERIFIED
 }
 
 model Repost {

@@ -2,18 +2,23 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PostType, PostVisibility } from '@prisma/client';
 import { Transform } from 'class-transformer';
+import { IsParentIdAllowed } from '../decorators/is-parent-id-allowed.decorator';
+import { IsContentRequiredIfNoMedia } from '../decorators/content-required-if-no-media.decorator';
+import { IsParentRequiredForReplyOrQuote } from '../decorators/parent-required-for-reply-or-quote.decorator';
 
 export class CreatePostDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Content is required' })
   @MaxLength(500, { message: 'Content must not exceed 500 characters' })
   @ApiProperty({
     description: 'The textual content of the post',
     example: 'Excited to share my new project today!',
     maxLength: 500,
   })
+  @IsContentRequiredIfNoMedia()
   content: string;
 
+  @IsParentRequiredForReplyOrQuote()
   @IsEnum(PostType, {
     message: `Type must be one of: ${Object.values(PostType).join(', ')}`,
   })
@@ -32,6 +37,7 @@ export class CreatePostDto {
     type: Number,
     nullable: true,
   })
+  @IsParentIdAllowed()
   parentId?: number;
 
   @IsEnum(PostVisibility, {
@@ -39,7 +45,7 @@ export class CreatePostDto {
   })
   @IsNotEmpty({ message: 'Visibility is required' })
   @ApiProperty({
-    description: 'The visibility level of the post (EVERY_ONE, FOLLOWERS, or MENTIONED)',
+    description: 'The visibility level of the post (EVERY_ONE, FOLLOWERS, MENTIONED, or VERIFIED)',
     enum: PostVisibility,
     example: PostVisibility.EVERY_ONE,
   })
