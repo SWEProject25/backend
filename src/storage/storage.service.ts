@@ -13,7 +13,7 @@ export class StorageService {
 	constructor(private configService: ConfigService) {
 		this.bucketName = this.configService.get<string>('AWS_S3_BUCKET_NAME') || 'hankers-uploads-prod';
 		this.region = this.configService.get<string>('AWS_REGION') || 'us-east-1';
-		
+		console.log('S3 Bucket:', this.bucketName);
 		// No credentials needed for public bucket
 		this.s3Client = new S3Client({
 			region: this.region,
