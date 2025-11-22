@@ -6,6 +6,7 @@ import { ConfigType } from '@nestjs/config';
 import { Services } from 'src/utils/constants';
 import { AuthService } from '../auth.service';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
+import { OAuthProfileDto } from '../dto/oauth-profile.dto';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -31,11 +32,13 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   ) {
     const googleName = profile.displayName;
     const email = profile.emails![0].value;
-    const createUserDto: CreateUserDto = {
-      name: googleName,
+    const createUserDto: OAuthProfileDto = {
       email,
-      password: '',
-      birthDate: new Date(), // to be modified
+      username: profile.emails![0].value.split('@')[0],
+      provider: profile.provider,
+      displayName: googleName,
+      providerId: profile.id,
+      profileImageUrl: profile.photos![0]?.value,
     };
     const user = await this.authService.validateGoogleUser(createUserDto);
     done(null, user);

@@ -1,12 +1,27 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
+import { SuggestedUserDto } from './dto/suggested-users.dto';
+import { INTEREST_SLUG_TO_ENUM, UserInterest } from './enums/user-interest.enum';
+import { InterestDto, UserInterestDto } from './dto/interest.dto';
+import { RedisService } from 'src/redis/redis.service';
 
 @Injectable()
 export class UsersService {
+  private readonly INTERESTS_CACHE_KEY = 'interests:all';
+  private readonly CACHE_TTL = 3600; // 1 hour
+
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
+    @Inject(Services.REDIS)
+    private readonly redisService: RedisService,
   ) {}
 
   async followUser(followerId: number, followingId: number) {
@@ -62,12 +77,24 @@ export class UsersService {
       throw new ConflictException('You cannot follow a user who has blocked you');
     }
 
-    return this.prismaService.follow.create({
+    const follow = await this.prismaService.follow.create({
       data: {
         followerId,
         followingId,
       },
     });
+    const userFollowingCount = await this.getFollowingCount(followerId);
+    const user = await this.prismaService.user.findFirst({
+      where: { id: followerId },
+      select: { has_completed_following: true },
+    });
+    if (userFollowingCount > 0 && user?.has_completed_following === false) {
+      await this.prismaService.user.update({
+        where: { id: followerId },
+        data: { has_completed_following: true },
+      });
+    }
+    return follow;
   }
 
   async unfollowUser(followerId: number, followingId: number) {
@@ -470,5 +497,199 @@ export class UsersService {
     };
 
     return { data, metadata };
+  }
+
+  public async getSuggestedUsers(
+    userId?: number,
+    limit: number = 10,
+    excludeFollowed: boolean = !!userId,
+    excludeBlocked: boolean = !!userId,
+  ): Promise<SuggestedUserDto[]> {
+    const suggestedUsers = await this.prismaService.user.findMany({
+      where: {
+        // Exclude current user if provided
+        ...(userId && { id: { not: userId } }),
+
+        deleted_at: null,
+        Profile: {
+          is_deactivated: false,
+        },
+
+        // Exclude already followed users (only if userId provided and flag is true)
+        ...(userId &&
+          excludeFollowed && {
+            Followers: {
+              none: {
+                followerId: userId,
+              },
+            },
+          }),
+
+        // Exclude blocked users (only if userId provided and flag is true)
+        ...(userId &&
+          excludeBlocked && {
+            Blockers: {
+              none: {
+                blockerId: userId,
+              },
+            },
+            Blocked: {
+              none: {
+                blockedId: userId,
+              },
+            },
+          }),
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        is_verified: true,
+        Profile: {
+          select: {
+            name: true,
+            bio: true,
+            profile_image_url: true,
+            banner_image_url: true,
+            location: true,
+            website: true,
+          },
+        },
+        _count: {
+          select: {
+            Followers: true,
+          },
+        },
+      },
+      orderBy: [
+        {
+          Followers: {
+            _count: 'desc',
+          },
+        },
+      ],
+      take: limit,
+    });
+
+    return suggestedUsers.map((user) => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      isVerified: user.is_verified,
+      profile: user.Profile
+        ? {
+            name: user.Profile.name,
+            bio: user.Profile.bio,
+            profileImageUrl: user.Profile.profile_image_url,
+            bannerImageUrl: user.Profile.banner_image_url,
+            location: user.Profile.location,
+            website: user.Profile.website,
+          }
+        : null,
+      followersCount: user._count.Followers,
+    }));
+  }
+
+  async getUserInterests(userId: number): Promise<UserInterestDto[]> {
+    const userInterests = await this.prismaService.userInterest.findMany({
+      where: {
+        user_id: userId,
+      },
+      include: {
+        interest: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            icon: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    return userInterests.map((ui) => ({
+      id: ui.interest.id,
+      name: INTEREST_SLUG_TO_ENUM[ui.interest.slug] || (ui.interest.name as UserInterest),
+      slug: ui.interest.slug,
+      icon: ui.interest.icon,
+      selectedAt: ui.created_at,
+    }));
+  }
+
+  async saveUserInterests(userId: number, interestIds: number[]): Promise<number> {
+    if (interestIds.length === 0) {
+      throw new BadRequestException('At least one interest must be selected');
+    }
+
+    const existingInterests = await this.prismaService.interest.findMany({
+      where: {
+        id: { in: interestIds },
+        is_active: true,
+      },
+    });
+
+    if (existingInterests.length !== interestIds.length) {
+      throw new BadRequestException('One or more interest IDs are invalid');
+    }
+
+    await this.prismaService.$transaction(async (tx) => {
+      await tx.userInterest.deleteMany({
+        where: {
+          user_id: userId,
+        },
+      });
+
+      await tx.userInterest.createMany({
+        data: interestIds.map((interestId) => ({
+          user_id: userId,
+          interest_id: interestId,
+        })),
+      });
+
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          has_completed_interests: true,
+        },
+      });
+    });
+    return interestIds.length;
+  }
+
+  async getAllInterests(): Promise<InterestDto[]> {
+    const cached = await this.redisService.get(this.INTERESTS_CACHE_KEY);
+
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    const interests = await this.prismaService.interest.findMany({
+      where: {
+        is_active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        icon: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    await this.redisService.set(
+      this.INTERESTS_CACHE_KEY,
+      JSON.stringify(interests),
+      this.CACHE_TTL,
+    );
+    return interests;
+  }
+
+  public async getFollowingCount(userId: number) {
+    return this.prismaService.follow.count({ where: { followerId: userId } });
   }
 }

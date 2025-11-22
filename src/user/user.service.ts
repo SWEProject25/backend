@@ -13,39 +13,64 @@ export class UserService {
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
   ) {}
-  public async create(createUserDto: CreateUserDto, isVerified: boolean) {
-    const { password, name, birthDate, ...user } = createUserDto;
+  public async create(
+    createUserDto: CreateUserDto,
+    isVerified: boolean,
+    oauthData?: Partial<OAuthProfileDto>,
+  ) {
+    const { password, name, birthDate, ...userData } = createUserDto;
     const hashedPassword = await hash(password);
     let username = generateUsername(name);
     while (await this.checkUsername(username)) {
       username = generateUsername(name);
     }
-    const newUser = await this.prismaService.user.create({
+    return await this.prismaService.user.create({
       data: {
-        ...user,
+        ...userData,
         password: hashedPassword,
         username,
         is_verified: isVerified,
+        ...(oauthData?.providerId && {
+          provider_id: oauthData.providerId,
+        }),
+        Profile: {
+          create: {
+            name,
+            ...(birthDate && { birth_date: birthDate }),
+            ...(oauthData?.profileImageUrl && {
+              profile_image_url: oauthData.profileImageUrl,
+            }),
+          },
+        },
+      },
+      include: {
+        Profile: true,
       },
     });
-    const userProfile = await this.prismaService.profile.create({
-      data: {
-        user_id: newUser.id,
-        birth_date: birthDate,
-        name,
-      },
-    });
-
-    return {
-      newUser,
-      userProfile,
-    };
   }
 
   public async findByEmail(email: string) {
     return await this.prismaService.user.findUnique({
       where: {
         email,
+      },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        role: true,
+        is_verified: true,
+        password: true,
+        Profile: {
+          select: {
+            name: true,
+            profile_image_url: true,
+            birth_date: true,
+          },
+        },
+        deleted_at: true,
+        has_completed_following: true,
+        has_completed_interests: true,
       },
     });
   }
@@ -57,23 +82,17 @@ export class UserService {
         email: true,
         username: true,
         role: true,
+        is_verified: true,
         Profile: {
           select: {
             name: true,
             profile_image_url: true,
+            birth_date: true,
           },
         },
-      },
-    });
-  }
-
-  public async updateEmailVerification(updateUserDto: UpdateUserDto) {
-    return await this.prismaService.user.update({
-      where: {
-        email: updateUserDto.email,
-      },
-      data: {
-        is_verified: updateUserDto.is_verified,
+        deleted_at: true,
+        has_completed_following: true,
+        has_completed_interests: true,
       },
     });
   }
@@ -87,19 +106,30 @@ export class UserService {
   }
 
   public async createOAuthUser(oauthProfileDto: OAuthProfileDto) {
+    // Generate a unique email for providers that don't provide one (like GitHub without email scope)
+    let email = oauthProfileDto.email;
+    if (!email) {
+      // Use provider-specific format to avoid conflicts
+      email = `${oauthProfileDto.providerId}@${oauthProfileDto.provider}.oauth`;
+    }
+
     const newUser = await this.prismaService.user.create({
       data: {
-        email: oauthProfileDto.provider === 'google' ? oauthProfileDto.email! : '',
+        email,
         password: '',
         username: oauthProfileDto.username!,
         is_verified: true,
         provider_id: oauthProfileDto.providerId,
       },
     });
+
+    // Use displayName if available, otherwise fallback to username
+    const displayName = oauthProfileDto.displayName || oauthProfileDto.username || 'User';
+
     const proflie = await this.prismaService.profile.create({
       data: {
         user_id: newUser.id,
-        name: oauthProfileDto.displayName,
+        name: displayName,
         profile_image_url: oauthProfileDto?.profileImageUrl,
       },
     });
@@ -107,6 +137,34 @@ export class UserService {
       newUser,
       proflie,
     };
+  }
+
+  public async findByProviderId(providerId: string) {
+    return await this.prismaService.user.findFirst({
+      where: {
+        provider_id: providerId,
+      },
+      include: {
+        Profile: true,
+      },
+    });
+  }
+
+  public async updateOAuthData(userId: number, providerId: string, email?: string) {
+    // Generate synthetic email if not provided
+    const updateData: any = {
+      provider_id: providerId,
+    };
+
+    // Only update email if provided and it's not empty
+    if (email) {
+      updateData.email = email;
+    }
+
+    return await this.prismaService.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
   }
 
   public async getUserData(uniqueIdentifier: string) {

@@ -1,59 +1,79 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { BlobServiceClient } from '@azure/storage-blob';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
 import { extname } from 'path';
 import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class StorageService {
-	private blobServiceClient: BlobServiceClient;
-	private containerName: string;
+	private s3Client: S3Client;
+	private bucketName: string;
+	private region: string;
 
 	constructor(private configService: ConfigService) {
-		const connectionString = this.configService.get<string>('AZURE_STORAGE_CONNECTION_STRING') as string;
-		this.containerName = this.configService.get<string>('AZURE_STORAGE_CONTAINER_NAME') || 'media';
-		this.blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+		this.bucketName = this.configService.get<string>('AWS_S3_BUCKET_NAME') || 'hankers-uploads-prod';
+		this.region = this.configService.get<string>('AWS_REGION') || 'us-east-1';
+		
+		// No credentials needed for public bucket
+		this.s3Client = new S3Client({
+			region: this.region,
+		});
 	}
 
 	async uploadFiles(files?: Express.Multer.File[]): Promise<string[]> {
 		if (!files || files.length === 0) return [];
-		const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
-		await containerClient.createIfNotExists({ access: 'container' });
 
 		const uploads = files.map(async (file) => {
 			const fileExt = extname(file.originalname);
-			const blobName = `${uuid()}${fileExt}`;
-			const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+			const key = `${uuid()}${fileExt}`;
 
-			await blockBlobClient.uploadData(file.buffer, {
-				blobHTTPHeaders: { blobContentType: file.mimetype },
+			const command = new PutObjectCommand({
+				Bucket: this.bucketName,
+				Key: key,
+				Body: file.buffer,
+				ContentType: file.mimetype,
 			});
 
-			return blockBlobClient.url;
+			await this.s3Client.send(command);
+
+			// Return the public S3 URL
+			return `https://${this.bucketName}.s3.${this.region}.amazonaws.com/${key}`;
 		});
 
 		return await Promise.all(uploads);
 	}
 	
-	async deleteFile(blobUrlOrName: string): Promise<void> {
+	async deleteFile(s3UrlOrKey: string): Promise<void> {
+		// Extract key from S3 URL or use as-is if it's already a key
+		const key = s3UrlOrKey.includes('/')
+			? s3UrlOrKey.split('/').pop()!
+			: s3UrlOrKey;
 
-		const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
+		try {
+			// Check if object exists
+			const headCommand = new HeadObjectCommand({
+				Bucket: this.bucketName,
+				Key: key,
+			});
+			await this.s3Client.send(headCommand);
 
-		const blobName = blobUrlOrName.includes('/')
-			? blobUrlOrName.split('/').pop()!
-			: blobUrlOrName;
-
-		const blobClient = containerClient.getBlobClient(blobName);
-
-		const exists = await blobClient.exists();
-		if (!exists) throw new NotFoundException(`File not found: ${blobName}`);
-
-		await blobClient.deleteIfExists();
+			// Delete the object
+			const deleteCommand = new DeleteObjectCommand({
+				Bucket: this.bucketName,
+				Key: key,
+			});
+			await this.s3Client.send(deleteCommand);
+		} catch (error: any) {
+			if (error.name === 'NotFound') {
+				throw new NotFoundException(`File not found: ${key}`);
+			}
+			throw error;
+		}
 	}
 
-	async deleteFiles(blobUrlsOrNames: string[]): Promise<void> {
-		if (!blobUrlsOrNames || blobUrlsOrNames.length === 0) return;
+	async deleteFiles(s3UrlsOrKeys: string[]): Promise<void> {
+		if (!s3UrlsOrKeys || s3UrlsOrKeys.length === 0) return;
 
-		await Promise.all(blobUrlsOrNames.map((url) => this.deleteFile(url)));
+		await Promise.all(s3UrlsOrKeys.map((url) => this.deleteFile(url)));
 	}
 }

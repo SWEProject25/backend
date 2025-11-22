@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, IsUrl, IsDate } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, MaxLength, IsUrl, IsDate, ValidateIf } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -16,37 +16,14 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsDate()
   @Type(() => Date)
+  @Transform(({ value }) => (value ? new Date(value) : undefined))
   @ApiPropertyOptional({
     description: 'The birth date of the user',
-    example: '1990-01-01',
+    example: '2004-01-01',
     type: String,
     format: 'date',
   })
-  birthDate?: Date;
-
-  @IsOptional()
-  @IsUrl({}, { message: 'Invalid profile image URL format' })
-  @MaxLength(255, {
-    message: 'Profile image URL must be at most 255 characters long',
-  })
-  @ApiPropertyOptional({
-    description: 'URL of the user profile image',
-    example: 'https://example.com/profile.jpg',
-    maxLength: 255,
-  })
-  profileImageUrl?: string;
-
-  @IsOptional()
-  @IsUrl({}, { message: 'Invalid banner image URL format' })
-  @MaxLength(255, {
-    message: 'Banner image URL must be at most 255 characters long',
-  })
-  @ApiPropertyOptional({
-    description: 'URL of the user banner image',
-    example: 'https://example.com/banner.jpg',
-    maxLength: 255,
-  })
-  bannerImageUrl?: string;
+  birth_date?: Date;
 
   @IsOptional()
   @IsString()
@@ -69,6 +46,16 @@ export class UpdateProfileDto {
   location?: string;
 
   @IsOptional()
+  @IsString()
+  @Transform(({ value }) => {
+    if (!value || value.trim() === '') return '';
+    // Add https:// if no protocol is specified
+    if (!/^https?:\/\//i.test(value)) {
+      return `https://${value}`;
+    }
+    return value;
+  })
+  @ValidateIf((o) => o.website && o.website.trim() !== '')
   @IsUrl({}, { message: 'Invalid website URL format' })
   @MaxLength(100, { message: 'Website must be at most 100 characters long' })
   @ApiPropertyOptional({

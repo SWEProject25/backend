@@ -1,17 +1,26 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Inject,
   Param,
+  ParseFilePipe,
   ParseIntPipe,
   Patch,
+  Post,
   UseGuards,
   Query,
+  UseInterceptors,
+  UploadedFile,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
 import {
+  ApiBody,
+  ApiConsumes,
   ApiCookieAuth,
   ApiOperation,
   ApiParam,
@@ -19,13 +28,16 @@ import {
   ApiTags,
   ApiQuery,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { GetProfileResponseDto } from './dto/get-profile-response.dto';
 import { UpdateProfileResponseDto } from './dto/update-profile-response.dto';
 import { SearchProfileResponseDto } from './dto/search-profile-response.dto';
+import { GetProfileWithFollowStatusResponseDto } from './dto/get-profile-with-follow-status-response.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Routes, Services } from 'src/utils/constants';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
@@ -72,7 +84,7 @@ export class ProfileController {
   }
 
   @Get('user/:userId')
-  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get user profile by user ID',
@@ -87,15 +99,18 @@ export class ProfileController {
   @ApiResponse({
     status: 200,
     description: 'Profile retrieved successfully',
-    type: GetProfileResponseDto,
+    type: GetProfileWithFollowStatusResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Profile not found',
     type: ErrorResponseDto,
   })
-  public async getProfileByUserId(@Param('userId', ParseIntPipe) userId: number) {
-    const profile = await this.profileService.getProfileByUserId(userId);
+  public async getProfileByUserId(
+    @Param('userId', ParseIntPipe) userId: number,
+    @CurrentUser() user?: any,
+  ) {
+    const profile = await this.profileService.getProfileByUserId(userId, user?.id);
     return {
       status: 'success',
       message: 'Profile retrieved successfully',
@@ -104,7 +119,7 @@ export class ProfileController {
   }
 
   @Get('username/:username')
-  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get user profile by username',
@@ -119,15 +134,18 @@ export class ProfileController {
   @ApiResponse({
     status: 200,
     description: 'Profile retrieved successfully',
-    type: GetProfileResponseDto,
+    type: GetProfileWithFollowStatusResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Profile not found',
     type: ErrorResponseDto,
   })
-  public async getProfileByUsername(@Param('username') username: string) {
-    const profile = await this.profileService.getProfileByUsername(username);
+  public async getProfileByUsername(
+    @Param('username') username: string,
+    @CurrentUser() user?: any,
+  ) {
+    const profile = await this.profileService.getProfileByUsername(username, user?.id);
     return {
       status: 'success',
       message: 'Profile retrieved successfully',
@@ -136,7 +154,7 @@ export class ProfileController {
   }
 
   @Get('search')
-  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Search profiles by username or name',
@@ -177,6 +195,7 @@ export class ProfileController {
   public async searchProfiles(
     @Query('query') query: string,
     @Query() paginationDto: PaginationDto,
+    @CurrentUser() user?: any,
   ) {
     if (!query || query.trim().length === 0) {
       return {
@@ -196,6 +215,7 @@ export class ProfileController {
       query.trim(),
       paginationDto.page,
       paginationDto.limit,
+      user?.id,
     );
 
     return {
@@ -242,6 +262,186 @@ export class ProfileController {
     return {
       status: 'success',
       message: 'Profile updated successfully',
+      data: updatedProfile,
+    };
+  }
+
+  @Post('me/profile-picture')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Upload or update profile picture',
+    description: 'Uploads a new profile picture for the currently authenticated user.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Profile picture file (JPG, JPEG, PNG, WEBP)',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile picture updated successfully',
+    type: UpdateProfileResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid file format or size',
+    type: ErrorResponseDto,
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  public async updateProfilePicture(
+    @CurrentUser() user: any,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    const updatedProfile = await this.profileService.updateProfilePicture(user.id, file);
+    return {
+      status: 'success',
+      message: 'Profile picture updated successfully',
+      data: updatedProfile,
+    };
+  }
+
+  @Delete('me/profile-picture')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Delete profile picture',
+    description: 'Deletes the current profile picture and restores the default one.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Profile picture deleted successfully',
+    type: UpdateProfileResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Profile not found',
+    type: ErrorResponseDto,
+  })
+  public async deleteProfilePicture(@CurrentUser() user: any) {
+    const updatedProfile = await this.profileService.deleteProfilePicture(user.id);
+    return {
+      status: 'success',
+      message: 'Profile picture deleted successfully',
+      data: updatedProfile,
+    };
+  }
+
+  @Post('me/banner')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Upload or update banner image',
+    description: 'Uploads a new banner image for the currently authenticated user.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Banner image file (JPG, JPEG, PNG, WEBP)',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Banner image updated successfully',
+    type: UpdateProfileResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - Invalid file format or size',
+    type: ErrorResponseDto,
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  public async updateBanner(
+    @CurrentUser() user: any,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    const updatedProfile = await this.profileService.updateBanner(user.id, file);
+    return {
+      status: 'success',
+      message: 'Banner image updated successfully',
+      data: updatedProfile,
+    };
+  }
+
+  @Delete('me/banner')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Delete banner image',
+    description: 'Deletes the current banner image and restores the default one.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Banner image deleted successfully',
+    type: UpdateProfileResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Profile not found',
+    type: ErrorResponseDto,
+  })
+  public async deleteBanner(@CurrentUser() user: any) {
+    const updatedProfile = await this.profileService.deleteBanner(user.id);
+    return {
+      status: 'success',
+      message: 'Banner image deleted successfully',
       data: updatedProfile,
     };
   }

@@ -31,20 +31,28 @@ export class MessagesService {
       throw new Error('Conversation not found');
     }
 
-    // Create and return the message
-    return this.prismaService.message.create({
-      data: {
-        text,
-        senderId,
-        conversationId,
-      },
-      select: {
-        id: true,
-        conversationId: true,
-        senderId: true,
-        text: true,
-        createdAt: true,
-      },
+    // Create the message and update conversation timestamp in a transaction
+    return this.prismaService.$transaction(async (prisma) => {
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: {}, // Empty update triggers @updatedAt
+      });
+
+      return prisma.message.create({
+        data: {
+          text,
+          senderId,
+          conversationId,
+        },
+        select: {
+          id: true,
+          conversationId: true,
+          messageIndex: true,
+          senderId: true,
+          text: true,
+          createdAt: true,
+        },
+      });
     });
   }
 
@@ -97,6 +105,9 @@ export class MessagesService {
     }
 
     const isUser1 = currentUserId === conversation.user1Id;
+    if (!isUser1 && currentUserId !== conversation.user2Id) {
+      throw new ForbiddenException('You are not part of this conversation');
+    }
     const deletedField = isUser1 ? 'isDeletedU1' : 'isDeletedU2';
 
     // Build the where clause with cursor-based pagination
@@ -121,6 +132,8 @@ export class MessagesService {
         take: limit,
         select: {
           id: true,
+          conversationId: true,
+          messageIndex: true,
           text: true,
           senderId: true,
           isSeen: true,
@@ -145,6 +158,56 @@ export class MessagesService {
         limit,
         hasMore: messages.length === limit,
         lastMessageId: reversedMessages.length > 0 ? reversedMessages[0].id : null,
+      },
+    };
+  }
+
+  async getConversationLostMessages(
+    conversationId: number,
+    currentUserId: number,
+    firstMessageId: number,
+  ) {
+    // First get the conversation to determine if user is user1 or user2
+    const messages = await this.prismaService.$transaction(async (prisma) => {
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId },
+        select: { user1Id: true, user2Id: true },
+      });
+
+      if (!conversation) {
+        throw new ConflictException('Conversation not found');
+      }
+
+      const isUser1 = currentUserId === conversation.user1Id;
+      if (!isUser1 && currentUserId !== conversation.user2Id) {
+        throw new ForbiddenException('You are not part of this conversation');
+      }
+      const deletedField = isUser1 ? 'isDeletedU1' : 'isDeletedU2';
+      return prisma.message.findMany({
+        where: {
+          conversationId,
+          [deletedField]: false,
+          id: {
+            gt: firstMessageId,
+          },
+        },
+        select: {
+          id: true,
+          conversationId: true,
+          messageIndex: true,
+          text: true,
+          senderId: true,
+          isSeen: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    });
+    return {
+      data: messages,
+      metadata: {
+        totalItems: messages.length,
+        firstMessageId: messages.length > 0 ? messages[messages.length - 1].id : null,
       },
     };
   }

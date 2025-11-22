@@ -1,14 +1,21 @@
 import {
+  BadRequestException,
   Body,
   Controller,
-  Delete, FileTypeValidator,
+  Delete,
+  FileTypeValidator,
   Get,
   HttpStatus,
-  Inject, MaxFileSizeValidator,
-  Param, ParseFilePipe,
+  Inject,
+  MaxFileSizeValidator,
+  Param,
+  ParseArrayPipe,
+  ParseFilePipe,
   Post,
-  Query, UploadedFiles,
-  UseGuards, UseInterceptors,
+  Query,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { PostService } from './services/post.service';
 import { LikeService } from './services/like.service';
@@ -36,17 +43,21 @@ import {
   GetLikedPostsResponseDto,
 } from './dto/like-response.dto';
 import { ToggleRepostResponseDto, GetRepostersResponseDto } from './dto/repost-response.dto';
+import { SearchByHashtagResponseDto } from './dto/hashtag-search-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
 
 import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { PostFiltersDto } from './dto/post-filter.dto';
+import { SearchPostsDto } from './dto/search-posts.dto';
+import { SearchByHashtagDto } from './dto/search-by-hashtag.dto';
 import { MentionService } from './services/mention.service';
 import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
-import { Mention, Post as PostModel, PostVisibility, User } from 'generated/prisma';
+import { Mention, Post as PostModel, PostVisibility, User } from '@prisma/client';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ImageVideoUploadPipe } from 'src/storage/pipes/file-upload.pipe';
+import { TimelineFeedResponseDto } from './dto/timeline-feed-reponse.dto';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -92,7 +103,7 @@ export class PostController {
   async createPost(
     @Body() createPostDto: CreatePostDto,
     @CurrentUser() user: AuthenticatedUser,
-    @UploadedFiles( ImageVideoUploadPipe ) media: Express.Multer.File[]
+    @UploadedFiles(ImageVideoUploadPipe) media: Express.Multer.File[],
   ) {
     createPostDto.userId = user.id;
     createPostDto.media = media;
@@ -165,6 +176,171 @@ export class PostController {
     };
   }
 
+  @Get('search')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Search posts by content',
+    description:
+      'Full-text search using trigram similarity with relevance ranking. Supports partial matching and fuzzy search.',
+  })
+  @ApiQuery({
+    name: 'searchQuery',
+    required: true,
+    type: String,
+    description: 'Search query to match against post content (minimum 2 characters)',
+    example: 'machine learning',
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    type: Number,
+    description: 'Filter search results by user ID',
+    example: 42,
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['POST', 'REPLY', 'QUOTE'],
+    description: 'Filter search results by post type',
+    example: 'POST',
+  })
+  @ApiQuery({
+    name: 'similarityThreshold',
+    required: false,
+    type: Number,
+    description: 'Minimum similarity threshold (0.0 to 1.0). Lower values return more results.',
+    example: 0.1,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Search results retrieved successfully',
+    type: GetPostsResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid query parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async searchPosts(@Query() searchDto: SearchPostsDto, @CurrentUser() user: AuthenticatedUser) {
+    const { posts, totalItems, page, limit } = await this.postService.searchPosts(
+      searchDto,
+      user.id,
+    );
+
+    return {
+      status: 'success',
+      message: 'Search results retrieved successfully',
+      data: posts,
+      metadata: {
+        totalItems,
+        page,
+        limit,
+        totalPages: Math.ceil(totalItems / limit),
+      },
+    };
+  }
+
+  @Get('search/hashtag')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Search posts by hashtag',
+    description:
+      'Search posts containing a specific hashtag. Returns posts with engagement metrics and user information.',
+  })
+  @ApiQuery({
+    name: 'hashtag',
+    required: true,
+    type: String,
+    description: 'Hashtag to search for (with or without # symbol)',
+    example: 'typescript',
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    type: Number,
+    description: 'Filter search results by user ID',
+    example: 42,
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['POST', 'REPLY', 'QUOTE'],
+    description: 'Filter search results by post type',
+    example: 'POST',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Posts with hashtag retrieved successfully',
+    type: SearchByHashtagResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid query parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async searchPostsByHashtag(
+    @Query() searchDto: SearchByHashtagDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const { posts, totalItems, page, limit, hashtag } = await this.postService.searchPostsByHashtag(
+      searchDto,
+      user.id,
+    );
+
+    return {
+      status: 'success',
+      message: `Posts with hashtag #${hashtag} retrieved successfully`,
+      data: posts,
+      metadata: {
+        hashtag,
+        totalItems,
+        page,
+        limit,
+        totalPages: Math.ceil(totalItems / limit),
+      },
+    };
+  }
+
   @Get(':postId')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
@@ -188,8 +364,8 @@ export class PostController {
     description: 'Post not found',
     type: ErrorResponseDto,
   })
-  async getPostById(@Param('postId') postId: number) {
-    const post = await this.postService.getPostById(postId);
+  async getPostById(@Param('postId') postId: number, @CurrentUser() user: AuthenticatedUser) {
+    const post = await this.postService.getPostById(postId, user.id);
 
     return {
       status: 'success',
@@ -371,8 +547,9 @@ export class PostController {
     @Param('postId') postId: number,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    const replies = await this.postService.getRepliesOfPost(+postId, +page, +limit);
+    const replies = await this.postService.getRepliesOfPost(+postId, +page, +limit, user.id);
 
     return {
       status: 'success',
@@ -929,12 +1106,23 @@ export class PostController {
     };
   }
 
-  @Get('timeline')
+  @Get('timeline/for-you')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
   @ApiOperation({
-    summary: 'Get user timeline posts',
-    description: 'Retrieves a paginated list of posts for the authenticated user timeline',
+    summary: 'Get personalized "For You" feed',
+    description:
+      'Returns a ranked list of personalized posts for the authenticated user. Requires authentication.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Personalized posts retrieved successfully',
+    type: TimelineFeedResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
   })
   @ApiQuery({
     name: 'page',
@@ -950,26 +1138,168 @@ export class PostController {
     description: 'Number of posts per page',
     example: 10,
   })
+  async getForYouFeed(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const posts = await this.postService.getForYouFeed(user.id, page, limit);
+
+    return {
+      status: 'success',
+      message: 'Posts retrieved successfully',
+      data: posts,
+    };
+  }
+
+  @Get('timeline/following')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get personalized "Following" feed',
+    description:
+      'Returns a ranked list of posts from users the authenticated user follows. Requires authentication.',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Timeline posts retrieved successfully',
-    type: ApiResponseDto<PostModel[]>,
+    description: 'Personalized posts retrieved successfully',
+    type: TimelineFeedResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'Unauthorized - Token missing or invalid',
     type: ErrorResponseDto,
   })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
   async getUserTimeline(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const posts = await this.postService.getUserTimeline(user.id, page, limit);
+    const posts = await this.postService.getFollowingForFeed(user.id, page, limit);
 
     return {
       status: 'success',
-      message: 'Timeline posts retrieved successfully',
+      message: 'Posts retrieved successfully',
+      data: posts,
+    };
+  }
+
+  @Get('timeline/explore')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get personalized "Explore" feed',
+    description:
+      'Returns posts matching user interests with personalized ranking. Requires authentication.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Interest-based posts retrieved successfully',
+    type: TimelineFeedResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  async getExploreFeed(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const posts = await this.postService.getExploreFeed(user.id, page, limit);
+
+    return {
+      status: 'success',
+      message: 'Explore posts retrieved successfully',
+      data: posts,
+    };
+  }
+
+  @Get('timeline/explore/interests')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get posts filtered by specific interests',
+    description:
+      'Returns posts matching provided interest names with personalized ranking. Requires authentication. Posts matching the specified interests get boosted in ranking, but all posts are shown.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Interest-filtered posts retrieved successfully',
+    type: TimelineFeedResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Interests array is required',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiQuery({
+    name: 'interests',
+    required: true,
+    type: [String],
+    isArray: true,
+    description: 'Array of interest names to boost ranking (required, minimum 1 interest)',
+    example: ['Technology', 'Sports'],
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of posts per page',
+    example: 10,
+  })
+  async getExploreByInterestsFeed(
+    @Query('interests', new ParseArrayPipe({ items: String, optional: false })) interests: string[],
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const posts = await this.postService.getExploreByInterestsFeed(user.id, interests, page, limit);
+
+    return {
+      status: 'success',
+      message: 'Interest-filtered posts retrieved successfully',
       data: posts,
     };
   }

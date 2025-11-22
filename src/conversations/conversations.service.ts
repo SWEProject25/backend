@@ -260,4 +260,100 @@ export class ConversationsService {
 
     return unseenCount.length;
   }
+
+  async getConversationById(conversationId: number, userId: number) {
+    const conversation = await this.prismaService.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        id: true,
+        updatedAt: true,
+        createdAt: true,
+        User1: {
+          select: {
+            id: true,
+            username: true,
+            Profile: {
+              select: {
+                name: true,
+                profile_image_url: true,
+              },
+            },
+          },
+        },
+        User2: {
+          select: {
+            id: true,
+            username: true,
+            Profile: {
+              select: {
+                name: true,
+                profile_image_url: true,
+              },
+            },
+          },
+        },
+        Messages: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 10, // Take more messages to find a visible one
+          select: {
+            id: true,
+            text: true,
+            senderId: true,
+            createdAt: true,
+            updatedAt: true,
+            isDeletedU1: true,
+            isDeletedU2: true,
+          },
+        },
+      },
+    });
+
+    if (!conversation) {
+      throw new ConflictException('Conversation not found');
+    }
+
+    const isUser1 = userId === conversation.User1.id;
+
+    if (!isUser1 && userId !== conversation.User2.id) {
+      throw new ConflictException('You are not part of this conversation');
+    }
+
+    // Find the first message that's not deleted for this user
+    const lastVisibleMessage = conversation.Messages.find((msg) =>
+      isUser1 ? !msg.isDeletedU1 : !msg.isDeletedU2,
+    );
+
+    const transformedConversation = {
+      id: conversation.id,
+      updatedAt: conversation.updatedAt,
+      createdAt: conversation.createdAt,
+      lastMessage: lastVisibleMessage
+        ? {
+            id: lastVisibleMessage.id,
+            text: lastVisibleMessage.text,
+            senderId: lastVisibleMessage.senderId,
+            createdAt: lastVisibleMessage.createdAt,
+            updatedAt: lastVisibleMessage.updatedAt,
+          }
+        : null,
+      user:
+        userId === conversation.User1.id
+          ? {
+              id: conversation.User2.id,
+              username: conversation.User2.username,
+              profile_image_url: conversation.User2.Profile?.profile_image_url ?? null,
+              displayName: conversation.User2.Profile?.name ?? null,
+            }
+          : {
+              id: conversation.User1.id,
+              username: conversation.User1.username,
+              profile_image_url: conversation.User1.Profile?.profile_image_url ?? null,
+              displayName: conversation.User1.Profile?.name ?? null,
+            },
+    };
+
+    return { data: transformedConversation };
+  }
 }

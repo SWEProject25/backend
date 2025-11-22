@@ -5,6 +5,7 @@ import {
   ApiTags,
   ApiParam,
   ApiQuery,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import {
   Controller,
@@ -17,6 +18,9 @@ import {
   Param,
   ParseIntPipe,
   Query,
+  HttpCode,
+  Req,
+  Body,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { Services } from 'src/utils/constants';
@@ -29,6 +33,15 @@ import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { UserInteractionDto } from './dto/UserInteraction.dto';
 import { BlockResponseDto } from './dto/block-response.dto';
 import { MuteResponseDto } from './dto/mute-response.dto';
+import { GetSuggestedUsersQueryDto, SuggestedUsersResponseDto } from './dto/suggested-users.dto';
+import { Public } from 'src/auth/decorators/public.decorator';
+import {
+  GetAllInterestsResponseDto,
+  GetUserInterestsResponseDto,
+  SaveUserInterestsDto,
+  SaveUserInterestsResponseDto,
+} from './dto/interest.dto';
+import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt-auth/optional-jwt-auth.guard';
 
 @ApiTags('Users')
 @Controller('users')
@@ -620,6 +633,144 @@ export class UsersController {
       message: 'Muted users retrieved successfully',
       data,
       metadata,
+    };
+  }
+  @Get('suggested')
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get suggested users to follow',
+    description: `
+    Returns suggested users based on popularity (follower count).
+    
+    **Public access:** Shows all popular users (for landing pages, marketing)
+    **Authenticated access:** Excludes already followed and blocked users by default
+    
+    Query parameters allow fine-tuning the behavior.
+  `,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully retrieved suggested users',
+    type: SuggestedUsersResponseDto,
+  })
+  async getSuggestedUsers(
+    @Query() query: GetSuggestedUsersQueryDto,
+    @CurrentUser() user?: AuthenticatedUser,
+  ): Promise<SuggestedUsersResponseDto> {
+    const limit = query.limit || 10;
+    const userId = user?.id; // Will be undefined if not authenticated
+
+    // Default behavior: exclude followed and blocked if authenticated
+    const excludeFollowed = query.excludeFollowed ?? !!userId;
+    const excludeBlocked = query.excludeBlocked ?? !!userId;
+
+    const data = await this.usersService.getSuggestedUsers(
+      userId,
+      limit,
+      excludeFollowed,
+      excludeBlocked,
+    );
+
+    return {
+      status: 'success',
+      message:
+        data.length > 0 ? 'Successfully retrieved suggested users' : 'No suggested users available',
+      total: data.length,
+      data: { users: data },
+    };
+  }
+
+  @Get('interests/me')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Get current user's interests",
+    description: 'Returns the interests selected by the authenticated user',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully retrieved user interests',
+    type: GetUserInterestsResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'User not authenticated',
+  })
+  async getUserInterests(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<GetUserInterestsResponseDto> {
+    const userId = user?.id;
+    const data = await this.usersService.getUserInterests(userId);
+
+    return {
+      status: 'success',
+      message: 'Successfully retrieved user interests',
+      data,
+      total: data.length,
+    };
+  }
+
+  @Post('interests/me')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Save user interests',
+    description:
+      'Save user interests and mark the interests onboarding step as complete. This replaces all existing interests.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Interests saved successfully',
+    type: SaveUserInterestsResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid interest IDs provided or no interests selected',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'User not authenticated',
+  })
+  async saveUserInterests(
+    @Req() req: any,
+    @Body() saveUserInterestsDto: SaveUserInterestsDto,
+  ): Promise<SaveUserInterestsResponseDto> {
+    const userId = req.user?.id;
+    const savedCount = await this.usersService.saveUserInterests(
+      userId,
+      saveUserInterestsDto.interestIds,
+    );
+
+    return {
+      status: 'success',
+      message: 'Interests saved successfully. Please follow some users to complete onboarding.',
+      savedCount,
+    };
+  }
+
+  @Get('interests')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get all available interests',
+    description:
+      'Returns all interests that users can select during onboarding or profile setup. Public endpoint, no authentication required.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully retrieved all interests',
+    type: GetAllInterestsResponseDto,
+  })
+  async getAllInterests(): Promise<GetAllInterestsResponseDto> {
+    const interests = await this.usersService.getAllInterests();
+
+    return {
+      status: 'success',
+      message: 'Successfully retrieved interests',
+      total: interests.length,
+      data: interests,
     };
   }
 }

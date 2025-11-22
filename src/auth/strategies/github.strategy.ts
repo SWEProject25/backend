@@ -20,7 +20,7 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
       clientID: githubOauthConfiguration.clientID!,
       clientSecret: githubOauthConfiguration.clientSecret!,
       callbackURL: githubOauthConfiguration.callbackURL!,
-      scope: ['profile'],
+      scope: ['user:email'],
     });
   }
 
@@ -30,12 +30,14 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     profile: Profile,
     done: VerifiedCallback,
   ) {
-    const username = profile?.username;
+    const email = profile.emails![0].value.toLowerCase();
+    const username = profile.username!;
     const userDisplayname = profile.displayName;
     const providerId = profile.id;
     const provider = profile.provider;
     const profileImageUrl = profile?.photos![0].value;
     const githubUserDto: OAuthProfileDto = {
+      email,
       username,
       displayName: userDisplayname,
       provider,
@@ -43,6 +45,7 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
       profileImageUrl,
     };
     const user = await this.authService.validateGithubUser(githubUserDto);
+    console.log('githubUser', user, 'email', email);
     done(null, user);
   }
 }

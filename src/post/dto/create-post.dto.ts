@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { PostType, PostVisibility } from 'generated/prisma';
+import { PostType, PostVisibility } from '@prisma/client';
+import { Transform } from 'class-transformer';
 
 export class CreatePostDto {
   @IsString()
@@ -24,6 +25,7 @@ export class CreatePostDto {
   type: PostType;
 
   @IsOptional()
+  @Transform(({ value }) => (value ? parseInt(value, 10) : undefined))
   @ApiPropertyOptional({
     description: 'The ID of the parent post (used when this post is a reply or quote)',
     example: 42,
@@ -44,7 +46,7 @@ export class CreatePostDto {
   visibility: PostVisibility;
 
   // assigned in the controller
- @ApiPropertyOptional({
+  @ApiPropertyOptional({
     description: 'Media files (images/videos) to attach to the post',
     type: 'array',
     items: {
@@ -53,6 +55,6 @@ export class CreatePostDto {
     },
   })
   media?: Express.Multer.File[];
-  
+
   userId: number;
 }

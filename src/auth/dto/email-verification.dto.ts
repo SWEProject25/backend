@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, Length } from 'class-validator';
+import { ToLowerCase } from 'src/common/decorators/lowercase.decorator';
+import { Trim } from 'src/common/decorators/trim.decorator';
 
 export class EmailDto {
   @ApiProperty({
@@ -8,6 +10,8 @@ export class EmailDto {
   })
   @IsEmail({}, { message: 'Please provide a valid email address' })
   @IsNotEmpty({ message: 'email is required' })
+  @Trim()
+  @ToLowerCase()
   email: string;
 }
 

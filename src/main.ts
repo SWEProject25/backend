@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import * as cookieParser from 'cookie-parser';
 import { AuthenticatedSocketAdapter } from './messages/adapters/ws-auth.adapter';
 import { JwtService } from '@nestjs/jwt';
@@ -63,6 +63,8 @@ async function bootstrap() {
     .build();
 
   const documentation = SwaggerModule.createDocument(app, swagger);
+  // ensure docs folder exists
+  mkdirSync('./docs', { recursive: true });
   // http://localhost:PORT/swagger
   SwaggerModule.setup('swagger', app, documentation);
   app.getHttpAdapter().get('/swagger.json', (req, res) => {

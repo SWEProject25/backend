@@ -9,6 +9,8 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { StorageService } from 'src/storage/storage.service';
 import { AiSummarizationService } from 'src/ai-integration/services/summarization.service';
 import { BullModule } from '@nestjs/bullmq';
+import { HttpModule } from '@nestjs/axios';
+import { MLService } from './services/ml.service';
 
 @Module({
   controllers: [PostController],
@@ -37,10 +39,12 @@ import { BullModule } from '@nestjs/bullmq';
     {
       provide: Services.AI_SUMMARIZATION,
       useClass: AiSummarizationService,
-    }
+    },
+
+    MLService,
   ],
   imports: [
-    PrismaModule,
+    PrismaModule, HttpModule,
     BullModule.registerQueue({
       name: RedisQueues.postQueue.name,
       defaultJobOptions: {

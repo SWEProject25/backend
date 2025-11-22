@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PostType, PostVisibility, MediaType } from 'generated/prisma';
+import { PostType, PostVisibility, MediaType } from '@prisma/client';
 
 class PostCountsDto {
   @ApiProperty({
@@ -38,7 +38,8 @@ class PostUserDto {
 class PostMediaDto {
   @ApiProperty({
     description: 'Media URL',
-    example: 'https://stsimpleappiee20o.blob.core.windows.net/media/d679f207-9248-49e7-917b-9cdc358217ed.png',
+    example:
+      'https://stsimpleappiee20o.blob.core.windows.net/media/d679f207-9248-49e7-917b-9cdc358217ed.png',
   })
   media_url: string;
 
@@ -119,6 +120,18 @@ export class PostResponseDto {
     type: [PostMediaDto],
   })
   media: PostMediaDto[];
+
+  @ApiProperty({
+    description: 'Whether the current user has liked this post',
+    example: true,
+  })
+  isLikedByMe?: boolean;
+
+  @ApiProperty({
+    description: 'Whether the current user has reposted this post',
+    example: true,
+  })
+  isRepostedByMe?: boolean;
 }
 
 export class CreatePostResponseDto {

@@ -1,8 +1,9 @@
-import { Controller, Inject, Post } from '@nestjs/common';
+import { Body, Controller, Inject, Post } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 import { Routes, Services } from 'src/utils/constants';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @Controller(Routes.EMAIL)
 export class EmailController {
@@ -26,5 +27,18 @@ export class EmailController {
       recipients: ['mohamedalbaz77@gmail.com'],
       html: template,
     });
+  }
+
+  @Post('test')
+  @Public()
+  async testEmail(@Body('email') email: string) {
+    const result = await this.emailService.sendEmail({
+      recipients: [email],
+      subject: 'Test Email from Azure',
+      html: '<h1>Test Email</h1><p>If you received this, Azure email is working!</p>',
+      text: 'Test Email - If you received this, Azure email is working!',
+    });
+
+    return result;
   }
 }

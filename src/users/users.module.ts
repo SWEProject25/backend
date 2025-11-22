@@ -3,6 +3,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { Services } from 'src/utils/constants';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { RedisModule } from 'src/redis/redis.module';
 
 @Module({
   controllers: [UsersController],
@@ -12,6 +13,6 @@ import { PrismaModule } from 'src/prisma/prisma.module';
       useClass: UsersService,
     },
   ],
-  imports: [PrismaModule],
+  imports: [PrismaModule, RedisModule],
 })
 export class UsersModule {}

@@ -6,10 +6,15 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import { Inject, UnauthorizedException, UseFilters } from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
 import { Services } from 'src/utils/constants';
 import { Server, Socket } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis';
+import redisConfig from 'src/config/redis.config';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
@@ -22,16 +27,34 @@ import { WebSocketExceptionFilter } from './exceptions/ws-exception.filter';
   },
 })
 @UseFilters(new WebSocketExceptionFilter())
-export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  private readonly connectedUsers = new Map<number, Set<string>>(); // userId -> Set of socketIds
-
+export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   constructor(
     @Inject(Services.MESSAGES)
     private readonly messagesService: MessagesService,
+    @Inject(redisConfig.KEY)
+    private readonly redisConfiguration: ConfigType<typeof redisConfig>,
   ) {}
 
   @WebSocketServer()
   server: Server;
+
+  async afterInit(server: Server) {
+    // Create Redis clients for the adapter
+    const pubClient = createClient({
+      socket: {
+        host: this.redisConfiguration.redisHost,
+        port: this.redisConfiguration.redisPort,
+      },
+    });
+    const subClient = pubClient.duplicate();
+
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+
+    // Set up Redis adapter for Socket.IO
+    server.adapter(createAdapter(pubClient, subClient));
+
+    console.log('Socket.IO Redis adapter initialized');
+  }
 
   handleConnection(client: Socket) {
     try {
@@ -42,12 +65,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         client.disconnect();
         return;
       }
-
-      // Track connected user
-      if (!this.connectedUsers.has(userId)) {
-        this.connectedUsers.set(userId, new Set());
-      }
-      this.connectedUsers.get(userId)!.add(client.id);
 
       // Join user's personal room for notifications
       client.join(`user_${userId}`);
@@ -63,13 +80,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       const userId = client.data.userId;
 
       if (userId) {
-        const userSockets = this.connectedUsers.get(userId);
-        if (userSockets) {
-          userSockets.delete(client.id);
-          if (userSockets.size === 0) {
-            this.connectedUsers.delete(userId);
-          }
-        }
+        console.log(`User ${userId} disconnected with socket ID ${client.id}`);
       }
     } catch (error) {
       console.error(`Disconnect error: ${error.message}`);
@@ -268,12 +279,35 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       await this.messagesService.markMessagesAsSeen(markSeenDto.conversationId, markSeenDto.userId);
 
-      // Notify other participants in the conversation
       socket.to(`conversation_${markSeenDto.conversationId}`).emit('messagesSeen', {
         conversationId: markSeenDto.conversationId,
         userId: markSeenDto.userId,
         timestamp: new Date().toISOString(),
       });
+
+      const participants = await this.messagesService.getConversationUsers(
+        markSeenDto.conversationId,
+      );
+      const recipientId =
+        markSeenDto.userId === participants.user1Id ? participants.user2Id : participants.user1Id;
+
+      const conversationRoom = this.server.sockets.adapter.rooms.get(
+        `conversation_${markSeenDto.conversationId}`,
+      );
+      const recipientRoom = this.server.sockets.adapter.rooms.get(`user_${recipientId}`);
+
+      const isRecipientInConversation =
+        conversationRoom &&
+        recipientRoom &&
+        [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
+
+      if (!isRecipientInConversation) {
+        this.server.to(`user_${recipientId}`).emit('messagesSeen', {
+          conversationId: markSeenDto.conversationId,
+          userId: markSeenDto.userId,
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       return {
         status: 'success',
@@ -302,6 +336,32 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         userId,
       });
 
+      const participants = await this.messagesService.getConversationUsers(data.conversationId);
+
+      if (userId !== participants.user1Id && userId !== participants.user2Id) {
+        throw new UnauthorizedException('You are not part of this conversation');
+      }
+
+      const recipientId =
+        userId === participants.user1Id ? participants.user2Id : participants.user1Id;
+
+      const conversationRoom = this.server.sockets.adapter.rooms.get(
+        `conversation_${data.conversationId}`,
+      );
+      const recipientRoom = this.server.sockets.adapter.rooms.get(`user_${recipientId}`);
+
+      const isRecipientInConversation =
+        conversationRoom &&
+        recipientRoom &&
+        [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
+
+      if (!isRecipientInConversation) {
+        this.server.to(`user_${recipientId}`).emit('userTyping', {
+          conversationId: data.conversationId,
+          userId,
+        });
+      }
+
       return { status: 'success' };
     } catch (error) {
       console.error(`Error handling typing event: ${error.message}`);
@@ -321,10 +381,37 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         throw new UnauthorizedException('User not authenticated');
       }
 
+      // Emit to conversation room
       socket.to(`conversation_${data.conversationId}`).emit('userStoppedTyping', {
         conversationId: data.conversationId,
         userId,
       });
+
+      const participants = await this.messagesService.getConversationUsers(data.conversationId);
+
+      if (userId !== participants.user1Id && userId !== participants.user2Id) {
+        throw new UnauthorizedException('You are not part of this conversation');
+      }
+
+      const recipientId =
+        userId === participants.user1Id ? participants.user2Id : participants.user1Id;
+
+      const conversationRoom = this.server.sockets.adapter.rooms.get(
+        `conversation_${data.conversationId}`,
+      );
+      const recipientRoom = this.server.sockets.adapter.rooms.get(`user_${recipientId}`);
+
+      const isRecipientInConversation =
+        conversationRoom &&
+        recipientRoom &&
+        [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
+
+      if (!isRecipientInConversation) {
+        this.server.to(`user_${recipientId}`).emit('userStoppedTyping', {
+          conversationId: data.conversationId,
+          userId,
+        });
+      }
 
       return { status: 'success' };
     } catch (error) {
