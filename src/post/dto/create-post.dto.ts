@@ -4,6 +4,7 @@ import { PostType, PostVisibility } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import { IsParentIdAllowed } from '../decorators/is-parent-id-allowed.decorator';
 import { IsContentRequiredIfNoMedia } from '../decorators/content-required-if-no-media.decorator';
+import { IsParentRequiredForReplyOrQuote } from '../decorators/parent-required-for-reply-or-quote.decorator';
 
 export class CreatePostDto {
   @IsOptional()
@@ -17,6 +18,7 @@ export class CreatePostDto {
   @IsContentRequiredIfNoMedia()
   content: string;
 
+  @IsParentRequiredForReplyOrQuote()
   @IsEnum(PostType, {
     message: `Type must be one of: ${Object.values(PostType).join(', ')}`,
   })
