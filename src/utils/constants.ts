@@ -24,9 +24,20 @@ export enum Services {
   CONVERSATIONS = 'CONVERSATIONS_SERVICE',
   MESSAGES = 'MESSAGES_SERVICE',
   REDIS = 'REDIS_SERVICE',
+  AI_SUMMARIZATION = 'AI_SUMMARIZATION_SERVICE',
+  QUEUE_CONSUMER = 'QUEUE_CONSUMER_SERVICE',
 }
 
 export enum RequestType {
   WEB = 'WEB',
   MOBILE = 'MOBILE',
 }
+
+export const RedisQueues = {
+  postQueue: {
+    name: 'post-queue',
+    processes: {
+      summarizePostContent: 'summarize-post-content',
+    }
+  }
+  }

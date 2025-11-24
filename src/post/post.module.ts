@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { PostController } from './post.controller';
 import { PostService } from './services/post.service';
-import { Services } from 'src/utils/constants';
+import { RedisQueues, Services } from 'src/utils/constants';
 import { LikeService } from './services/like.service';
 import { RepostService } from './services/repost.service';
 import { MentionService } from './services/mention.service';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { StorageService } from 'src/storage/storage.service';
+import { AiSummarizationService } from 'src/ai-integration/services/summarization.service';
+import { BullModule } from '@nestjs/bullmq';
 import { HttpModule } from '@nestjs/axios';
 import { MLService } from './services/ml.service';
 
@@ -34,9 +36,22 @@ import { MLService } from './services/ml.service';
       provide: Services.STORAGE,
       useClass: StorageService,
     },
+    {
+      provide: Services.AI_SUMMARIZATION,
+      useClass: AiSummarizationService,
+    },
 
     MLService,
   ],
-  imports: [PrismaModule, HttpModule],
+  imports: [
+    PrismaModule, HttpModule,
+    BullModule.registerQueue({
+      name: RedisQueues.postQueue.name,
+      defaultJobOptions: {
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    }),
+  ],
 })
-export class PostModule {}
+export class PostModule { }

@@ -1,15 +1,21 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Services } from 'src/utils/constants';
+import { RedisQueues, Services } from 'src/utils/constants';
 import { CreatePostDto } from '../dto/create-post.dto';
 import { PostFiltersDto } from '../dto/post-filter.dto';
 import { SearchPostsDto } from '../dto/search-posts.dto';
 import { SearchByHashtagDto } from '../dto/search-by-hashtag.dto';
 import { MediaType, Post, PostType, PostVisibility, Prisma as PrismalSql } from '@prisma/client';
 import { StorageService } from 'src/storage/storage.service';
+import { AiSummarizationService } from 'src/ai-integration/services/summarization.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { SummarizeJob } from 'src/common/interfaces/summarizeJob.interface';
 
 import { MLService } from './ml.service';
 import { RawPost, TransformedPost } from '../interfaces/post.interface';
+
+
 
 // This interface now reflects the complex object returned by our query
 
@@ -225,7 +231,11 @@ export class PostService {
     @Inject(Services.STORAGE)
     private readonly storageService: StorageService,
     private readonly mlService: MLService,
-  ) { }
+    @Inject(Services.AI_SUMMARIZATION)
+    private readonly aiSummarizationService: AiSummarizationService,
+    @InjectQueue(RedisQueues.postQueue.name)
+    private readonly postQueue: Queue,
+  ) {}
 
   private extractHashtags(content: string): string[] {
     if (!content) return [];
@@ -360,21 +370,41 @@ export class PostService {
 
       const mediaWithType = this.getMediaWithType(urls, media);
 
-      const post = await this.createPostTransaction(createPostDto, hashtags, mediaWithType);
+      const post = await this.createPostTransaction(
+        createPostDto,
+        hashtags,
+        mediaWithType,
+      );
 
-      const [fullPost] = await this.findPosts({
-        where: { id: post.id },
-        userId,
-        page: 1,
-        limit: 1,
-      });
+      await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
 
-      return fullPost;
+      return post;
     } catch (error) {
       // deleting uploaded files in case of any error
       await this.storageService.deleteFiles(urls);
       throw error;
     }
+  }
+
+  private async addToSummarizationQueue(job: SummarizeJob) {
+    await this.postQueue.add(
+      RedisQueues.postQueue.processes.summarizePostContent,
+      job
+    );
+  }
+
+  async summarizePost(postId: number) {
+    const post = await this.prismaService.post.findUnique({
+      where: { id: postId },
+    });
+
+    if (!post) throw new NotFoundException('Post not found');
+
+    if(post.summary) {
+      return post.summary;
+    }
+
+    return this.aiSummarizationService.summarizePost(post.content);
   }
 
   async getPostsWithFilters(filter: PostFiltersDto) {
