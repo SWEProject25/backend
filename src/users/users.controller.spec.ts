@@ -31,6 +31,8 @@ describe('UsersController', () => {
     is_verified: true,
     provider_id: null,
     role: 'USER',
+    has_completed_interests: false,
+    has_completed_following: false,
     created_at: new Date(),
     updated_at: new Date(),
   };
