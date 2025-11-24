@@ -487,10 +487,10 @@ export class AuthController {
           <script>
             (function () {
               const frontendBase = "${
-                // process.env.NODE_ENV === 'dev'
-                //   ? process.env.FRONTEND_URL
-                //   : process.env.FRONTEND_URL_PROD
-                process.env.FRONTEND_URL_PROD
+                process.env.NODE_ENV === 'dev'
+                  ? process.env.FRONTEND_URL
+                  : process.env.FRONTEND_URL_PROD
+                // process.env.FRONTEND_URL_PROD
               }";
               const url = frontendBase + '/home';
               const user = ${JSON.stringify(user)};
@@ -547,10 +547,10 @@ export class AuthController {
           <script>
             (function() {
               const frontendBase = "${
-                // process.env.NODE_ENV === 'dev'
-                //   ? process.env.FRONTEND_URL
-                //   : process.env.FRONTEND_URL_PROD
-                process.env.FRONTEND_URL_PROD
+                process.env.NODE_ENV === 'dev'
+                  ? process.env.FRONTEND_URL
+                  : process.env.FRONTEND_URL_PROD
+                // process.env.FRONTEND_URL_PROD
               }";
               const url = frontendBase + '/home';
               const user = ${JSON.stringify(user)};
