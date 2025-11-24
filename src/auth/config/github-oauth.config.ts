@@ -11,6 +11,6 @@ export default registerAs('githubOAuth', () => ({
       : process.env.GITHUB_SECRET_KEY_PROD,
   callbackURL:
     process.env.NODE_ENV === 'dev'
-      ? process.env.GITHUB_CALLBACK_URL
+      ? process.env.GITHUB_CALLBACK_URL_DEV
       : process.env.GITHUB_CALLBACK_URL_PROD,
 }));

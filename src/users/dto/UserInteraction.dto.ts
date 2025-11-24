@@ -39,4 +39,10 @@ export class UserInteractionDto {
     example: '2025-10-23T10:30:00.000Z',
   })
   followedAt: Date;
+
+  @ApiProperty({
+    description: 'Indicates if the user is followed back',
+    example: true,
+  })
+  is_followed_by_me: boolean;
 }

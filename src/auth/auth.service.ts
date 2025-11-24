@@ -167,18 +167,10 @@ export class AuthService {
   }
 
   public async validateGithubUser(githubUserData: OAuthProfileDto) {
-    // Debug logging
-    console.log('[GitHub OAuth] Validating user with data:', {
-      username: githubUserData.username,
-      providerId: githubUserData.providerId,
-      email: githubUserData.email || 'NO EMAIL',
-    });
-
     // First, check if user exists by provider_id (most reliable for OAuth)
     const existingUserByProvider = await this.userService.findByProviderId(
       githubUserData.providerId,
     );
-    console.log('[GitHub OAuth] User found by provider_id:', !!existingUserByProvider);
 
     if (existingUserByProvider) {
       return {
@@ -194,7 +186,6 @@ export class AuthService {
     // Check by email if provided (to link existing accounts)
     if (githubUserData.email) {
       const existingUserByEmail = await this.userService.getUserData(githubUserData.email);
-      console.log('[GitHub OAuth] User found by email:', !!existingUserByEmail?.user);
 
       if (existingUserByEmail?.user && existingUserByEmail?.profile) {
         // Link GitHub OAuth to existing account
@@ -255,6 +246,7 @@ export class AuthService {
     };
   }
   public async updateEmail(userId: number, email: string): Promise<void> {
+    // need constraint for providing the same email
     const existingUser = await this.userService.findByEmail(email);
 
     if (existingUser && existingUser.id !== userId) {
@@ -265,6 +257,7 @@ export class AuthService {
   }
 
   public async updateUsername(userId: number, username: string): Promise<void> {
+    // need constraint for providing the same username
     const existingUser = await this.userService.findByUsername(username);
 
     if (existingUser && existingUser.id !== userId) {

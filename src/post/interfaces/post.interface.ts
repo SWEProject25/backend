@@ -25,7 +25,7 @@ interface Count {
 export interface RawPost {
   id: number;
   user_id: number;
-  content: string;
+  content: string | null;
   type: string;
   parent_id: number | null;
   visibility: string;
@@ -53,7 +53,7 @@ export interface TransformedPost {
   isLikedByMe: boolean;
   isFollowedByMe: boolean;
   isRepostedByMe: boolean;
-  text: string;
+  text: string | null;
   media: { url: string; type: string }[];
   isRepost: boolean;
   isQuote: boolean;

@@ -24,7 +24,10 @@ describe('ConversationsService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ConversationsService,
+        {
+          provide: Services.CONVERSATIONS,
+          useClass: ConversationsService,
+        },
         {
           provide: Services.PRISMA,
           useValue: mockPrismaService,
@@ -32,7 +35,7 @@ describe('ConversationsService', () => {
       ],
     }).compile();
 
-    service = module.get<ConversationsService>(ConversationsService);
+    service = module.get<ConversationsService>(Services.CONVERSATIONS);
     prismaService = module.get<PrismaService>(Services.PRISMA);
   });
 
@@ -75,6 +78,7 @@ describe('ConversationsService', () => {
           limit: 20,
           hasMore: false,
           lastMessageId: null,
+          newestMessageId: null,
         },
       });
       expect(mockPrismaService.conversation.create).toHaveBeenCalledWith({
