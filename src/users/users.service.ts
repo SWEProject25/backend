@@ -136,7 +136,7 @@ export class UsersService {
     }
   }
 
-  async getFollowers(userId: number, page: number = 1, limit: number = 10) {
+  async getFollowers(userId: number, page: number = 1, limit: number = 10, authenticatedUserId: number) {
     const [totalItems, followers] = await this.prismaService.$transaction([
       this.prismaService.follow.count({
         where: { followingId: userId },
@@ -161,10 +161,10 @@ export class UsersService {
     // Get all follower IDs
     const followerIds = followers.map((f) => f.Follower.id);
 
-    // Single query to check which ones you're following
+    // Single query to check which ones the authenticated user is following
     const followingRelations = await this.prismaService.follow.findMany({
       where: {
-        followerId: userId,
+        followerId: authenticatedUserId,
         followingId: { in: followerIds },
       },
       select: { followingId: true },
@@ -193,7 +193,7 @@ export class UsersService {
     return { data, metadata };
   }
 
-  async getFollowing(userId: number, page: number = 1, limit: number = 10) {
+  async getFollowing(userId: number, page: number = 1, limit: number = 10, authenticatedUserId: number) {
     const [totalItems, following] = await this.prismaService.$transaction([
       this.prismaService.follow.count({
         where: { followerId: userId },
@@ -215,14 +215,14 @@ export class UsersService {
       }),
     ]);
 
-    // Get all follower IDs
-    const followerIds = following.map((f) => f.Following.id);
+    // Get all following IDs
+    const followingIds = following.map((f) => f.Following.id);
 
-    // Single query to check which ones you're following
+    // Single query to check which ones the authenticated user is following
     const followingRelations = await this.prismaService.follow.findMany({
       where: {
-        followerId: userId,
-        followingId: { in: followerIds },
+        followerId: authenticatedUserId,
+        followingId: { in: followingIds },
       },
       select: { followingId: true },
     });

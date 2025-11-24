@@ -218,11 +218,13 @@ export class UsersController {
   async getFollowers(
     @Param('id', ParseIntPipe) userId: number,
     @Query() paginationQuery: PaginationDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     const { data, metadata } = await this.usersService.getFollowers(
       userId,
       paginationQuery.page,
       paginationQuery.limit,
+      currentUser.id,
     );
 
     return {
@@ -287,11 +289,13 @@ export class UsersController {
   async getFollowing(
     @Param('id', ParseIntPipe) userId: number,
     @Query() paginationQuery: PaginationDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     const { data, metadata } = await this.usersService.getFollowing(
       userId,
       paginationQuery.page,
       paginationQuery.limit,
+      currentUser.id,
     );
 
     return {

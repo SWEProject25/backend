@@ -233,6 +233,7 @@ describe('UsersService', () => {
 
   describe('getFollowers', () => {
     const userId = 1;
+    const authenticatedUserId = 5;
     const page = 1;
     const limit = 10;
 
@@ -273,10 +274,10 @@ describe('UsersService', () => {
 
       // Mock the follow relationship query for isFollowedByMe
       mockPrismaService.follow.findMany.mockResolvedValue([
-        { followingId: 2 }, // userId is following follower1
+        { followingId: 2 }, // authenticatedUser is following follower1
       ]);
 
-      const result = await service.getFollowers(userId, page, limit);
+      const result = await service.getFollowers(userId, page, limit, authenticatedUserId);
 
       expect(result).toEqual({
         data: [
@@ -316,10 +317,10 @@ describe('UsersService', () => {
         }),
       ]);
 
-      // Verify the follow relationship query was called
+      // Verify the follow relationship query was called with authenticatedUserId
       expect(mockPrismaService.follow.findMany).toHaveBeenCalledWith({
         where: {
-          followerId: userId,
+          followerId: authenticatedUserId,
           followingId: { in: [2, 3] },
         },
         select: { followingId: true },
@@ -332,7 +333,7 @@ describe('UsersService', () => {
       // Mock empty follow relationship query
       mockPrismaService.follow.findMany.mockResolvedValue([]);
 
-      const result = await service.getFollowers(userId, page, limit);
+      const result = await service.getFollowers(userId, page, limit, authenticatedUserId);
 
       expect(result).toEqual({
         data: [],
@@ -352,7 +353,7 @@ describe('UsersService', () => {
       // Mock follow relationship query
       mockPrismaService.follow.findMany.mockResolvedValue([]);
 
-      const result = await service.getFollowers(userId, 2, 10);
+      const result = await service.getFollowers(userId, 2, 10, authenticatedUserId);
 
       expect(result.metadata).toEqual({
         totalItems: 25,
@@ -365,6 +366,7 @@ describe('UsersService', () => {
 
   describe('getFollowing', () => {
     const userId = 1;
+    const authenticatedUserId = 5;
     const page = 1;
     const limit = 10;
 
@@ -405,11 +407,11 @@ describe('UsersService', () => {
 
       // Mock the follow relationship query for isFollowedByMe
       mockPrismaService.follow.findMany.mockResolvedValue([
-        { followingId: 2 }, // userId is following user 2
-        { followingId: 3 }, // userId is following user 3
+        { followingId: 2 }, // authenticatedUser is following user 2
+        { followingId: 3 }, // authenticatedUser is following user 3
       ]);
 
-      const result = await service.getFollowing(userId, page, limit);
+      const result = await service.getFollowing(userId, page, limit, authenticatedUserId);
 
       expect(result).toEqual({
         data: [
@@ -449,10 +451,10 @@ describe('UsersService', () => {
         }),
       ]);
 
-      // Verify the follow relationship query was called
+      // Verify the follow relationship query was called with authenticatedUserId
       expect(mockPrismaService.follow.findMany).toHaveBeenCalledWith({
         where: {
-          followerId: userId,
+          followerId: authenticatedUserId,
           followingId: { in: [2, 3] },
         },
         select: { followingId: true },
@@ -465,7 +467,7 @@ describe('UsersService', () => {
       // Mock empty follow relationship query
       mockPrismaService.follow.findMany.mockResolvedValue([]);
 
-      const result = await service.getFollowing(userId, page, limit);
+      const result = await service.getFollowing(userId, page, limit, authenticatedUserId);
 
       expect(result).toEqual({
         data: [],
@@ -487,7 +489,7 @@ describe('UsersService', () => {
         { followingId: 3 },
       ]);
 
-      const result = await service.getFollowing(userId);
+      const result = await service.getFollowing(userId, undefined, undefined, authenticatedUserId);
 
       expect(result.metadata.page).toBe(1);
       expect(result.metadata.limit).toBe(10);
