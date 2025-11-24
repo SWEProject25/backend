@@ -83,17 +83,7 @@ export class UsersService {
         followingId,
       },
     });
-    const userFollowingCount = await this.getFollowingCount(followerId);
-    const user = await this.prismaService.user.findFirst({
-      where: { id: followerId },
-      select: { has_completed_following: true },
-    });
-    if (userFollowingCount > 0 && user?.has_completed_following === false) {
-      await this.prismaService.user.update({
-        where: { id: followerId },
-        data: { has_completed_following: true },
-      });
-    }
+    await this.updateUserFollowingOnboarding(followerId);
     return follow;
   }
 
@@ -115,7 +105,7 @@ export class UsersService {
       throw new ConflictException('You are not following this user');
     }
 
-    return this.prismaService.follow.delete({
+    const unfollow = await this.prismaService.follow.delete({
       where: {
         followerId_followingId: {
           followerId,
@@ -123,6 +113,27 @@ export class UsersService {
         },
       },
     });
+    await this.updateUserFollowingOnboarding(followerId);
+    return unfollow;
+  }
+
+  public async updateUserFollowingOnboarding(userId: number): Promise<void> {
+    const userFollowingCount = await this.getFollowingCount(userId);
+    const user = await this.prismaService.user.findFirst({
+      where: { id: userId },
+      select: { has_completed_following: true },
+    });
+    if (userFollowingCount > 0 && user?.has_completed_following === false) {
+      await this.prismaService.user.update({
+        where: { id: userId },
+        data: { has_completed_following: true },
+      });
+    } else if (userFollowingCount === 0 && user?.has_completed_following === true) {
+      await this.prismaService.user.update({
+        where: { id: userId },
+        data: { has_completed_following: false },
+      });
+    }
   }
 
   async getFollowers(userId: number, page: number = 1, limit: number = 10) {

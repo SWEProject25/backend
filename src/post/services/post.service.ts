@@ -255,6 +255,66 @@ export class PostService {
     }));
   }
 
+  private async findPosts(options: {
+    where: any;
+    userId: number;
+    page?: number;
+    limit?: number;
+  }) {
+    const { where, userId, page = 1, limit = 10 } = options;
+
+    const posts = await this.prismaService.post.findMany({
+      where,
+      include: {
+        _count: {
+          select: {
+            likes: true,
+            repostedBy: true,
+            Replies: true,
+          },
+        },
+        User: {
+          select: {
+            id: true,
+            username: true,
+            is_verified: true,
+            Profile: {
+              select: {
+                name: true,
+                profile_image_url: true,
+              },
+            },
+            Followers: {
+              where: { followerId: userId },
+              select: { followerId: true },
+            },
+          },
+        },
+        media: {
+          select: {
+            media_url: true,
+            type: true,
+          },
+        },
+        likes: {
+          where: { user_id: userId },
+          select: { user_id: true },
+        },
+        repostedBy: {
+          where: { user_id: userId },
+          select: { user_id: true },
+        },
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+    return this.transformPost(posts);
+  }
+
+
   private async createPostTransaction(
     postData: CreatePostDto,
     hashtags: string[],
@@ -303,7 +363,7 @@ export class PostService {
   async createPost(createPostDto: CreatePostDto) {
     let urls: string[] = [];
     try {
-      const { content, media } = createPostDto;
+      const { content, media, userId } = createPostDto;
       urls = await this.storageService.uploadFiles(media);
 
       const hashtags = this.extractHashtags(content);
@@ -354,16 +414,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-          ...(userId && { user_id: userId }),
-          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-          ...(type && { type }),
-          is_deleted: false,
-        }
+        ...(userId && { user_id: userId }),
+        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+        ...(type && { type }),
+        is_deleted: false,
+      }
       : {
-          // TODO: improve this fallback
-          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-          is_deleted: false,
-        };
+        // TODO: improve this fallback
+        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+        is_deleted: false,
+      };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -479,42 +539,42 @@ export class PostService {
     // Build block/mute filters
     const blockMuteFilter = currentUserId
       ? {
-          AND: [
-            {
-              NOT: {
-                User: {
-                  Blockers: {
-                    some: {
-                      blockerId: currentUserId,
-                    },
+        AND: [
+          {
+            NOT: {
+              User: {
+                Blockers: {
+                  some: {
+                    blockerId: currentUserId,
                   },
                 },
               },
             },
-            {
-              NOT: {
-                User: {
-                  Blocked: {
-                    some: {
-                      blockedId: currentUserId,
-                    },
+          },
+          {
+            NOT: {
+              User: {
+                Blocked: {
+                  some: {
+                    blockedId: currentUserId,
                   },
                 },
               },
             },
-            {
-              NOT: {
-                User: {
-                  Muters: {
-                    some: {
-                      muterId: currentUserId,
-                    },
+          },
+          {
+            NOT: {
+              User: {
+                Muters: {
+                  some: {
+                    muterId: currentUserId,
                   },
                 },
               },
             },
-          ],
-        }
+          },
+        ],
+      }
       : {};
 
     // Count total posts with this hashtag
@@ -689,6 +749,8 @@ export class PostService {
       name: post.User.Profile?.name || post.User.username,
       avatar: post.User.Profile?.profile_image_url || null,
       postId: post.id,
+      parentId: post.parent_id,
+      type: post.type,
       date: post.created_at,
       likesCount: post._count.likes,
       retweetsCount: post._count.repostedBy,
@@ -1410,12 +1472,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     return {
       // User Information (reposter for simple reposts, author otherwise)
@@ -1449,42 +1511,42 @@ export class PostService {
       originalPostData:
         isSimpleRepost || isQuote
           ? {
-              userId: post.user_id,
-              username: post.username,
-              verified: post.isVerified,
-              name: post.authorName || post.username,
-              avatar: post.authorProfileImage,
-              postId: post.id,
-              date: post.created_at,
-              likesCount: post.likeCount,
-              retweetsCount: post.repostCount,
-              commentsCount: post.replyCount,
-              isLikedByMe: post.isLikedByMe,
-              isFollowedByMe: post.isFollowedByMe,
-              isRepostedByMe: post.isRepostedByMe || false,
-              text: post.content || '',
-              media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-              ...(isQuote && post.originalPost
-                ? {
-                    // Override with quoted post data for quotes
-                    userId: post.originalPost.author.userId,
-                    username: post.originalPost.author.username,
-                    verified: post.originalPost.author.isVerified,
-                    name: post.originalPost.author.name,
-                    avatar: post.originalPost.author.avatar,
-                    postId: post.originalPost.postId,
-                    date: post.originalPost.createdAt,
-                    likesCount: post.originalPost.likeCount,
-                    retweetsCount: post.originalPost.repostCount,
-                    commentsCount: post.originalPost.replyCount,
-                    isLikedByMe: post.originalPost.isLikedByMe,
-                    isFollowedByMe: post.originalPost.isFollowedByMe,
-                    isRepostedByMe: post.originalPost.isRepostedByMe,
-                    text: post.originalPost.content || '',
-                    media: post.originalPost.media || [],
-                  }
-                : {}),
-            }
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+            postId: post.id,
+            date: post.created_at,
+            likesCount: post.likeCount,
+            retweetsCount: post.repostCount,
+            commentsCount: post.replyCount,
+            isLikedByMe: post.isLikedByMe,
+            isFollowedByMe: post.isFollowedByMe,
+            isRepostedByMe: post.isRepostedByMe || false,
+            text: post.content || '',
+            media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+            ...(isQuote && post.originalPost
+              ? {
+                // Override with quoted post data for quotes
+                userId: post.originalPost.author.userId,
+                username: post.originalPost.author.username,
+                verified: post.originalPost.author.isVerified,
+                name: post.originalPost.author.name,
+                avatar: post.originalPost.author.avatar,
+                postId: post.originalPost.postId,
+                date: post.originalPost.createdAt,
+                likesCount: post.originalPost.likeCount,
+                retweetsCount: post.originalPost.repostCount,
+                commentsCount: post.originalPost.replyCount,
+                isLikedByMe: post.originalPost.isLikedByMe,
+                isFollowedByMe: post.originalPost.isFollowedByMe,
+                isRepostedByMe: post.originalPost.isRepostedByMe,
+                text: post.originalPost.content || '',
+                media: post.originalPost.media || [],
+              }
+              : {}),
+          }
           : undefined,
 
       // Scores data
