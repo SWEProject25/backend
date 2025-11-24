@@ -179,7 +179,7 @@ describe('UsersController', () => {
     it('should successfully get followers with default pagination', async () => {
       mockUsersService.getFollowers.mockResolvedValue(mockResult);
 
-      const result = await controller.getFollowers(userId, mockPaginationQuery);
+      const result = await controller.getFollowers(userId, mockPaginationQuery, mockUser);
 
       expect(result).toEqual({
         status: 'success',
@@ -187,7 +187,7 @@ describe('UsersController', () => {
         data: mockResult.data,
         metadata: mockResult.metadata,
       });
-      expect(service.getFollowers).toHaveBeenCalledWith(userId, 1, 10);
+      expect(service.getFollowers).toHaveBeenCalledWith(userId, 1, 10, mockUser.id);
       expect(service.getFollowers).toHaveBeenCalledTimes(1);
     });
 
@@ -199,7 +199,7 @@ describe('UsersController', () => {
       };
       mockUsersService.getFollowers.mockResolvedValue(customResult);
 
-      const result = await controller.getFollowers(userId, customPagination);
+      const result = await controller.getFollowers(userId, customPagination, mockUser);
 
       expect(result).toEqual({
         status: 'success',
@@ -207,7 +207,7 @@ describe('UsersController', () => {
         data: customResult.data,
         metadata: customResult.metadata,
       });
-      expect(service.getFollowers).toHaveBeenCalledWith(userId, 2, 5);
+      expect(service.getFollowers).toHaveBeenCalledWith(userId, 2, 5, mockUser.id);
     });
 
     it('should return empty data when user has no followers', async () => {
@@ -217,7 +217,7 @@ describe('UsersController', () => {
       };
       mockUsersService.getFollowers.mockResolvedValue(emptyResult);
 
-      const result = await controller.getFollowers(userId, mockPaginationQuery);
+      const result = await controller.getFollowers(userId, mockPaginationQuery, mockUser);
 
       expect(result.data).toEqual([]);
       expect(result.metadata.totalItems).toBe(0);
@@ -249,7 +249,7 @@ describe('UsersController', () => {
     it('should successfully get following users with default pagination', async () => {
       mockUsersService.getFollowing.mockResolvedValue(mockResult);
 
-      const result = await controller.getFollowing(userId, mockPaginationQuery);
+      const result = await controller.getFollowing(userId, mockPaginationQuery, mockUser);
 
       expect(result).toEqual({
         status: 'success',
@@ -257,7 +257,7 @@ describe('UsersController', () => {
         data: mockResult.data,
         metadata: mockResult.metadata,
       });
-      expect(service.getFollowing).toHaveBeenCalledWith(userId, 1, 10);
+      expect(service.getFollowing).toHaveBeenCalledWith(userId, 1, 10, mockUser.id);
       expect(service.getFollowing).toHaveBeenCalledTimes(1);
     });
 
@@ -269,7 +269,7 @@ describe('UsersController', () => {
       };
       mockUsersService.getFollowing.mockResolvedValue(customResult);
 
-      const result = await controller.getFollowing(userId, customPagination);
+      const result = await controller.getFollowing(userId, customPagination, mockUser);
 
       expect(result).toEqual({
         status: 'success',
@@ -277,7 +277,7 @@ describe('UsersController', () => {
         data: customResult.data,
         metadata: customResult.metadata,
       });
-      expect(service.getFollowing).toHaveBeenCalledWith(userId, 3, 20);
+      expect(service.getFollowing).toHaveBeenCalledWith(userId, 3, 20, mockUser.id);
     });
 
     it('should return empty data when user is not following anyone', async () => {
@@ -287,7 +287,7 @@ describe('UsersController', () => {
       };
       mockUsersService.getFollowing.mockResolvedValue(emptyResult);
 
-      const result = await controller.getFollowing(userId, mockPaginationQuery);
+      const result = await controller.getFollowing(userId, mockPaginationQuery, mockUser);
 
       expect(result.data).toEqual([]);
       expect(result.metadata.totalItems).toBe(0);
