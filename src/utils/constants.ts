@@ -20,12 +20,13 @@ export enum Services {
   MENTION = 'MENTION_SERVICE',
   PROFILE = 'PROFILE_SERVICE',
   USERS = 'USERS_SERVICE',
-  STORAGE = "STORAGE_SERVICE",
+  STORAGE = 'STORAGE_SERVICE',
   CONVERSATIONS = 'CONVERSATIONS_SERVICE',
   MESSAGES = 'MESSAGES_SERVICE',
   REDIS = 'REDIS_SERVICE',
   AI_SUMMARIZATION = 'AI_SUMMARIZATION_SERVICE',
   QUEUE_CONSUMER = 'QUEUE_CONSUMER_SERVICE',
+  ML = 'ML_SERVICE',
 }
 
 export enum RequestType {
@@ -38,6 +39,6 @@ export const RedisQueues = {
     name: 'post-queue',
     processes: {
       summarizePostContent: 'summarize-post-content',
-    }
-  }
-  }
+    },
+  },
+};

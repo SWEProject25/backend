@@ -40,11 +40,15 @@ import { MLService } from './services/ml.service';
       provide: Services.AI_SUMMARIZATION,
       useClass: AiSummarizationService,
     },
-
+    {
+      provide: Services.ML,
+      useClass: MLService,
+    },
     MLService,
   ],
   imports: [
-    PrismaModule, HttpModule,
+    PrismaModule,
+    HttpModule,
     BullModule.registerQueue({
       name: RedisQueues.postQueue.name,
       defaultJobOptions: {
@@ -54,4 +58,4 @@ import { MLService } from './services/ml.service';
     }),
   ],
 })
-export class PostModule { }
+export class PostModule {}

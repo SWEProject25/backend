@@ -235,7 +235,7 @@ export class PostService {
     private readonly aiSummarizationService: AiSummarizationService,
     @InjectQueue(RedisQueues.postQueue.name)
     private readonly postQueue: Queue,
-  ) {}
+  ) { }
 
   private extractHashtags(content: string): string[] {
     if (!content) return [];
@@ -929,6 +929,10 @@ export class PostService {
       limit,
     );
 
+    if (!candidatePosts || candidatePosts.length === 0) {
+      return { posts: [] };
+    }
+
     const postsForML = candidatePosts.map((p) => ({
       postId: p.id,
       contentLength: p.content?.length || 0,
@@ -1224,6 +1228,10 @@ export class PostService {
       limit,
     );
 
+    if (!candidatePosts || candidatePosts.length === 0) {
+      return { posts: [] };
+    }
+
     const postsForML = candidatePosts.map((p) => ({
       postId: p.id,
       contentLength: p.content?.length || 0,
@@ -1283,6 +1291,11 @@ export class PostService {
       FROM "mutes"
       WHERE "muterId" = ${userId}
     ),
+    user_blocks AS (
+      SELECT "blockedId" as blocked_id
+      FROM "blocks"
+      WHERE "blockerId" = ${userId}
+    ),
     -- Get original posts and quotes from followed users (filter by type and mutes)
     original_posts AS (
       SELECT 
@@ -1302,6 +1315,7 @@ export class PostService {
       WHERE p."is_deleted" = FALSE
         AND p."type" IN ('POST', 'QUOTE')
         AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
+        AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
     ),
     -- Get reposts from followed users (only reposts of POST or QUOTE types, exclude muted users)
     repost_items AS (
@@ -1331,7 +1345,9 @@ export class PostService {
       WHERE p."is_deleted" = FALSE
         AND p."type" IN ('POST', 'QUOTE')
         AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
+        AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
         AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = r."user_id")
+        AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = r."user_id")
     ),
     -- Combine both
     all_posts AS (
@@ -1593,6 +1609,10 @@ export class PostService {
       page,
       limit,
     );
+
+    if (!candidatePosts || candidatePosts.length === 0) {
+      return { posts: [] };
+    }
 
     const postsForML = candidatePosts.map((p) => ({
       postId: p.id,
@@ -1904,6 +1924,10 @@ export class PostService {
       page,
       limit,
     );
+
+    if (!candidatePosts || candidatePosts.length === 0) {
+      return { posts: [] };
+    }
 
     const postsForML = candidatePosts.map((p) => ({
       postId: p.id,
