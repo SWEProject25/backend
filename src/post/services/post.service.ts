@@ -375,11 +375,19 @@ export class PostService {
         hashtags,
         mediaWithType,
       );
+      
       if (post.content) {
         await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
       }
 
-      return post;
+      const [fullPost] = await this.findPosts({
+        where: { id: post.id },
+        userId,
+        page: 1,
+        limit: 1,
+      });
+
+      return fullPost;
     } catch (error) {
       // deleting uploaded files in case of any error
       await this.storageService.deleteFiles(urls);
