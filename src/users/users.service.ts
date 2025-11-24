@@ -215,6 +215,21 @@ export class UsersService {
       }),
     ]);
 
+    // Get all follower IDs
+    const followerIds = following.map((f) => f.Following.id);
+
+    // Single query to check which ones you're following
+    const followingRelations = await this.prismaService.follow.findMany({
+      where: {
+        followerId: userId,
+        followingId: { in: followerIds },
+      },
+      select: { followingId: true },
+    });
+
+    // Create a Set for O(1) lookup
+    const followingSet = new Set(followingRelations.map((f) => f.followingId));
+
     const data = following.map((follow) => ({
       id: follow.Following.id,
       username: follow.Following.username,
@@ -222,6 +237,7 @@ export class UsersService {
       bio: follow.Following.Profile?.bio || null,
       profileImageUrl: follow.Following.Profile?.profile_image_url || null,
       followedAt: follow.createdAt,
+      is_followed_by_me: followingSet.has(follow.Following.id),
     }));
 
     const metadata = {

@@ -403,6 +403,12 @@ describe('UsersService', () => {
       const totalItems = 2;
       mockPrismaService.$transaction.mockResolvedValue([totalItems, mockFollowing]);
 
+      // Mock the follow relationship query for isFollowedByMe
+      mockPrismaService.follow.findMany.mockResolvedValue([
+        { followingId: 2 }, // userId is following user 2
+        { followingId: 3 }, // userId is following user 3
+      ]);
+
       const result = await service.getFollowing(userId, page, limit);
 
       expect(result).toEqual({
@@ -414,6 +420,7 @@ describe('UsersService', () => {
             bio: 'Bio of following 1',
             profileImageUrl: 'https://example.com/image1.jpg',
             followedAt: new Date('2025-10-23T10:00:00.000Z'),
+            is_followed_by_me: true,
           },
           {
             id: 3,
@@ -422,6 +429,7 @@ describe('UsersService', () => {
             bio: 'Bio of following 2',
             profileImageUrl: null,
             followedAt: new Date('2025-10-23T09:00:00.000Z'),
+            is_followed_by_me: true,
           },
         ],
         metadata: {
@@ -440,10 +448,22 @@ describe('UsersService', () => {
           // findMany query
         }),
       ]);
+
+      // Verify the follow relationship query was called
+      expect(mockPrismaService.follow.findMany).toHaveBeenCalledWith({
+        where: {
+          followerId: userId,
+          followingId: { in: [2, 3] },
+        },
+        select: { followingId: true },
+      });
     });
 
     it('should return empty array when not following anyone', async () => {
       mockPrismaService.$transaction.mockResolvedValue([0, []]);
+
+      // Mock empty follow relationship query
+      mockPrismaService.follow.findMany.mockResolvedValue([]);
 
       const result = await service.getFollowing(userId, page, limit);
 
@@ -460,6 +480,12 @@ describe('UsersService', () => {
 
     it('should use default pagination values', async () => {
       mockPrismaService.$transaction.mockResolvedValue([2, mockFollowing]);
+
+      // Mock follow relationship query
+      mockPrismaService.follow.findMany.mockResolvedValue([
+        { followingId: 2 },
+        { followingId: 3 },
+      ]);
 
       const result = await service.getFollowing(userId);
 
