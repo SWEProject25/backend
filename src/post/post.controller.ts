@@ -71,7 +71,7 @@ export class PostController {
     private readonly repostService: RepostService,
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
-  ) {}
+  ) { }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -1295,6 +1295,9 @@ export class PostController {
     @Query('limit') limit: number = 10,
     @CurrentUser() user: AuthenticatedUser,
   ) {
+    if (!interests || !Array.isArray(interests) || interests.length === 0) {
+      throw new BadRequestException('At least one interest is required');
+    }
     const posts = await this.postService.getExploreByInterestsFeed(user.id, interests, page, limit);
 
     return {

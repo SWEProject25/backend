@@ -4,6 +4,7 @@ import { PostService } from './services/post.service';
 import { BadRequestException } from '@nestjs/common';
 import { AuthenticatedUser } from '../auth/interfaces/user.interface';
 import { Role } from '@prisma/client';
+import { Services } from '../utils/constants';
 
 describe('PostController - Timeline Endpoints', () => {
   let controller: PostController;
@@ -76,19 +77,46 @@ describe('PostController - Timeline Endpoints', () => {
     posts: [mockFeedPost],
   };
 
+  const mockLikeService = {
+    togglePostLike: jest.fn(),
+    getListOfLikers: jest.fn(),
+    getLikedPostsByUser: jest.fn(),
+  };
+
+  const mockRepostService = {
+    toggleRepost: jest.fn(),
+    getReposters: jest.fn(),
+  };
+
+  const mockMentionService = {
+    mentionUser: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PostController],
       providers: [
         {
-          provide: PostService,
+          provide: Services.POST,
           useValue: mockPostService,
+        },
+        {
+          provide: Services.LIKE,
+          useValue: mockLikeService,
+        },
+        {
+          provide: Services.REPOST,
+          useValue: mockRepostService,
+        },
+        {
+          provide: Services.MENTION,
+          useValue: mockMentionService,
         },
       ],
     }).compile();
 
     controller = module.get<PostController>(PostController);
-    service = module.get<PostService>(PostService);
+    service = module.get<PostService>(Services.POST);
 
     jest.clearAllMocks();
   });

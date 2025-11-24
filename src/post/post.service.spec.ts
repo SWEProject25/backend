@@ -14,7 +14,7 @@ describe('PostService - Timeline Endpoints', () => {
   };
 
   const mockMlService = {
-    getQualityScores: jest.fn(),
+    getQualityScores: jest.fn().mockResolvedValue(new Map([[100, 0.85]])),
   };
 
   const mockPostWithAllData = {
@@ -62,15 +62,34 @@ describe('PostService - Timeline Endpoints', () => {
           useValue: mockPrismaService,
         },
         {
-          provide: Services.ML,
+          provide: Services.STORAGE,
+          useValue: {
+            uploadFiles: jest.fn(),
+            deleteFiles: jest.fn(),
+          },
+        },
+        {
+          provide: MLService,
           useValue: mockMlService,
+        },
+        {
+          provide: Services.AI_SUMMARIZATION,
+          useValue: {
+            summarizePost: jest.fn(),
+          },
+        },
+        {
+          provide: 'BullQueue_post-queue',
+          useValue: {
+            add: jest.fn(),
+          },
         },
       ],
     }).compile();
 
     service = module.get<PostService>(PostService);
     prismaService = module.get<PrismaService>(Services.PRISMA);
-    mlService = module.get<MLService>(Services.ML);
+    mlService = module.get<MLService>(MLService);
 
     jest.clearAllMocks();
   });
@@ -82,7 +101,7 @@ describe('PostService - Timeline Endpoints', () => {
   describe('getForYouFeed', () => {
     it('should return personalized "For You" feed with default pagination', async () => {
       const candidatePosts = [mockPostWithAllData];
-      const qualityScores = [{ postId: 100, qualityScore: 0.85 }];
+      const qualityScores = new Map([[100, 0.85]]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(candidatePosts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
@@ -100,10 +119,7 @@ describe('PostService - Timeline Endpoints', () => {
         { ...mockPostWithAllData, id: 1, personalizationScore: 30.0 },
         { ...mockPostWithAllData, id: 2, personalizationScore: 20.0 },
       ];
-      const qualityScores = [
-        { postId: 1, qualityScore: 0.7 },
-        { postId: 2, qualityScore: 0.9 },
-      ];
+      const qualityScores = new Map([[1, 0.7], [2, 0.9]]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(candidatePosts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
@@ -116,7 +132,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should handle custom pagination', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getForYouFeed(1, 2, 20);
 
@@ -135,7 +151,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should filter out blocked users', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getForYouFeed(1, 1, 10);
 
@@ -146,7 +162,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should filter out muted users', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getForYouFeed(1, 1, 10);
 
@@ -168,7 +184,7 @@ describe('PostService - Timeline Endpoints', () => {
       };
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([repost]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       const result = await service.getForYouFeed(1, 1, 10);
 
@@ -180,6 +196,8 @@ describe('PostService - Timeline Endpoints', () => {
     it('should handle quote tweets', async () => {
       const quote = {
         ...mockPostWithAllData,
+        type: 'QUOTE',
+        parent_id: 99,
         isQuote: true,
         originalPost: {
           postId: 99,
@@ -203,7 +221,7 @@ describe('PostService - Timeline Endpoints', () => {
       };
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([quote]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       const result = await service.getForYouFeed(1, 1, 10);
 
@@ -213,7 +231,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should call ML service with correct post features', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getForYouFeed(1, 1, 10);
 
@@ -246,7 +264,7 @@ describe('PostService - Timeline Endpoints', () => {
   describe('getFollowingForFeed', () => {
     it('should return "Following" feed with posts from followed users', async () => {
       const followingPosts = [{ ...mockPostWithAllData, isFollowedByMe: true }];
-      const qualityScores = [{ postId: 100, qualityScore: 0.85 }];
+      const qualityScores = new Map([[100, 0.85]]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(followingPosts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
@@ -273,7 +291,7 @@ describe('PostService - Timeline Endpoints', () => {
       };
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([repost]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       const result = await service.getFollowingForFeed(1, 1, 10);
 
@@ -282,7 +300,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should filter out blocked users even from following', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getFollowingForFeed(1, 1, 10);
 
@@ -292,7 +310,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should filter out muted users even from following', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getFollowingForFeed(1, 1, 10);
 
@@ -302,7 +320,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should handle custom pagination', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getFollowingForFeed(1, 3, 15);
 
@@ -315,7 +333,7 @@ describe('PostService - Timeline Endpoints', () => {
       const explorePosts = [
         { ...mockPostWithAllData, personalizationScore: 50.0 }, // Higher due to interest match
       ];
-      const qualityScores = [{ postId: 100, qualityScore: 0.85 }];
+      const qualityScores = new Map([[100, 0.85]]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(explorePosts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
@@ -328,7 +346,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should return all posts when user has no interests', async () => {
       const posts = [{ ...mockPostWithAllData, personalizationScore: 15.0 }];
-      const qualityScores = [{ postId: 100, qualityScore: 0.85 }];
+      const qualityScores = new Map([[100, 0.85]]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(posts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
@@ -344,10 +362,7 @@ describe('PostService - Timeline Endpoints', () => {
         { ...mockPostWithAllData, id: 1, interest_id: 1, personalizationScore: 50.0 },
         { ...mockPostWithAllData, id: 2, interest_id: null, personalizationScore: 15.0 },
       ];
-      const qualityScores = [
-        { postId: 1, qualityScore: 0.8 },
-        { postId: 2, qualityScore: 0.9 },
-      ];
+      const qualityScores = new Map([[1, 0.8], [2, 0.9]]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(posts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
@@ -360,7 +375,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should include posts from non-followed users', async () => {
       const posts = [{ ...mockPostWithAllData, isFollowedByMe: false }];
-      const qualityScores = [{ postId: 100, qualityScore: 0.85 }];
+      const qualityScores = new Map([[100, 0.85]]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(posts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
@@ -372,7 +387,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should filter out current user posts', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getExploreFeed(1, 1, 10);
 
@@ -382,7 +397,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should filter out blocked and muted users', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getExploreFeed(1, 1, 10);
 
@@ -393,7 +408,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should only include recent posts (30 days)', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getExploreFeed(1, 1, 10);
 
@@ -405,7 +420,7 @@ describe('PostService - Timeline Endpoints', () => {
   describe('getExploreByInterestsFeed', () => {
     it('should return posts strictly matching specified interests', async () => {
       const interestPosts = [{ ...mockPostWithAllData, interest_id: 1 }];
-      const qualityScores = [{ postId: 100, qualityScore: 0.85 }];
+      const qualityScores = new Map([[100, 0.85]]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(interestPosts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
@@ -418,7 +433,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should handle multiple interest filters', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getExploreByInterestsFeed(1, ['Technology', 'Sports', 'Music'], 1, 10);
 
@@ -438,7 +453,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should escape special characters in interest names', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getExploreByInterestsFeed(1, ['C++', 'Node.js'], 1, 10);
 
@@ -448,7 +463,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should filter out blocked and muted users', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getExploreByInterestsFeed(1, ['Technology'], 1, 10);
 
@@ -459,7 +474,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should handle pagination correctly', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue([{ postId: 100, qualityScore: 0.85 }]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getExploreByInterestsFeed(1, ['Technology'], 2, 20);
 
@@ -468,7 +483,7 @@ describe('PostService - Timeline Endpoints', () => {
 
     it('should apply personalization scoring to matched posts', async () => {
       const posts = [{ ...mockPostWithAllData, personalizationScore: 30.0 }];
-      const qualityScores = [{ postId: 100, qualityScore: 0.85 }];
+      const qualityScores = new Map([[100, 0.85]]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(posts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
