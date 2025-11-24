@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisQueues, Services } from 'src/utils/constants';
 import { CreatePostDto } from '../dto/create-post.dto';
@@ -375,8 +375,9 @@ export class PostService {
         hashtags,
         mediaWithType,
       );
-
-      await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
+      if (post.content) {
+        await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
+      }
 
       return post;
     } catch (error) {
@@ -394,13 +395,17 @@ export class PostService {
   }
 
   async summarizePost(postId: number) {
-    const post = await this.prismaService.post.findUnique({
-      where: { id: postId },
+    const post = await this.prismaService.post.findFirst({
+      where: { id: postId, is_deleted: false },
     });
 
     if (!post) throw new NotFoundException('Post not found');
 
-    if(post.summary) {
+    if (!post.content) {
+      throw new UnprocessableEntityException('Post has no content to summarize');
+    }
+
+    if (post.summary) {
       return post.summary;
     }
 
