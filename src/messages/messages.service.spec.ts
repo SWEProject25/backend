@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MessagesService } from './messages.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { Services } from 'src/utils/constants';
 import {
   ConflictException,
   ForbiddenException,
@@ -31,16 +32,19 @@ describe('MessagesService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        MessagesService,
         {
-          provide: PrismaService,
+          provide: Services.MESSAGES,
+          useClass: MessagesService,
+        },
+        {
+          provide: Services.PRISMA,
           useValue: mockPrismaService,
         },
       ],
     }).compile();
 
-    service = module.get<MessagesService>(MessagesService);
-    prismaService = module.get<PrismaService>(PrismaService);
+    service = module.get<MessagesService>(Services.MESSAGES);
+    prismaService = module.get<PrismaService>(Services.PRISMA);
   });
 
   afterEach(() => {
@@ -62,13 +66,27 @@ describe('MessagesService', () => {
       const mockConversation = { id: 1, user1Id: 1, user2Id: 2 };
       const mockMessage = {
         id: 1,
+        conversationId: 1,
+        messageIndex: 1,
         senderId: 1,
         text: 'Hello, World!',
         createdAt: new Date(),
       };
 
       mockPrismaService.conversation.findUnique.mockResolvedValue(mockConversation);
-      mockPrismaService.message.create.mockResolvedValue(mockMessage);
+
+      // Mock the transaction
+      mockPrismaService.$transaction.mockImplementation(async (callback) => {
+        const prismaMock = {
+          conversation: {
+            update: jest.fn().mockResolvedValue({}),
+          },
+          message: {
+            create: jest.fn().mockResolvedValue(mockMessage),
+          },
+        };
+        return callback(prismaMock);
+      });
 
       const result = await service.create(createMessageDto);
 
@@ -76,19 +94,7 @@ describe('MessagesService', () => {
       expect(mockPrismaService.conversation.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
       });
-      expect(mockPrismaService.message.create).toHaveBeenCalledWith({
-        data: {
-          text: 'Hello, World!',
-          senderId: 1,
-          conversationId: 1,
-        },
-        select: {
-          id: true,
-          senderId: true,
-          text: true,
-          createdAt: true,
-        },
-      });
+      expect(mockPrismaService.$transaction).toHaveBeenCalled();
     });
 
     it('should throw error if conversation not found', async () => {

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from './user.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { Services } from 'src/utils/constants';
 import * as argon2 from 'argon2';
 
 jest.mock('argon2');
@@ -14,7 +15,7 @@ describe('UserService', () => {
     email: 'test@example.com',
     password: 'password123',
     name: 'Test User',
-    birth_date: new Date(),
+    birthDate: new Date(),
   };
 
   const mockUser = {
@@ -36,16 +37,19 @@ describe('UserService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        UserService,
         {
-          provide: PrismaService,
+          provide: Services.USER,
+          useClass: UserService,
+        },
+        {
+          provide: Services.PRISMA,
           useValue: mockPrismaService,
         },
       ],
     }).compile();
 
-    userService = module.get<UserService>(UserService);
-    prismaService = module.get<PrismaService>(PrismaService);
+    userService = module.get<UserService>(Services.USER);
+    prismaService = module.get<PrismaService>(Services.PRISMA);
     jest.clearAllMocks();
   });
 
@@ -60,7 +64,7 @@ describe('UserService', () => {
       (argon2.hash as jest.Mock).mockResolvedValue(hashedPassword);
       mockPrismaService.user.create.mockResolvedValue(mockUser);
 
-      const result = await userService.create(createUserDto);
+      const result = await userService.create(createUserDto, false);
 
       expect(result).toEqual(mockUser);
       expect(argon2.hash).toHaveBeenCalledWith(createUserDto.password);
@@ -69,7 +73,7 @@ describe('UserService', () => {
     it('should throw an error if hashing fails', async () => {
       (argon2.hash as jest.Mock).mockRejectedValue(new Error('Hashing failed'));
 
-      await expect(userService.create(createUserDto)).rejects.toThrow();
+      await expect(userService.create(createUserDto, false)).rejects.toThrow();
     });
   });
 

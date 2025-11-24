@@ -12,6 +12,8 @@ describe('UsersService', () => {
   const mockPrismaService = {
     user: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
     },
     follow: {
       findUnique: jest.fn(),
@@ -37,6 +39,12 @@ describe('UsersService', () => {
     $transaction: jest.fn(),
   };
 
+  const mockRedisService = {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -44,6 +52,10 @@ describe('UsersService', () => {
         {
           provide: Services.PRISMA,
           useValue: mockPrismaService,
+        },
+        {
+          provide: Services.REDIS,
+          useValue: mockRedisService,
         },
       ],
     }).compile();
@@ -259,6 +271,11 @@ describe('UsersService', () => {
       const totalItems = 2;
       mockPrismaService.$transaction.mockResolvedValue([totalItems, mockFollowers]);
 
+      // Mock the follow relationship query for isFollowedByMe
+      mockPrismaService.follow.findMany.mockResolvedValue([
+        { followingId: 2 }, // userId is following follower1
+      ]);
+
       const result = await service.getFollowers(userId, page, limit);
 
       expect(result).toEqual({
@@ -270,6 +287,7 @@ describe('UsersService', () => {
             bio: 'Bio of follower 1',
             profileImageUrl: 'https://example.com/image1.jpg',
             followedAt: new Date('2025-10-23T10:00:00.000Z'),
+            is_followed_by_me: true,
           },
           {
             id: 3,
@@ -278,6 +296,7 @@ describe('UsersService', () => {
             bio: null,
             profileImageUrl: null,
             followedAt: new Date('2025-10-23T09:00:00.000Z'),
+            is_followed_by_me: false,
           },
         ],
         metadata: {
@@ -296,10 +315,22 @@ describe('UsersService', () => {
           // findMany query
         }),
       ]);
+
+      // Verify the follow relationship query was called
+      expect(mockPrismaService.follow.findMany).toHaveBeenCalledWith({
+        where: {
+          followerId: userId,
+          followingId: { in: [2, 3] },
+        },
+        select: { followingId: true },
+      });
     });
 
     it('should return empty array when no followers exist', async () => {
       mockPrismaService.$transaction.mockResolvedValue([0, []]);
+
+      // Mock empty follow relationship query
+      mockPrismaService.follow.findMany.mockResolvedValue([]);
 
       const result = await service.getFollowers(userId, page, limit);
 
@@ -317,6 +348,9 @@ describe('UsersService', () => {
     it('should calculate correct pagination metadata', async () => {
       const totalItems = 25;
       mockPrismaService.$transaction.mockResolvedValue([totalItems, mockFollowers]);
+
+      // Mock follow relationship query
+      mockPrismaService.follow.findMany.mockResolvedValue([]);
 
       const result = await service.getFollowers(userId, 2, 10);
 
