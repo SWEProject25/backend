@@ -271,7 +271,10 @@ describe('NotificationService', () => {
       };
 
       prismaService.notification.findFirst.mockResolvedValue(mockNotification as any);
-      prismaService.notification.update.mockResolvedValue({ ...mockNotification, isRead: true } as any);
+      prismaService.notification.update.mockResolvedValue({
+        ...mockNotification,
+        isRead: true,
+      } as any);
 
       await service.markAsRead('notif-123', 1);
 
@@ -306,10 +309,7 @@ describe('NotificationService', () => {
 
   describe('markAllAsRead', () => {
     it('should mark all unread notifications as read', async () => {
-      const mockUnreadDocs = [
-        { ref: { id: 'notif-1' } },
-        { ref: { id: 'notif-2' } },
-      ];
+      const mockUnreadDocs = [{ ref: { id: 'notif-1' } }, { ref: { id: 'notif-2' } }];
 
       mockFirestore.get.mockResolvedValue({ docs: mockUnreadDocs } as any);
 

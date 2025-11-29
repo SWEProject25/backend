@@ -64,7 +64,7 @@ export class NotificationService {
       const firestore = this.firebaseService.getFirestore();
       const notificationRef = firestore
         .collection('users')
-        .doc(payload.actor.id.toString())
+        .doc(payload.recipientId.toString())
         .collection('notifications')
         .doc(payload.id);
 
@@ -162,6 +162,7 @@ export class NotificationService {
     const payload: NotificationPayload = {
       id: notification.id,
       type: notification.type as NotificationType,
+      recipientId: notification.recipientId,
       actor: {
         id: notification.actorId,
         username: notification.actorUsername,

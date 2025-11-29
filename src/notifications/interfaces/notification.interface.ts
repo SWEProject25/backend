@@ -9,6 +9,7 @@ export interface NotificationActor {
 export interface NotificationPayload {
   id: string;
   type: NotificationType;
+  recipientId: number;
   actor: NotificationActor;
   isRead: boolean;
   createdAt: string;
