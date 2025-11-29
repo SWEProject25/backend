@@ -14,7 +14,9 @@ export class FirebaseService implements OnModuleInit {
     const firebaseConfig = getFirebaseConfig(this.configService);
 
     if (!firebaseConfig.projectId || !firebaseConfig.privateKey || !firebaseConfig.clientEmail) {
-      this.logger.error('Firebase configuration is incomplete. Please check environment variables.');
+      this.logger.error(
+        'Firebase configuration is incomplete. Please check environment variables.',
+      );
       throw new Error('Firebase configuration is incomplete');
     }
 
