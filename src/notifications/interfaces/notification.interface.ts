@@ -3,6 +3,7 @@ import { NotificationType } from '../enums/notification.enum';
 export interface NotificationActor {
   id: number;
   username: string;
+  displayName: string | null;
   avatarUrl: string | null;
 }
 
@@ -31,6 +32,7 @@ export interface CreateNotificationDto {
   recipientId: number;
   actorId: number;
   actorUsername: string;
+  actorDisplayName?: string | null;
   actorAvatarUrl?: string | null;
 
   // Post-related

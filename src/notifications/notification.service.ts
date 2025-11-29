@@ -28,6 +28,7 @@ export class NotificationService {
           recipientId: dto.recipientId,
           actorId: dto.actorId,
           actorUsername: dto.actorUsername,
+          actorDisplayName: dto.actorDisplayName,
           actorAvatarUrl: dto.actorAvatarUrl,
           postId: dto.postId,
           quotePostId: dto.quotePostId,
@@ -166,6 +167,7 @@ export class NotificationService {
       actor: {
         id: notification.actorId,
         username: notification.actorUsername,
+        displayName: notification.actorDisplayName,
         avatarUrl: notification.actorAvatarUrl,
       },
       isRead: notification.isRead,

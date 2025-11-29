@@ -269,8 +269,9 @@ model Notification {
   actorId     Int              @map("actor_id")
 
   // Actor snapshot to avoid N+1 queries
-  actorUsername  String  @map("actor_username") @db.VarChar(50)
-  actorAvatarUrl String? @map("actor_avatar_url") @db.VarChar(255)
+  actorUsername   String  @map("actor_username") @db.VarChar(50)
+  actorDisplayName String? @map("actor_display_name") @db.VarChar(100)
+  actorAvatarUrl  String? @map("actor_avatar_url") @db.VarChar(255)
 
   // Post-related (for LIKE, REPOST, QUOTE, REPLY, MENTION)
   postId       Int? @map("post_id")

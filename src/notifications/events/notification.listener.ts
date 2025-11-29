@@ -29,6 +29,7 @@ export class NotificationListener {
           username: true,
           Profile: {
             select: {
+              name: true,
               profile_image_url: true,
             },
           },
@@ -67,6 +68,7 @@ export class NotificationListener {
         recipientId: event.recipientId,
         actorId: event.actorId,
         actorUsername: actor.username,
+        actorDisplayName: actor.Profile?.name || null,
         actorAvatarUrl: actor.Profile?.profile_image_url || null,
         postId: event.postId,
         quotePostId: event.quotePostId,
