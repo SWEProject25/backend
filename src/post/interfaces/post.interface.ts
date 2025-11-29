@@ -19,7 +19,6 @@ interface User {
 interface Count {
   likes: number;
   repostedBy: number;
-  Replies: number;
 }
 
 export interface RawPost {
@@ -33,6 +32,8 @@ export interface RawPost {
   is_deleted: boolean;
   summary?: string | null;
   _count: Count;
+  quoteCount: number;
+  replyCount: number;
   User: User;
   media: Media[];
   likes: { user_id: number; }[];
@@ -57,4 +58,5 @@ export interface TransformedPost {
   media: { url: string; type: string }[];
   isRepost: boolean;
   isQuote: boolean;
+  createdAt: Date;
 }

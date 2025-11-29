@@ -1040,7 +1040,6 @@ export class PostController {
       userId,
       +page,
       +limit,
-      PostVisibility.EVERY_ONE,
     );
 
     return {
@@ -1096,7 +1095,6 @@ export class PostController {
       userId,
       +page,
       +limit,
-      PostVisibility.EVERY_ONE,
     );
 
     return {
