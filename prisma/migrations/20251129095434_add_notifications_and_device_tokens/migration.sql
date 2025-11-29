@@ -1,9 +1,4 @@
-/*
-  Warnings:
 
-  - You are about to drop the `HashtagTrend` table. If the table is not empty, all the data it contains will be lost.
-
-*/
 -- CreateEnum
 CREATE TYPE "NotificationType" AS ENUM ('LIKE', 'REPOST', 'QUOTE', 'REPLY', 'MENTION', 'FOLLOW', 'DM');
 

@@ -15,14 +15,12 @@ export interface NotificationPayload {
   isRead: boolean;
   createdAt: string;
 
-  // Post-related fields (optional)
   postId?: number;
   quotePostId?: number;
   replyId?: number;
   threadPostId?: number;
   postPreviewText?: string;
 
-  // DM-related fields (optional)
   conversationId?: number;
   messagePreview?: string;
 }
