@@ -90,14 +90,29 @@ export class NotificationListener {
       // Send push notification
       const { title, body } = this.buildPushNotificationMessage(
         event.type,
-        actor.username,
+        actor.Profile?.name || actor.username,
         postPreviewText,
         messagePreview,
       );
 
+      // Send same data structure as Firestore for consistency
       await this.notificationService.sendPushNotification(event.recipientId, title, body, {
-        notificationId: notification.id,
-        type: event.type,
+        id: notification.id,
+        type: notification.type,
+        recipientId: notification.recipientId.toString(),
+        actorId: notification.actor.id.toString(),
+        actorUsername: notification.actor.username,
+        actorDisplayName: notification.actor.displayName || '',
+        actorAvatarUrl: notification.actor.avatarUrl || '',
+        postId: notification.postId?.toString() || '',
+        quotePostId: notification.quotePostId?.toString() || '',
+        replyId: notification.replyId?.toString() || '',
+        threadPostId: notification.threadPostId?.toString() || '',
+        postPreviewText: notification.postPreviewText || '',
+        conversationId: notification.conversationId?.toString() || '',
+        messagePreview: notification.messagePreview || '',
+        isRead: notification.isRead.toString(),
+        createdAt: notification.createdAt,
       });
 
       this.logger.log(`Notification processed: ${event.type} for user ${event.recipientId}`);
@@ -111,7 +126,7 @@ export class NotificationListener {
    */
   private buildPushNotificationMessage(
     type: NotificationType,
-    actorUsername: string,
+    actorDisplayName: string,
     postPreview?: string,
     messagePreview?: string,
   ): { title: string; body: string } {
@@ -119,49 +134,49 @@ export class NotificationListener {
       case NotificationType.LIKE:
         return {
           title: 'New Like',
-          body: `@${actorUsername} liked your post${postPreview ? `: "${postPreview}"` : ''}`,
+          body: `${actorDisplayName} liked your post${postPreview ? `: "${postPreview}"` : ''}`,
         };
 
       case NotificationType.REPOST:
         return {
           title: 'New Repost',
-          body: `@${actorUsername} reposted your post${postPreview ? `: "${postPreview}"` : ''}`,
+          body: `${actorDisplayName} reposted your post${postPreview ? `: "${postPreview}"` : ''}`,
         };
 
       case NotificationType.QUOTE:
         return {
           title: 'New Quote',
-          body: `@${actorUsername} quoted your post${postPreview ? `: "${postPreview}"` : ''}`,
+          body: `${actorDisplayName} quoted your post${postPreview ? `: "${postPreview}"` : ''}`,
         };
 
       case NotificationType.REPLY:
         return {
           title: 'New Reply',
-          body: `@${actorUsername} replied to your post${postPreview ? `: "${postPreview}"` : ''}`,
+          body: `${actorDisplayName} replied to your post${postPreview ? `: "${postPreview}"` : ''}`,
         };
 
       case NotificationType.MENTION:
         return {
           title: 'New Mention',
-          body: `@${actorUsername} mentioned you in a post${postPreview ? `: "${postPreview}"` : ''}`,
+          body: `${actorDisplayName} mentioned you in a post${postPreview ? `: "${postPreview}"` : ''}`,
         };
 
       case NotificationType.FOLLOW:
         return {
           title: 'New Follower',
-          body: `@${actorUsername} started following you`,
+          body: `${actorDisplayName} started following you`,
         };
 
       case NotificationType.DM:
         return {
-          title: `Message from @${actorUsername}`,
+          title: `Message from ${actorDisplayName}`,
           body: messagePreview || 'New message',
         };
 
       default:
         return {
           title: 'New Notification',
-          body: `@${actorUsername} interacted with you`,
+          body: `${actorDisplayName} interacted with you`,
         };
     }
   }
