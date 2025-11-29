@@ -21,16 +21,23 @@ export class FirebaseService implements OnModuleInit {
     }
 
     try {
-      this.firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: firebaseConfig.projectId,
-          privateKey: firebaseConfig.privateKey,
-          clientEmail: firebaseConfig.clientEmail,
-        }),
-        databaseURL: this.configService.get<string>('FIREBASE_DATABASE_URL'),
-      });
+      // Check if Firebase app already exists
+      if (admin.apps.length === 0) {
+        this.firebaseApp = admin.initializeApp({
+          credential: admin.credential.cert({
+            projectId: firebaseConfig.projectId,
+            privateKey: firebaseConfig.privateKey,
+            clientEmail: firebaseConfig.clientEmail,
+          }),
+          databaseURL: this.configService.get<string>('FIREBASE_DATABASE_URL'),
+        });
 
-      this.logger.log('Firebase Admin SDK initialized successfully');
+        this.logger.log('Firebase Admin SDK initialized successfully');
+      } else {
+        // Use existing Firebase app
+        this.firebaseApp = admin.app();
+        this.logger.log('Using existing Firebase Admin SDK instance');
+      }
     } catch (error) {
       this.logger.error('Failed to initialize Firebase Admin SDK', error);
       throw error;
