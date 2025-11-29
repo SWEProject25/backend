@@ -94,6 +94,24 @@ export class ProfileResponseDto {
   })
   is_deactivated?: boolean;
 
+  @ApiPropertyOptional({
+    description: 'Whether the user has been blocked by the profile owner',
+    example: false,
+  })
+  is_been_blocked?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Whether the profile owner is blocked by the current user',
+    example: false,
+  })
+  is_blocked_by_me?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Whether the profile owner is muted by the current user',
+    example: false,
+  })
+  is_muted_by_me?: boolean;
+
   @ApiProperty({
     description: 'Profile creation timestamp',
     example: '2025-01-01T00:00:00.000Z',
