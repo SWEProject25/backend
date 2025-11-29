@@ -22,12 +22,16 @@ import { AiIntegrationModule } from './ai-integration/ai-integration.module';
 import envSchema from './config/validate-config';
 import { BullModule } from '@nestjs/bullmq';
 import redisConfig from './config/redis.config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { FirebaseModule } from './firebase/firebase.module';
 
 const envFilePath = '.env';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ envFilePath, isGlobal: true, validationSchema: envSchema, load: [redisConfig] }),
+    EventEmitterModule.forRoot(),
+    FirebaseModule,
     AuthModule,
     UserModule,
     UsersModule,
