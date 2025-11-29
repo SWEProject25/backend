@@ -187,10 +187,26 @@ model Repost {
 }
 
 model Hashtag {
-  id         Int      @id @default(autoincrement())
-  tag        String   @unique
-  created_at DateTime @default(now())
-  posts      Post[]   @relation("PostHashtags")
+  id         Int             @id @default(autoincrement())
+  tag        String          @unique
+  created_at DateTime        @default(now())
+  posts      Post[]          @relation("PostHashtags")
+  trends     HashtagTrend[]
+}
+
+model HashtagTrend {
+  id               Int      @id @default(autoincrement())
+  hashtag_id       Int
+  post_count_1h    Int
+  post_count_24h   Int
+  post_count_7d    Int
+  trending_score   Float
+  calculated_at    DateTime @default(now())
+  hashtag          Hashtag  @relation(fields: [hashtag_id], references: [id], onDelete: Cascade)
+
+  @@index([trending_score])
+  @@index([hashtag_id])
+  @@map("hashtag_trends")
 }
 
 model Like {

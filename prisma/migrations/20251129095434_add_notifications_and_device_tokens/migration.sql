@@ -5,12 +5,6 @@ CREATE TYPE "NotificationType" AS ENUM ('LIKE', 'REPOST', 'QUOTE', 'REPLY', 'MEN
 -- CreateEnum
 CREATE TYPE "Platform" AS ENUM ('WEB', 'IOS', 'ANDROID');
 
--- DropForeignKey
-ALTER TABLE "public"."HashtagTrend" DROP CONSTRAINT "HashtagTrend_hashtag_id_fkey";
-
--- DropTable
-DROP TABLE "public"."HashtagTrend";
-
 -- CreateTable
 CREATE TABLE "notifications" (
     "id" TEXT NOT NULL,
