@@ -104,7 +104,7 @@ export class NotificationService {
    */
   private async checkDuplicateNotification(dto: CreateNotificationDto): Promise<boolean> {
     const whereClause = this.buildUniqueWhereClause(dto);
-    
+
     if (!whereClause) {
       // No deduplication needed for this type (e.g., DM)
       return false;
@@ -439,11 +439,21 @@ export class NotificationService {
    * Remove a device token
    */
   async removeDevice(token: string): Promise<void> {
-    await this.prismaService.deviceToken.delete({
-      where: { token },
-    });
+    try {
+      await this.prismaService.deviceToken.delete({
+        where: { token },
+      });
 
-    this.logger.log(`Device token removed: ${token}`);
+      this.logger.log(`Device token removed: ${token}`);
+    } catch (error) {
+      if (error.code === 'P2025') {
+        this.logger.debug(`Device token not found: ${token}`);
+        return;
+      }
+
+      this.logger.error('Failed to remove device token', error);
+      throw error;
+    }
   }
 
   /**
