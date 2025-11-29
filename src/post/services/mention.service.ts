@@ -1,12 +1,15 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NotificationType } from 'src/notifications/enums/notification.enum';
 
 @Injectable()
 export class MentionService {
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private async checkUserExists(userId: number) {
@@ -40,12 +43,32 @@ export class MentionService {
     await this.checkUserExists(userId);
     await this.checkPostExists(postId);
 
-    return this.prismaService.mention.create({
+    const mention = await this.prismaService.mention.create({
       data: {
         user_id: userId,
         post_id: postId,
       },
     });
+
+    // Fetch post details for notification
+    const post = await this.prismaService.post.findUnique({
+      where: { id: postId },
+      select: { user_id: true, parent_id: true },
+    });
+
+    // Emit notification event (don't notify yourself)
+    if (post && post.user_id !== userId) {
+      this.eventEmitter.emit('notification.create', {
+        type: NotificationType.MENTION,
+        recipientId: userId,
+        actorId: post.user_id,
+        postId,
+        replyId: post.parent_id ? postId : undefined,
+        threadPostId: post.parent_id || undefined,
+      });
+    }
+
+    return mention;
   }
 
   async getMentionedPosts(userId: number, page: number, limit: number) {

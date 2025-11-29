@@ -20,6 +20,8 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { MarkSeenDto } from './dto/mark-seen.dto';
 import { WebSocketExceptionFilter } from './exceptions/ws-exception.filter';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NotificationType } from 'src/notifications/enums/notification.enum';
 
 @WebSocketGateway(8000, {
   cors: {
@@ -33,6 +35,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     private readonly messagesService: MessagesService,
     @Inject(redisConfig.KEY)
     private readonly redisConfiguration: ConfigType<typeof redisConfig>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   @WebSocketServer()
@@ -201,6 +204,15 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
 
       if (!isRecipientInConversation) {
         this.server.to(`user_${recipientId}`).emit('newMessageNotification', message);
+
+        // Emit DM notification event
+        this.eventEmitter.emit('notification.create', {
+          type: NotificationType.DM,
+          recipientId,
+          actorId: userId,
+          conversationId: createMessageDto.conversationId,
+          messageText: createMessageDto.text,
+        });
       }
 
       return {
