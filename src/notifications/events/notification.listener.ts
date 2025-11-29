@@ -79,6 +79,14 @@ export class NotificationListener {
         messagePreview,
       });
 
+      // If notification creation returned null, it means it was a duplicate
+      if (!notification) {
+        this.logger.debug(
+          `Duplicate notification skipped: ${event.type} for user ${event.recipientId}`,
+        );
+        return;
+      }
+
       // Send push notification
       const { title, body } = this.buildPushNotificationMessage(
         event.type,

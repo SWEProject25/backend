@@ -19,8 +19,17 @@ export class NotificationService {
   /**
    * Create a notification in Prisma (source of truth) and sync to Firestore
    */
-  async createNotification(dto: CreateNotificationDto): Promise<NotificationPayload> {
+  async createNotification(dto: CreateNotificationDto): Promise<NotificationPayload | null> {
     try {
+      // Optional: Check for duplicates before attempting creation (early exit optimization)
+      const isDuplicate = await this.checkDuplicateNotification(dto);
+      if (isDuplicate) {
+        this.logger.debug(
+          `Duplicate notification prevented: ${dto.type} for user ${dto.recipientId} by ${dto.actorId}`,
+        );
+        return null;
+      }
+
       // Create notification in Prisma
       const notification = await this.prismaService.notification.create({
         data: {
@@ -52,6 +61,14 @@ export class NotificationService {
 
       return payload;
     } catch (error) {
+      // Handle unique constraint violation gracefully (P2002 = Prisma unique constraint error)
+      if (error.code === 'P2002') {
+        this.logger.debug(
+          `Duplicate notification prevented by database constraint: ${dto.type} for user ${dto.recipientId}`,
+        );
+        return null; // Exit gracefully - this is expected behavior
+      }
+
       this.logger.error('Failed to create notification', error);
       throw error;
     }
@@ -78,6 +95,96 @@ export class NotificationService {
     } catch (error) {
       this.logger.error('Failed to sync notification to Firestore', error);
       // Don't throw - Firestore sync failure shouldn't break the flow
+    }
+  }
+
+  /**
+   * Check if a duplicate notification already exists
+   * Returns true if duplicate exists, false otherwise
+   */
+  private async checkDuplicateNotification(dto: CreateNotificationDto): Promise<boolean> {
+    const whereClause = this.buildUniqueWhereClause(dto);
+    
+    if (!whereClause) {
+      // No deduplication needed for this type (e.g., DM)
+      return false;
+    }
+
+    const existing = await this.prismaService.notification.findFirst({
+      where: whereClause,
+    });
+
+    return existing !== null;
+  }
+
+  /**
+   * Build where clause for duplicate checking based on notification type
+   */
+  private buildUniqueWhereClause(dto: CreateNotificationDto): any {
+    switch (dto.type) {
+      case NotificationType.LIKE:
+        return dto.postId
+          ? {
+              type: NotificationType.LIKE,
+              recipientId: dto.recipientId,
+              actorId: dto.actorId,
+              postId: dto.postId,
+            }
+          : null;
+
+      case NotificationType.REPOST:
+        return dto.postId
+          ? {
+              type: NotificationType.REPOST,
+              recipientId: dto.recipientId,
+              actorId: dto.actorId,
+              postId: dto.postId,
+            }
+          : null;
+
+      case NotificationType.FOLLOW:
+        return {
+          type: NotificationType.FOLLOW,
+          recipientId: dto.recipientId,
+          actorId: dto.actorId,
+        };
+
+      case NotificationType.MENTION:
+        return dto.postId
+          ? {
+              type: NotificationType.MENTION,
+              recipientId: dto.recipientId,
+              actorId: dto.actorId,
+              postId: dto.postId,
+            }
+          : null;
+
+      case NotificationType.QUOTE:
+        return dto.quotePostId
+          ? {
+              type: NotificationType.QUOTE,
+              recipientId: dto.recipientId,
+              actorId: dto.actorId,
+              quotePostId: dto.quotePostId,
+            }
+          : null;
+
+      case NotificationType.REPLY:
+        return dto.replyId
+          ? {
+              type: NotificationType.REPLY,
+              recipientId: dto.recipientId,
+              actorId: dto.actorId,
+              replyId: dto.replyId,
+            }
+          : null;
+
+      case NotificationType.DM:
+        // No deduplication for DMs - each message is unique
+        return null;
+
+      default:
+        return null;
     }
   }
 
