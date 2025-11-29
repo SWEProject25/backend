@@ -255,8 +255,30 @@ export class PostService {
     }));
   }
 
+  private async getPostCounts(postId: number) {
+    const grouped = await this.prismaService.post.groupBy({
+      by: ['parent_id', 'type'],
+      where: {
+        parent_id: postId,
+        is_deleted: false,
+        type: { in: ['REPLY', 'QUOTE'] },
+      },
+      _count: { _all: true },
+    });
+
+    const stats = { replies: 0, quotes: 0 };
+
+    for (const row of grouped) {
+      if (row.type === 'REPLY') stats.replies = row._count._all;
+      if (row.type === 'QUOTE') stats.quotes = row._count._all;
+    }
+
+    return stats;
+  }
+
+
   private async findPosts(options: {
-    where: any;
+    where: PrismalSql.PostWhereInput;
     userId: number;
     page?: number;
     limit?: number;
@@ -270,7 +292,6 @@ export class PostService {
           select: {
             likes: true,
             repostedBy: true,
-            Replies: true,
           },
         },
         User: {
@@ -310,8 +331,16 @@ export class PostService {
       orderBy: {
         created_at: 'desc',
       },
-    });
-    return this.transformPost(posts);
+    })
+    const counts = await Promise.all(posts.map(post => this.getPostCounts(post.id)));
+
+    const postsWithCounts = posts.map((post, index) => ({
+      ...post,
+      quoteCount: counts[index].quotes,
+      replyCount: counts[index].replies
+    }));
+
+    return this.transformPost(postsWithCounts);
   }
 
 
@@ -375,13 +404,13 @@ export class PostService {
         hashtags,
         mediaWithType,
       );
-      
+
       if (post.content) {
         await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
       }
 
       const [fullPost] = await this.findPosts({
-        where: { id: post.id },
+        where: { is_deleted: false, id: post.id },
         userId,
         page: 1,
         limit: 1,
@@ -667,40 +696,16 @@ export class PostService {
     };
   }
 
-  private async getPosts(
-    userId: number,
-    page: number,
-    limit: number,
-    types: PostType[],
-    visibility?: PostVisibility,
-  ) {
-    return this.prismaService.post.findMany({
-      where: {
-        user_id: userId,
-        is_deleted: false,
-        type: { in: types },
-        ...(visibility && { visibility }),
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-      orderBy: {
-        created_at: 'desc',
-      },
-    });
-  }
-
   private async getReposts(
     userId: number,
     page: number,
     limit: number,
-    visibility?: PostVisibility,
   ) {
     return this.prismaService.repost.findMany({
       where: {
         user_id: userId,
         post: {
           is_deleted: false,
-          ...(visibility && { visibility }),
         },
       },
       select: {
@@ -717,7 +722,7 @@ export class PostService {
   }
 
   private getTopPaginatedPosts(
-    posts: Post[],
+    posts: TransformedPost[],
     reposts: { post: Post; created_at: Date }[],
     page: number,
     limit: number,
@@ -726,7 +731,7 @@ export class PostService {
       ...posts.map((p) => ({
         ...p,
         isRepost: false,
-        reposted_at: p.created_at,
+        reposted_at: p.createdAt,
       })),
       ...reposts.map((r) => ({
         ...r.post,
@@ -744,11 +749,20 @@ export class PostService {
     return paginated;
   }
 
-  async getUserPosts(userId: number, page: number, limit: number, visibility?: PostVisibility) {
+  async getUserPosts(userId: number, page: number, limit: number) {
     // includes reposts, posts, and quotes
     const [posts, reposts] = await Promise.all([
-      this.getPosts(userId, page, limit, [PostType.POST, PostType.QUOTE], visibility),
-      this.getReposts(userId, page, limit, visibility),
+      this.findPosts({
+        where: {
+          user_id: userId,
+          type: { in: [PostType.POST, PostType.QUOTE] },
+          is_deleted: false,
+        },
+        userId,
+        page,
+        limit,
+      }),
+      this.getReposts(userId, page, limit),
     ]);
     // TODO: Remove in memory sorting and pagination
     return this.getTopPaginatedPosts(posts, reposts, page, limit);
@@ -766,8 +780,8 @@ export class PostService {
       type: post.type,
       date: post.created_at,
       likesCount: post._count.likes,
-      retweetsCount: post._count.repostedBy,
-      commentsCount: post._count.Replies,
+      retweetsCount: post._count.repostedBy + post.quoteCount,
+      commentsCount: post.replyCount,
       isLikedByMe: post.likes.length > 0,
       isFollowedByMe: (post.User.Followers && post.User.Followers.length > 0) || false,
       isRepostedByMe: post.repostedBy.length > 0,
@@ -777,69 +791,35 @@ export class PostService {
         type: m.type,
       })),
       isRepost: false,
-      isQuote: false,
+      isQuote: PostType.QUOTE === post.type,
+      createdAt: post.created_at,
     }));
   }
 
-  async getUserReplies(userId: number, page: number, limit: number, visibility?: PostVisibility) {
-    return this.getPosts(userId, page, limit, [PostType.REPLY], visibility);
+  async getUserReplies(userId: number, page: number, limit: number) {
+    return await this.findPosts({
+      where: {
+        type: PostType.REPLY,
+        user_id: userId,
+        is_deleted: false,
+      },
+      userId,
+      page,
+      limit,
+    });
   }
 
   async getRepliesOfPost(postId: number, page: number, limit: number, userId: number) {
-    const replies = await this.prismaService.post.findMany({
+    return await this.findPosts({
       where: {
         type: PostType.REPLY,
         parent_id: postId,
         is_deleted: false,
       },
-      include: {
-        _count: {
-          select: {
-            likes: true,
-            repostedBy: true,
-            Replies: true,
-          },
-        },
-        User: {
-          select: {
-            id: true,
-            username: true,
-            is_verified: true,
-            Profile: {
-              select: {
-                name: true,
-                profile_image_url: true,
-              },
-            },
-            Followers: {
-              where: { followerId: userId },
-              select: { followerId: true },
-            },
-          },
-        },
-        media: {
-          select: {
-            media_url: true,
-            type: true,
-          },
-        },
-        likes: {
-          where: { user_id: userId },
-          select: { user_id: true },
-        },
-        repostedBy: {
-          where: { user_id: userId },
-          select: { user_id: true },
-        },
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-      orderBy: {
-        created_at: 'desc',
-      },
+      userId,
+      page,
+      limit,
     });
-
-    return this.transformPost(replies);
   }
 
   async deletePost(postId: number) {
@@ -877,50 +857,17 @@ export class PostService {
   }
 
   async getPostById(postId: number, userId: number) {
-    const post = await this.prismaService.post.findFirst({
+    const [post] = await this.findPosts({
       where: { id: postId, is_deleted: false },
-      include: {
-        _count: {
-          select: {
-            likes: true,
-            repostedBy: true,
-            Replies: true,
-          },
-        },
-        User: {
-          select: {
-            id: true,
-            username: true,
-          },
-        },
-        media: {
-          select: {
-            media_url: true,
-            type: true,
-          },
-        },
-        likes: {
-          where: { user_id: userId },
-          select: { user_id: true },
-        },
-        repostedBy: {
-          where: { user_id: userId },
-          select: { user_id: true },
-        },
-      },
-    });
+      userId,
+      page: 1,
+      limit: 1,
 
+    });
     if (!post) {
       throw new NotFoundException('Post not found');
     }
-
-    const { likes, repostedBy, ...postData } = post;
-
-    return {
-      ...postData,
-      isLikedByMe: likes && likes.length > 0,
-      isRepostedByMe: repostedBy && repostedBy.length > 0,
-    };
+    return post
   }
 
   async getForYouFeed(
