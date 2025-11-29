@@ -39,7 +39,13 @@ export class ProfileService {
     };
   }
 
-  private formatProfileResponseWithFollowStatus(profile: any, isFollowedByMe: boolean) {
+  private formatProfileResponseWithFollowStatus(
+    profile: any,
+    isFollowedByMe: boolean,
+    isBeenBlocked: boolean = false,
+    isBlockedByMe: boolean = false,
+    isMutedByMe: boolean = false,
+  ) {
     const { User, ...profileData } = profile;
     const { _count, ...userData } = User;
 
@@ -49,6 +55,9 @@ export class ProfileService {
       followers_count: _count.Followers,
       following_count: _count.Following,
       is_followed_by_me: isFollowedByMe,
+      is_been_blocked: isBeenBlocked,
+      is_blocked_by_me: isBlockedByMe,
+      is_muted_by_me: isMutedByMe,
     };
   }
 
@@ -70,7 +79,12 @@ export class ProfileService {
     }
 
     let isFollowedByMe = false;
+    let isBeenBlocked = false;
+    let isBlockedByMe = false;
+    let isMutedByMe = false;
+
     if (currentUserId && currentUserId !== userId) {
+      // Check if current user follows the profile user
       const followRelation = await this.prismaService.follow.findUnique({
         where: {
           followerId_followingId: {
@@ -80,9 +94,48 @@ export class ProfileService {
         },
       });
       isFollowedByMe = !!followRelation;
+
+      // Check if the profile user has blocked the current user
+      const blockByProfile = await this.prismaService.block.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: userId,
+            blockedId: currentUserId,
+          },
+        },
+      });
+      isBeenBlocked = !!blockByProfile;
+
+      // Check if current user has blocked the profile user
+      const blockByCurrentUser = await this.prismaService.block.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: currentUserId,
+            blockedId: userId,
+          },
+        },
+      });
+      isBlockedByMe = !!blockByCurrentUser;
+
+      // Check if current user has muted the profile user
+      const muteByCurrentUser = await this.prismaService.mute.findUnique({
+        where: {
+          muterId_mutedId: {
+            muterId: currentUserId,
+            mutedId: userId,
+          },
+        },
+      });
+      isMutedByMe = !!muteByCurrentUser;
     }
 
-    return this.formatProfileResponseWithFollowStatus(profile, isFollowedByMe);
+    return this.formatProfileResponseWithFollowStatus(
+      profile,
+      isFollowedByMe,
+      isBeenBlocked,
+      isBlockedByMe,
+      isMutedByMe,
+    );
   }
 
   public async getProfileByUsername(username: string, currentUserId?: number) {
@@ -105,7 +158,12 @@ export class ProfileService {
     }
 
     let isFollowedByMe = false;
+    let isBeenBlocked = false;
+    let isBlockedByMe = false;
+    let isMutedByMe = false;
+
     if (currentUserId && currentUserId !== profile.user_id) {
+      // Check if current user follows the profile user
       const followRelation = await this.prismaService.follow.findUnique({
         where: {
           followerId_followingId: {
@@ -115,9 +173,48 @@ export class ProfileService {
         },
       });
       isFollowedByMe = !!followRelation;
+
+      // Check if the profile user has blocked the current user
+      const blockByProfile = await this.prismaService.block.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: profile.user_id,
+            blockedId: currentUserId,
+          },
+        },
+      });
+      isBeenBlocked = !!blockByProfile;
+
+      // Check if current user has blocked the profile user
+      const blockByCurrentUser = await this.prismaService.block.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: currentUserId,
+            blockedId: profile.user_id,
+          },
+        },
+      });
+      isBlockedByMe = !!blockByCurrentUser;
+
+      // Check if current user has muted the profile user
+      const muteByCurrentUser = await this.prismaService.mute.findUnique({
+        where: {
+          muterId_mutedId: {
+            muterId: currentUserId,
+            mutedId: profile.user_id,
+          },
+        },
+      });
+      isMutedByMe = !!muteByCurrentUser;
     }
 
-    return this.formatProfileResponseWithFollowStatus(profile, isFollowedByMe);
+    return this.formatProfileResponseWithFollowStatus(
+      profile,
+      isFollowedByMe,
+      isBeenBlocked,
+      isBlockedByMe,
+      isMutedByMe,
+    );
   }
 
   public async updateProfile(userId: number, updateProfileDto: UpdateProfileDto) {
