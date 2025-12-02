@@ -238,7 +238,7 @@ export class PostService {
     @InjectQueue(RedisQueues.postQueue.name)
     private readonly postQueue: Queue,
     private readonly eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
   private extractHashtags(content: string): string[] {
     if (!content) return [];
@@ -433,11 +433,7 @@ export class PostService {
 
       const mediaWithType = this.getMediaWithType(urls, media);
 
-      const post = await this.createPostTransaction(
-        createPostDto,
-        hashtags,
-        mediaWithType,
-      );
+      const post = await this.createPostTransaction(createPostDto, hashtags, mediaWithType);
 
       if (post.content) {
         await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
@@ -459,10 +455,7 @@ export class PostService {
   }
 
   private async addToSummarizationQueue(job: SummarizeJob) {
-    await this.postQueue.add(
-      RedisQueues.postQueue.processes.summarizePostContent,
-      job
-    );
+    await this.postQueue.add(RedisQueues.postQueue.processes.summarizePostContent, job);
   }
 
   async summarizePost(postId: number) {
@@ -510,7 +503,7 @@ export class PostService {
     return posts;
   }
 
-  async searchPosts(searchDto: SearchPostsDto, currentUserId?: number) {
+  async searchPosts(searchDto: SearchPostsDto, currentUserId: number) {
     const {
       searchQuery,
       userId,
@@ -518,6 +511,8 @@ export class PostService {
       page = 1,
       limit = 10,
       similarityThreshold = 0.1,
+      before_date,
+      order_by = 'relevance',
     } = searchDto;
     const offset = (page - 1) * limit;
 
@@ -536,6 +531,17 @@ export class PostService {
     `
       : PrismalSql.empty;
 
+    // Build before_date filter
+    const beforeDateFilter = before_date
+      ? PrismalSql.sql`AND p.created_at < ${before_date}::timestamp`
+      : PrismalSql.empty;
+
+    // Build ORDER BY clause
+    const orderByClause =
+      order_by === 'latest'
+        ? PrismalSql.sql`ORDER BY p.created_at DESC`
+        : PrismalSql.sql`ORDER BY relevance DESC, p.created_at DESC`;
+
     const countResult = await this.prismaService.$queryRaw<[{ count: bigint }]>(
       PrismalSql.sql`
         SELECT COUNT(DISTINCT p.id) as count
@@ -545,61 +551,212 @@ export class PostService {
           ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
           ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
           AND similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+          ${beforeDateFilter}
           ${blockMuteFilter}
       `,
     );
 
     const totalItems = Number(countResult[0]?.count || 0);
 
-    const posts = await this.prismaService.$queryRaw<any[]>(
+    const posts = await this.prismaService.$queryRaw<PostWithAllData[]>(
       PrismalSql.sql`
         SELECT 
-          p.*,
+          p.id,
+          p.user_id,
+          p.content,
+          p.created_at,
+          p.type,
+          p.visibility,
+          p.parent_id,
+          p.is_deleted,
           similarity(p.content, ${searchQuery}) as relevance,
-          json_build_object(
-            'id', u.id,
-            'username', u.username,
-            'name', pr.name,
-            'profile_image_url', pr.profile_image_url
-          ) as "User",
+          false as "isRepost",
+          p.created_at as "effectiveDate",
+          NULL::jsonb as "repostedBy",
+          
+          -- User/Author info
+          u.username,
+          u.is_verifed as "isVerified",
+          COALESCE(pr.name, u.username) as "authorName",
+          pr.profile_image_url as "authorProfileImage",
+          
+          -- Engagement counts
+          COUNT(DISTINCT l.user_id)::int as "likeCount",
+          COUNT(DISTINCT CASE WHEN reply.id IS NOT NULL THEN reply.id END)::int as "replyCount",
+          COUNT(DISTINCT r.user_id)::int as "repostCount",
+          
+          -- Author stats (dummy values for consistency with feed structure)
+          0 as "followersCount",
+          0 as "followingCount",
+          0 as "postsCount",
+          
+          -- Content features (dummy values for consistency)
+          false as "hasMedia",
+          0 as "hashtagCount",
+          0 as "mentionCount",
+          
+          -- User interaction flags
+          EXISTS(SELECT 1 FROM "Like" WHERE post_id = p.id AND user_id = ${currentUserId}) as "isLikedByMe",
+          EXISTS(SELECT 1 FROM follows WHERE "followerId" = ${currentUserId} AND "followingId" = p.user_id) as "isFollowedByMe",
+          EXISTS(SELECT 1 FROM "Repost" WHERE post_id = p.id AND user_id = ${currentUserId}) as "isRepostedByMe",
+          
+          -- Media URLs (as JSON array)
           COALESCE(
-            json_agg(
-              DISTINCT jsonb_build_object('media_url', m.media_url, 'type', m.type)
-            ) FILTER (WHERE m.id IS NOT NULL),
-            '[]'
-          ) as media,
-          json_build_object(
-            'likes', COUNT(DISTINCT l.user_id),
-            'repostedBy', COUNT(DISTINCT r.user_id),
-            'Replies', COUNT(DISTINCT reply.id)
-          ) as "_count"
+            (SELECT json_agg(json_build_object('url', m.media_url, 'type', m.type))
+             FROM "Media" m WHERE m.post_id = p.id),
+            '[]'::json
+          ) as "mediaUrls",
+          
+          -- Original post for quotes only
+          CASE 
+            WHEN p.parent_id IS NOT NULL AND p.type = 'QUOTE' THEN
+              (SELECT json_build_object(
+                'postId', op.id,
+                'content', op.content,
+                'createdAt', op.created_at,
+                'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE post_id = op.id), 0),
+                'repostCount', COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE post_id = op.id), 0),
+                'replyCount', COALESCE((SELECT COUNT(*)::int FROM posts WHERE parent_id = op.id AND is_deleted = false), 0),
+                'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE post_id = op.id AND user_id = ${currentUserId}),
+                'isFollowedByMe', EXISTS(SELECT 1 FROM follows WHERE "followerId" = ${currentUserId} AND "followingId" = op.user_id),
+                'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE post_id = op.id AND user_id = ${currentUserId}),
+                'author', json_build_object(
+                  'userId', ou.id,
+                  'username', ou.username,
+                  'isVerified', ou.is_verifed,
+                  'name', COALESCE(opr.name, ou.username),
+                  'avatar', opr.profile_image_url
+                ),
+                'media', COALESCE(
+                  (SELECT json_agg(json_build_object('url', om.media_url, 'type', om.type))
+                   FROM "Media" om WHERE om.post_id = op.id),
+                  '[]'::json
+                )
+              )
+              FROM posts op
+              LEFT JOIN "User" ou ON ou.id = op.user_id
+              LEFT JOIN profiles opr ON opr.user_id = ou.id
+              WHERE op.id = p.parent_id AND op.is_deleted = false)
+            ELSE NULL
+          END as "originalPost",
+          
+          -- Dummy personalization score (not used but required for interface)
+          0::double precision as "personalizationScore"
+          
         FROM posts p
         LEFT JOIN "User" u ON u.id = p.user_id
         LEFT JOIN profiles pr ON pr.user_id = u.id
-        LEFT JOIN "Media" m ON m.post_id = p.id
         LEFT JOIN "Like" l ON l.post_id = p.id
         LEFT JOIN "Repost" r ON r.post_id = p.id
-        LEFT JOIN posts reply ON reply.parent_id = p.id AND reply.type = 'REPLY'
+        LEFT JOIN posts reply ON reply.parent_id = p.id AND reply.type = 'REPLY' AND reply.is_deleted = false
         WHERE 
           p.is_deleted = false
           ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
           ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
           AND similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+          ${beforeDateFilter}
           ${blockMuteFilter}
-        GROUP BY p.id, u.id, u.username, pr.name, pr.profile_image_url
-        ORDER BY 
-          relevance DESC, 
-          p.created_at DESC
+        GROUP BY p.id, u.id, u.username, u.is_verifed, pr.name, pr.profile_image_url
+        ${orderByClause}
         LIMIT ${limit} 
         OFFSET ${offset}
       `,
     );
 
+    const formattedPosts = posts.map((post) => this.transformToFeedResponseWithoutScores(post));
+
     return {
-      posts,
+      posts: formattedPosts,
       totalItems,
       page,
       limit,
+    };
+  }
+
+  private transformToFeedResponseWithoutScores(
+    post: PostWithAllData,
+  ): Omit<FeedPostResponse, 'personalizationScore' | 'qualityScore' | 'finalScore'> {
+    const isQuote = post.type === PostType.QUOTE && !!post.parent_id;
+    const isSimpleRepost = post.isRepost && !isQuote;
+
+    const topLevelUser =
+      isSimpleRepost && post.repostedBy
+        ? post.repostedBy
+        : {
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+          };
+
+    // Build originalPostData
+    let originalPostData: any = null;
+
+    if (isSimpleRepost) {
+      // For simple reposts, originalPostData is the actual post being reposted
+      originalPostData = {
+        userId: post.user_id,
+        username: post.username,
+        verified: post.isVerified,
+        name: post.authorName || post.username,
+        avatar: post.authorProfileImage,
+        postId: post.id,
+        date: post.created_at,
+        likesCount: post.likeCount,
+        retweetsCount: post.repostCount,
+        commentsCount: post.replyCount,
+        isLikedByMe: post.isLikedByMe,
+        isFollowedByMe: post.isFollowedByMe,
+        isRepostedByMe: post.isRepostedByMe || false,
+        text: post.content || '',
+        media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+      };
+    } else if (isQuote && post.originalPost) {
+      // For quote tweets, originalPostData is the post being quoted
+      originalPostData = {
+        userId: post.originalPost.author.userId,
+        username: post.originalPost.author.username,
+        verified: post.originalPost.author.isVerified,
+        name: post.originalPost.author.name,
+        avatar: post.originalPost.author.avatar,
+        postId: post.originalPost.postId,
+        date: post.originalPost.createdAt,
+        likesCount: post.originalPost.likeCount,
+        retweetsCount: post.originalPost.repostCount,
+        commentsCount: post.originalPost.replyCount,
+        isLikedByMe: post.originalPost.isLikedByMe,
+        isFollowedByMe: post.originalPost.isFollowedByMe,
+        isRepostedByMe: post.originalPost.isRepostedByMe,
+        text: post.originalPost.content || '',
+        media: post.originalPost.media || [],
+      };
+    }
+
+    return {
+      // User Information (reposter for simple reposts, author otherwise)
+      userId: topLevelUser.userId,
+      username: topLevelUser.username,
+      verified: topLevelUser.verified,
+      name: topLevelUser.name,
+      avatar: topLevelUser.avatar,
+
+      // Tweet Metadata (always present)
+      postId: post.id,
+      date: isSimpleRepost && post.effectiveDate ? post.effectiveDate : post.created_at,
+      likesCount: post.likeCount,
+      retweetsCount: post.repostCount,
+      commentsCount: post.replyCount,
+
+      // User Interaction Flags
+      isLikedByMe: post.isLikedByMe,
+      isFollowedByMe: post.isFollowedByMe,
+      isRepostedByMe: post.isRepostedByMe || false,
+      text: isSimpleRepost ? '' : post.content || '',
+      media: isSimpleRepost ? [] : Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+      isRepost: isSimpleRepost,
+      isQuote: isQuote,
+      originalPostData,
     };
   }
 
@@ -896,12 +1053,11 @@ export class PostService {
       userId,
       page: 1,
       limit: 1,
-
     });
     if (!post) {
       throw new NotFoundException('Post not found');
     }
-    return post
+    return post;
   }
 
   async getForYouFeed(

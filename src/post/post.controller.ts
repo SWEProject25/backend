@@ -44,6 +44,7 @@ import {
 } from './dto/like-response.dto';
 import { ToggleRepostResponseDto, GetRepostersResponseDto } from './dto/repost-response.dto';
 import { SearchByHashtagResponseDto } from './dto/hashtag-search-response.dto';
+import { SearchPostsResponseDto } from './dto/search-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
 
@@ -71,7 +72,7 @@ export class PostController {
     private readonly repostService: RepostService,
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
-  ) { }
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -213,6 +214,20 @@ export class PostController {
     example: 0.1,
   })
   @ApiQuery({
+    name: 'before_date',
+    required: false,
+    type: String,
+    description: 'Filter posts created before this date (ISO 8601 format)',
+    example: '2024-12-01T00:00:00Z',
+  })
+  @ApiQuery({
+    name: 'order_by',
+    required: false,
+    enum: ['relevance', 'latest'],
+    description: 'Order search results by relevance (default) or latest (created_at desc)',
+    example: 'relevance',
+  })
+  @ApiQuery({
     name: 'page',
     required: false,
     type: Number,
@@ -229,7 +244,7 @@ export class PostController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Search results retrieved successfully',
-    type: GetPostsResponseDto,
+    type: SearchPostsResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -250,7 +265,7 @@ export class PostController {
     return {
       status: 'success',
       message: 'Search results retrieved successfully',
-      data: posts,
+      data: { posts },
       metadata: {
         totalItems,
         page,
