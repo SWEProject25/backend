@@ -59,6 +59,7 @@ export class ProfileService {
       is_been_blocked: isBeenBlocked,
       is_blocked_by_me: isBlockedByMe,
       is_muted_by_me: isMutedByMe,
+      verified: User.is_verified || false,
     };
   }
 
