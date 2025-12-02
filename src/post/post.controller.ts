@@ -321,7 +321,7 @@ export class PostController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Posts with hashtag retrieved successfully',
-    type: SearchByHashtagResponseDto,
+    type: SearchPostsResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -345,7 +345,7 @@ export class PostController {
     return {
       status: 'success',
       message: `Posts with hashtag #${hashtag} retrieved successfully`,
-      data: posts,
+      data: { posts },
       metadata: {
         hashtag,
         totalItems,
@@ -1051,11 +1051,7 @@ export class PostController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    const posts = await this.postService.getUserPosts(
-      userId,
-      +page,
-      +limit,
-    );
+    const posts = await this.postService.getUserPosts(userId, +page, +limit);
 
     return {
       status: 'success',
@@ -1106,11 +1102,7 @@ export class PostController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    const replies = await this.postService.getUserReplies(
-      userId,
-      +page,
-      +limit,
-    );
+    const replies = await this.postService.getUserReplies(userId, +page, +limit);
 
     return {
       status: 'success',
