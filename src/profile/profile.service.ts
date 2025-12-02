@@ -19,6 +19,7 @@ export class ProfileService {
     email: true,
     role: true,
     created_at: true,
+    is_verified: true,
     _count: {
       select: {
         Followers: true,
@@ -58,6 +59,7 @@ export class ProfileService {
       is_been_blocked: isBeenBlocked,
       is_blocked_by_me: isBlockedByMe,
       is_muted_by_me: isMutedByMe,
+      verified: User.is_verified || false,
     };
   }
 
@@ -366,7 +368,51 @@ export class ProfileService {
 
     const totalPages = Math.ceil(total / limit);
 
-    const profilesWithCounts = profiles.map((profile) => this.formatProfileResponse(profile));
+    // Get follow and mute status for each profile if user is authenticated
+    let followStatusMap = new Map<number, boolean>();
+    let muteStatusMap = new Map<number, boolean>();
+
+    if (currentUserId && profiles.length > 0) {
+      const profileUserIds = profiles.map((p) => p.user_id);
+
+      // Batch check follow status
+      const followRelations = await this.prismaService.follow.findMany({
+        where: {
+          followerId: currentUserId,
+          followingId: {
+            in: profileUserIds,
+          },
+        },
+        select: {
+          followingId: true,
+        },
+      });
+      followRelations.forEach((rel) => followStatusMap.set(rel.followingId, true));
+
+      // Batch check mute status
+      const muteRelations = await this.prismaService.mute.findMany({
+        where: {
+          muterId: currentUserId,
+          mutedId: {
+            in: profileUserIds,
+          },
+        },
+        select: {
+          mutedId: true,
+        },
+      });
+      muteRelations.forEach((rel) => muteStatusMap.set(rel.mutedId, true));
+    }
+
+    const profilesWithCounts = profiles.map((profile) => {
+      const formatted = this.formatProfileResponse(profile);
+      return {
+        ...formatted,
+        is_followed_by_me: followStatusMap.get(profile.user_id) || false,
+        is_muted_by_me: muteStatusMap.get(profile.user_id) || false,
+        verified: profile.User.is_verified || false,
+      };
+    });
 
     return {
       profiles: profilesWithCounts,

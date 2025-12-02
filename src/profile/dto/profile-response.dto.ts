@@ -112,6 +112,18 @@ export class ProfileResponseDto {
   })
   is_muted_by_me?: boolean;
 
+  @ApiPropertyOptional({
+    description: 'Whether the current user follows this profile',
+    example: false,
+  })
+  is_followed_by_me?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Whether the user is verified',
+    example: true,
+  })
+  verified?: boolean;
+
   @ApiProperty({
     description: 'Profile creation timestamp',
     example: '2025-01-01T00:00:00.000Z',
