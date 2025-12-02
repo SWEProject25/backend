@@ -480,6 +480,20 @@ export class AuthController {
     );
     console.log('google controller', user);
     this.jwtTokenService.setAuthCookies(res, accessToken);
+    const userAgent = req.headers['user-agent'] || '';
+    const isFlutter = userAgent.includes('Flutter');
+
+    if (isFlutter) {
+      return res.send(`
+      <html>
+        <body>
+          <h2>Login Successful</h2>
+          <p>You can now close this window and return to the app.</p>
+        </body>
+      </html>
+    `);
+    }
+
     const html = `
       <!DOCTYPE html>
       <html lang="en">
@@ -540,6 +554,20 @@ export class AuthController {
     const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
     this.jwtTokenService.setAuthCookies(res, accessToken);
     console.log('github controller', user);
+
+    const userAgent = req.headers['user-agent'] || '';
+    const isFlutter = userAgent.includes('Flutter');
+    if (isFlutter) {
+      return res.send(`
+      <html>
+        <body>
+          <h2>Login Successful</h2>
+          <p>You can now close this window and return to the app.</p>
+        </body>
+      </html>
+    `);
+    }
+
     const html = `
       <!DOCTYPE html>
       <html lang="en">
