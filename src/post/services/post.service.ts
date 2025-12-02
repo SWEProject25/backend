@@ -11,6 +11,8 @@ import { AiSummarizationService } from 'src/ai-integration/services/summarizatio
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SummarizeJob } from 'src/common/interfaces/summarizeJob.interface';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NotificationType } from 'src/notifications/enums/notification.enum';
 
 import { MLService } from './ml.service';
 import { RawPost, TransformedPost } from '../interfaces/post.interface';
@@ -235,6 +237,7 @@ export class PostService {
     private readonly aiSummarizationService: AiSummarizationService,
     @InjectQueue(RedisQueues.postQueue.name)
     private readonly postQueue: Queue,
+    private readonly eventEmitter: EventEmitter2,
   ) { }
 
   private extractHashtags(content: string): string[] {
@@ -384,6 +387,37 @@ export class PostService {
           type: m.type,
         })),
       });
+
+      // Handle notifications after transaction
+      if (postData.parentId) {
+        // Fetch parent post to get author
+        const parentPost = await tx.post.findUnique({
+          where: { id: postData.parentId },
+          select: { user_id: true, type: true },
+        });
+
+        if (parentPost && parentPost.user_id !== postData.userId) {
+          // Determine notification type based on post type
+          if (post.type === PostType.REPLY) {
+            this.eventEmitter.emit('notification.create', {
+              type: NotificationType.REPLY,
+              recipientId: parentPost.user_id,
+              actorId: postData.userId,
+              postId: postData.parentId,
+              replyId: post.id,
+              threadPostId: postData.parentId,
+            });
+          } else if (post.type === PostType.QUOTE) {
+            this.eventEmitter.emit('notification.create', {
+              type: NotificationType.QUOTE,
+              recipientId: parentPost.user_id,
+              actorId: postData.userId,
+              quotePostId: post.id,
+              postId: postData.parentId,
+            });
+          }
+        }
+      }
 
       return { ...post, mediaUrls: mediaWithType.map((m) => m.url) };
     });

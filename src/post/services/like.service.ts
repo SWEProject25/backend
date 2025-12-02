@@ -1,12 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NotificationType } from 'src/notifications/enums/notification.enum';
 
 @Injectable()
 export class LikeService {
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async togglePostLike(postId: number, userId: number) {
@@ -31,12 +34,28 @@ export class LikeService {
       return { liked: false, message: 'Post unliked' };
     }
 
+    // Fetch post to get author for notification
+    const post = await this.prismaService.post.findUnique({
+      where: { id: postId },
+      select: { user_id: true },
+    });
+
     await this.prismaService.like.create({
       data: {
         post_id: postId,
         user_id: userId,
       },
     });
+
+    // Emit notification event (don't notify yourself)
+    if (post && post.user_id !== userId) {
+      this.eventEmitter.emit('notification.create', {
+        type: NotificationType.LIKE,
+        recipientId: post.user_id,
+        actorId: userId,
+        postId,
+      });
+    }
 
     return { liked: true, message: 'Post liked' };
   }

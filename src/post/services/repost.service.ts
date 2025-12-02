@@ -1,12 +1,15 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NotificationType } from 'src/notifications/enums/notification.enum';
 
 @Injectable()
 export class RepostService {
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async toggleRepost(postId: number, userId: number) {
@@ -22,9 +25,25 @@ export class RepostService {
 
         return { message: 'Repost removed' };
       } else {
+        // Fetch post to get author for notification
+        const post = await tx.post.findUnique({
+          where: { id: postId },
+          select: { user_id: true },
+        });
+
         await tx.repost.create({
           data: { post_id: postId, user_id: userId },
         });
+
+        // Emit notification event (don't notify yourself)
+        if (post && post.user_id !== userId) {
+          this.eventEmitter.emit('notification.create', {
+            type: NotificationType.REPOST,
+            recipientId: post.user_id,
+            actorId: userId,
+            postId,
+          });
+        }
 
         return { message: 'Post reposted' };
       }
