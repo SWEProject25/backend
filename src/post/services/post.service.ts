@@ -282,7 +282,7 @@ export class PostService {
     return stats;
   }
 
-  private async findPosts(options: {
+  async findPosts(options: {
     where: PrismalSql.PostWhereInput;
     userId: number;
     page?: number;
@@ -330,6 +330,7 @@ export class PostService {
           where: { user_id: userId },
           select: { user_id: true },
         },
+        mentions: { where: { user_id: userId }, select: { user_id: true } },
       },
       skip: (page - 1) * limit,
       take: limit,
@@ -1036,11 +1037,20 @@ export class PostService {
         url: m.media_url,
         type: m.type,
       })),
+      mentions: post.mentions,
       isRepost: false,
       isQuote: PostType.QUOTE === post.type,
       createdAt: post.created_at,
     }));
   }
+
+  // async getUserMedia(userId: number, page:number, limit: number){
+  //   return await this.prismaService.media.findMany({
+  //     where:{
+  //       user
+  //     }
+  //   })
+  // }
 
   async getUserReplies(userId: number, page: number, limit: number) {
     return await this.findPosts({

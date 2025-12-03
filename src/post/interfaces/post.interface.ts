@@ -38,6 +38,7 @@ export interface RawPost {
   media: Media[];
   likes: { user_id: number; }[];
   repostedBy: { user_id: number; }[];
+  mentions: { user_id: number; }[];
 }
 
 export interface TransformedPost {
