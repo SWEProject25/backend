@@ -3,14 +3,17 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NotificationType } from 'src/notifications/enums/notification.enum';
+import { PostService } from './post.service';
 
 @Injectable()
 export class LikeService {
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
+    @Inject(Services.POST)
+    private readonly postService: PostService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async togglePostLike(postId: number, userId: number) {
     const existingLike = await this.prismaService.like.findUnique({
@@ -85,15 +88,30 @@ export class LikeService {
   async getLikedPostsByUser(userId: number, page: number, limit: number) {
     const likes = await this.prismaService.like.findMany({
       where: { user_id: userId },
-      include: { post: true },
+      select: { post_id: true, created_at: true },
       orderBy: { created_at: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
     });
+    
+    const likedPostsIds = likes.map(like => like.post_id);
 
-    return likes.map((like) => ({
-      ...like.post,
-      liked_at: like.created_at,
-    }));
+    const likedPosts = await this.postService.findPosts({
+      where: {
+        is_deleted: false,
+        id: { in: likedPostsIds }
+      },
+      userId,
+      limit,
+      page
+    })
+    const orderMap = new Map(
+      likes.map((m, index) => [m.post_id, index])
+    );
+
+    likedPosts.sort(
+      (a, b) => orderMap.get(a.postId)! - orderMap.get(b.postId)!
+    );
+    return likedPosts;
   }
 }

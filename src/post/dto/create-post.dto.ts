@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PostType, PostVisibility } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import { IsParentIdAllowed } from '../decorators/is-parent-id-allowed.decorator';
@@ -61,6 +61,24 @@ export class CreatePostDto {
     },
   })
   media?: Express.Multer.File[];
+
+  @ApiPropertyOptional({
+    type: [Number],
+    description: 'Optional array of user IDs to mention',
+    example: [1, 2, 3],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+    @Transform(({ value }) => {
+    if (!value) return undefined;
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.map((v) => Number(v));
+    }
+    return value;
+  })
+  mentionsIds?: number[];
 
   userId: number;
 }
