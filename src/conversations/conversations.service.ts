@@ -173,9 +173,26 @@ export class ConversationsService {
       }),
     ]);
 
+    // Fetch unseen counts for all conversations
+    const unseenCounts = await Promise.all(
+      conversations.map((conv) =>
+        this.prismaService.message.count({
+          where: {
+            conversationId: conv.id,
+            isSeen: false,
+            senderId: {
+              not: userId,
+            },
+            isDeletedU1: userId === conv.User1.id ? undefined : false,
+            isDeletedU2: userId === conv.User2.id ? undefined : false,
+          },
+        }),
+      ),
+    );
+
     // Transform Messages to messages and filter based on user
     const transformedConversations = conversations.map(
-      ({ Messages, User1, User2, ...conversation }) => {
+      ({ Messages, User1, User2, ...conversation }, index) => {
         const isUser1 = userId === User1.id;
 
         // Find the first message that's not deleted for this user
@@ -185,6 +202,7 @@ export class ConversationsService {
 
         return {
           ...conversation,
+          unseenCount: unseenCounts[index],
           lastMessage: lastVisibleMessage
             ? {
                 id: lastVisibleMessage.id,
@@ -325,10 +343,24 @@ export class ConversationsService {
       isUser1 ? !msg.isDeletedU1 : !msg.isDeletedU2,
     );
 
+    // Fetch exact unseen count from database
+    const unseenCount = await this.prismaService.message.count({
+      where: {
+        conversationId,
+        isSeen: false,
+        senderId: {
+          not: userId,
+        },
+        isDeletedU1: isUser1 ? undefined : false,
+        isDeletedU2: isUser1 ? false : undefined,
+      },
+    });
+
     const transformedConversation = {
       id: conversation.id,
       updatedAt: conversation.updatedAt,
       createdAt: conversation.createdAt,
+      unseenCount,
       lastMessage: lastVisibleMessage
         ? {
             id: lastVisibleMessage.id,
@@ -355,5 +387,45 @@ export class ConversationsService {
     };
 
     return { data: transformedConversation };
+  }
+
+  async getConversationUnseenMessagesCount(conversationId: number, userId: number) {
+    const conversation = await this.prismaService.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        User1: {
+          select: {
+            id: true,
+          },
+        },
+        User2: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!conversation) {
+      throw new ConflictException('Conversation not found');
+    }
+
+    const isUser1 = userId === conversation.User1.id;
+
+    if (!isUser1 && userId !== conversation.User2.id) {
+      throw new ConflictException('You are not part of this conversation');
+    }
+
+    return this.prismaService.message.count({
+      where: {
+        conversationId,
+        isSeen: false,
+        isDeletedU1: isUser1 ? undefined : false,
+        isDeletedU2: isUser1 ? false : undefined,
+        senderId: {
+          not: userId,
+        },
+      },
+    });
   }
 }
