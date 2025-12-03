@@ -36,9 +36,9 @@ export interface RawPost {
   replyCount: number;
   User: User;
   media: Media[];
-  likes: { user_id: number; }[];
-  repostedBy: { user_id: number; }[];
-  mentions: { user_id: number; }[];
+  likes: { user_id: number }[];
+  repostedBy: { user_id: number }[];
+  mentions: { user_id: number }[];
 }
 
 export interface TransformedPost {

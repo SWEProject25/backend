@@ -13,7 +13,7 @@ export class MentionService {
     @Inject(Services.POST)
     private readonly postService: PostService,
     private readonly eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
   private async checkUserExists(userId: number) {
     const user = await this.prismaService.user.findUnique({
@@ -84,19 +84,19 @@ export class MentionService {
       take: limit,
     });
 
-    const postsIds = mentions.map(mention => mention.post_id);
+    const postsIds = mentions.map((mention) => mention.post_id);
 
     const mentionPosts = await this.postService.findPosts({
       where: {
         is_deleted: false,
-        id: { in: postsIds }
+        id: { in: postsIds },
       },
       userId,
       limit,
-      page
-    })
-    
-    return mentionPosts
+      page,
+    });
+
+    return mentionPosts;
   }
 
   async getMentionsForPost(postId: number, page: number = 1, limit: number = 10) {

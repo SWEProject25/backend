@@ -13,7 +13,7 @@ export class LikeService {
     @Inject(Services.POST)
     private readonly postService: PostService,
     private readonly eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
   async togglePostLike(postId: number, userId: number) {
     const existingLike = await this.prismaService.like.findUnique({
@@ -34,6 +34,9 @@ export class LikeService {
         },
       });
 
+      // Update cache if exists
+      await this.postService.updatePostStatsCache(postId, 'likesCount', -1);
+
       return { liked: false, message: 'Post unliked' };
     }
 
@@ -49,6 +52,9 @@ export class LikeService {
         user_id: userId,
       },
     });
+
+    // Update cache if exists
+    await this.postService.updatePostStatsCache(postId, 'likesCount', 1);
 
     // Emit notification event (don't notify yourself)
     if (post && post.user_id !== userId) {
@@ -93,25 +99,21 @@ export class LikeService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    
-    const likedPostsIds = likes.map(like => like.post_id);
+
+    const likedPostsIds = likes.map((like) => like.post_id);
 
     const likedPosts = await this.postService.findPosts({
       where: {
         is_deleted: false,
-        id: { in: likedPostsIds }
+        id: { in: likedPostsIds },
       },
       userId,
       limit,
-      page
-    })
-    const orderMap = new Map(
-      likes.map((m, index) => [m.post_id, index])
-    );
+      page,
+    });
+    const orderMap = new Map(likes.map((m, index) => [m.post_id, index]));
 
-    likedPosts.sort(
-      (a, b) => orderMap.get(a.postId)! - orderMap.get(b.postId)!
-    );
+    likedPosts.sort((a, b) => orderMap.get(a.postId)! - orderMap.get(b.postId)!);
     return likedPosts;
   }
 }

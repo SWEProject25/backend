@@ -33,4 +33,4 @@ import { QueueConsumerService } from './services/queue-consumer.service';
     },
   ],
 })
-export class AiIntegrationModule { }
+export class AiIntegrationModule {}

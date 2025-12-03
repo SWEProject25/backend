@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { PostType, PostVisibility } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import { IsParentIdAllowed } from '../decorators/is-parent-id-allowed.decorator';
@@ -70,7 +78,7 @@ export class CreatePostDto {
   @IsOptional()
   @IsArray()
   @IsNumber({}, { each: true })
-    @Transform(({ value }) => {
+  @Transform(({ value }) => {
     if (!value) return undefined;
     const parsed = JSON.parse(value);
     if (Array.isArray(parsed)) {

@@ -11,6 +11,7 @@ import { AiSummarizationService } from 'src/ai-integration/services/summarizatio
 import { BullModule } from '@nestjs/bullmq';
 import { HttpModule } from '@nestjs/axios';
 import { MLService } from './services/ml.service';
+import { RedisService } from 'src/redis/redis.service';
 
 @Module({
   controllers: [PostController],
@@ -43,6 +44,10 @@ import { MLService } from './services/ml.service';
     {
       provide: Services.ML,
       useClass: MLService,
+    },
+    {
+      provide: Services.REDIS,
+      useClass: RedisService,
     },
     MLService,
   ],

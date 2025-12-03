@@ -45,6 +45,7 @@ import {
 import { ToggleRepostResponseDto, GetRepostersResponseDto } from './dto/repost-response.dto';
 import { SearchByHashtagResponseDto } from './dto/hashtag-search-response.dto';
 import { SearchPostsResponseDto } from './dto/search-response.dto';
+import { GetPostStatsResponseDto } from './dto/post-stats-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
 
@@ -386,6 +387,45 @@ export class PostController {
       status: 'success',
       message: 'Post retrieved successfully',
       data: post,
+    };
+  }
+
+  @Get(':postId/stats')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get post stats',
+    description:
+      'Retrieves engagement stats for a post including likes count, reposts count, replies count, and quotes count. Stats are cached for performance.',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to get stats for',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Post stats retrieved successfully',
+    type: GetPostStatsResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Post not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getPostStats(@Param('postId') postId: number) {
+    const stats = await this.postService.getPostStats(+postId);
+
+    return {
+      status: 'success',
+      message: 'Post stats retrieved successfully',
+      data: stats,
     };
   }
 

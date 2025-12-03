@@ -13,8 +13,10 @@ export function IsParentRequiredForReplyOrQuote(validationOptions?: ValidationOp
           const dto = args.object as any;
 
           // If type is REPLY or QUOTE → parentId must exist
-          if ((dto.type === PostType.REPLY || dto.type === PostType.QUOTE) &&
-              (dto.parentId === null || dto.parentId === undefined)) {
+          if (
+            (dto.type === PostType.REPLY || dto.type === PostType.QUOTE) &&
+            (dto.parentId === null || dto.parentId === undefined)
+          ) {
             return false;
           }
 
