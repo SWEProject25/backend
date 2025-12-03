@@ -2,6 +2,7 @@ import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
+import { getUnseenMessageCountWhere } from './helpers/unseen-message.helper';
 
 @Injectable()
 export class ConversationsService {
@@ -177,15 +178,7 @@ export class ConversationsService {
     const unseenCounts = await Promise.all(
       conversations.map((conv) =>
         this.prismaService.message.count({
-          where: {
-            conversationId: conv.id,
-            isSeen: false,
-            senderId: {
-              not: userId,
-            },
-            isDeletedU1: userId === conv.User1.id ? undefined : false,
-            isDeletedU2: userId === conv.User2.id ? undefined : false,
-          },
+          where: getUnseenMessageCountWhere(conv.id, userId, userId === conv.User1.id),
         }),
       ),
     );
@@ -345,15 +338,7 @@ export class ConversationsService {
 
     // Fetch exact unseen count from database
     const unseenCount = await this.prismaService.message.count({
-      where: {
-        conversationId,
-        isSeen: false,
-        senderId: {
-          not: userId,
-        },
-        isDeletedU1: isUser1 ? undefined : false,
-        isDeletedU2: isUser1 ? false : undefined,
-      },
+      where: getUnseenMessageCountWhere(conversationId, userId, isUser1),
     });
 
     const transformedConversation = {
@@ -417,15 +402,7 @@ export class ConversationsService {
     }
 
     return this.prismaService.message.count({
-      where: {
-        conversationId,
-        isSeen: false,
-        isDeletedU1: isUser1 ? undefined : false,
-        isDeletedU2: isUser1 ? false : undefined,
-        senderId: {
-          not: userId,
-        },
-      },
+      where: getUnseenMessageCountWhere(conversationId, userId, isUser1),
     });
   }
 }
