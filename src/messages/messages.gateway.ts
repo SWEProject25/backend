@@ -185,7 +185,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       const recipientId =
         userId === participants.user1Id ? participants.user2Id : participants.user1Id;
 
-      const message = await this.messagesService.create(createMessageDto);
+      const { message, unseenCount } = await this.messagesService.create(createMessageDto);
 
       // Emit to conversation room
       this.server
@@ -218,6 +218,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       return {
         status: 'success',
         data: message,
+        unseenCount,
       };
     } catch (error) {
       console.error(`Error creating message: ${error.message}`);
