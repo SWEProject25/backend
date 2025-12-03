@@ -241,7 +241,7 @@ export class PostService {
     @InjectQueue(RedisQueues.postQueue.name)
     private readonly postQueue: Queue,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   private extractHashtags(content: string): string[] {
     if (!content) return [];
@@ -389,6 +389,13 @@ export class PostService {
         })),
       });
 
+      await tx.mention.createMany({
+        data: postData.mentionsIds?.map((id) => ({
+          post_id: post.id,
+          user_id: id,
+        })) ?? [],
+      });
+
       // Handle notifications after transaction
       if (postData.parentId) {
         // Fetch parent post to get author
@@ -424,11 +431,30 @@ export class PostService {
     });
   }
 
+  private async checkUsersExistence(usersIds: number[]) {
+    if (usersIds.length === 0) {
+      return;
+    }
+    const uniqueIds = Array.from(new Set(usersIds));
+
+    const existingUsers = await this.prismaService.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true },
+    });
+
+
+    if (existingUsers.length !== uniqueIds.length) {
+      throw new UnprocessableEntityException("Some user IDs are invalid")
+    }
+  }
+
   async createPost(createPostDto: CreatePostDto) {
     let urls: string[] = [];
     try {
       const { content, media, userId } = createPostDto;
       urls = await this.storageService.uploadFiles(media);
+      console.log(createPostDto.mentionsIds)
+      await this.checkUsersExistence(createPostDto.mentionsIds ?? [])
 
       const hashtags = this.extractHashtags(content);
 
@@ -484,16 +510,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-          ...(userId && { user_id: userId }),
-          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-          ...(type && { type }),
-          is_deleted: false,
-        }
+        ...(userId && { user_id: userId }),
+        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+        ...(type && { type }),
+        is_deleted: false,
+      }
       : {
-          // TODO: improve this fallback
-          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-          is_deleted: false,
-        };
+        // TODO: improve this fallback
+        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+        is_deleted: false,
+      };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -684,12 +710,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     // Build originalPostData
     let originalPostData: any = null;
@@ -1667,12 +1693,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     return {
       // User Information (reposter for simple reposts, author otherwise)
@@ -1706,42 +1732,42 @@ export class PostService {
       originalPostData:
         isSimpleRepost || isQuote
           ? {
-              userId: post.user_id,
-              username: post.username,
-              verified: post.isVerified,
-              name: post.authorName || post.username,
-              avatar: post.authorProfileImage,
-              postId: post.id,
-              date: post.created_at,
-              likesCount: post.likeCount,
-              retweetsCount: post.repostCount,
-              commentsCount: post.replyCount,
-              isLikedByMe: post.isLikedByMe,
-              isFollowedByMe: post.isFollowedByMe,
-              isRepostedByMe: post.isRepostedByMe || false,
-              text: post.content || '',
-              media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-              ...(isQuote && post.originalPost
-                ? {
-                    // Override with quoted post data for quotes
-                    userId: post.originalPost.author.userId,
-                    username: post.originalPost.author.username,
-                    verified: post.originalPost.author.isVerified,
-                    name: post.originalPost.author.name,
-                    avatar: post.originalPost.author.avatar,
-                    postId: post.originalPost.postId,
-                    date: post.originalPost.createdAt,
-                    likesCount: post.originalPost.likeCount,
-                    retweetsCount: post.originalPost.repostCount,
-                    commentsCount: post.originalPost.replyCount,
-                    isLikedByMe: post.originalPost.isLikedByMe,
-                    isFollowedByMe: post.originalPost.isFollowedByMe,
-                    isRepostedByMe: post.originalPost.isRepostedByMe,
-                    text: post.originalPost.content || '',
-                    media: post.originalPost.media || [],
-                  }
-                : {}),
-            }
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+            postId: post.id,
+            date: post.created_at,
+            likesCount: post.likeCount,
+            retweetsCount: post.repostCount,
+            commentsCount: post.replyCount,
+            isLikedByMe: post.isLikedByMe,
+            isFollowedByMe: post.isFollowedByMe,
+            isRepostedByMe: post.isRepostedByMe || false,
+            text: post.content || '',
+            media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+            ...(isQuote && post.originalPost
+              ? {
+                // Override with quoted post data for quotes
+                userId: post.originalPost.author.userId,
+                username: post.originalPost.author.username,
+                verified: post.originalPost.author.isVerified,
+                name: post.originalPost.author.name,
+                avatar: post.originalPost.author.avatar,
+                postId: post.originalPost.postId,
+                date: post.originalPost.createdAt,
+                likesCount: post.originalPost.likeCount,
+                retweetsCount: post.originalPost.repostCount,
+                commentsCount: post.originalPost.replyCount,
+                isLikedByMe: post.originalPost.isLikedByMe,
+                isFollowedByMe: post.originalPost.isFollowedByMe,
+                isRepostedByMe: post.originalPost.isRepostedByMe,
+                text: post.originalPost.content || '',
+                media: post.originalPost.media || [],
+              }
+              : {}),
+          }
           : undefined,
 
       // Scores data
