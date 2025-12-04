@@ -11,6 +11,7 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RemoveMessageDto } from './dto/remove-message.dto';
 import { Services } from 'src/utils/constants';
+import { getUnseenMessageCountWhere } from 'src/conversations/helpers/unseen-message.helper';
 
 @Injectable()
 export class MessagesService {
@@ -31,8 +32,23 @@ export class MessagesService {
       throw new Error('Conversation not found');
     }
 
+    const isUser1 = senderId === conversation.user1Id;
+
+    if (!isUser1 && senderId !== conversation.user2Id) {
+      throw new ForbiddenException('You are not part of this conversation');
+    }
+
+    // invert sender to get unseen count at receiver side
+    const unseenCount = await this.prismaService.message.count({
+      where: getUnseenMessageCountWhere(
+        createMessageDto.conversationId,
+        isUser1 ? conversation.user2Id : conversation.user1Id,
+        !isUser1,
+      ),
+    });
+
     // Create the message and update conversation timestamp in a transaction
-    return this.prismaService.$transaction(async (prisma) => {
+    const message = await this.prismaService.$transaction(async (prisma) => {
       await prisma.conversation.update({
         where: { id: conversationId },
         data: {}, // Empty update triggers @updatedAt
@@ -54,6 +70,8 @@ export class MessagesService {
         },
       });
     });
+
+    return { message, unseenCount };
   }
 
   async getConversationUsers(

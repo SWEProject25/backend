@@ -147,7 +147,12 @@ export class UsersService {
     }
   }
 
-  async getFollowers(userId: number, page: number = 1, limit: number = 10, authenticatedUserId: number) {
+  async getFollowers(
+    userId: number,
+    page: number = 1,
+    limit: number = 10,
+    authenticatedUserId: number,
+  ) {
     const [totalItems, followers] = await this.prismaService.$transaction([
       this.prismaService.follow.count({
         where: { followingId: userId },
@@ -204,7 +209,12 @@ export class UsersService {
     return { data, metadata };
   }
 
-  async getFollowing(userId: number, page: number = 1, limit: number = 10, authenticatedUserId: number) {
+  async getFollowing(
+    userId: number,
+    page: number = 1,
+    limit: number = 10,
+    authenticatedUserId: number,
+  ) {
     const [totalItems, following] = await this.prismaService.$transaction([
       this.prismaService.follow.count({
         where: { followerId: userId },

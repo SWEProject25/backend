@@ -15,11 +15,11 @@ import { Server, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
 import redisConfig from 'src/config/redis.config';
-import { MessagesService } from './messages.service';
-import { CreateMessageDto } from './dto/create-message.dto';
-import { UpdateMessageDto } from './dto/update-message.dto';
-import { MarkSeenDto } from './dto/mark-seen.dto';
-import { WebSocketExceptionFilter } from './exceptions/ws-exception.filter';
+import { MessagesService } from 'src/messages/messages.service';
+import { CreateMessageDto } from 'src/messages/dto/create-message.dto';
+import { UpdateMessageDto } from 'src/messages/dto/update-message.dto';
+import { MarkSeenDto } from 'src/messages/dto/mark-seen.dto';
+import { WebSocketExceptionFilter } from 'src/messages/exceptions/ws-exception.filter';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NotificationType } from 'src/notifications/enums/notification.enum';
 
@@ -29,7 +29,7 @@ import { NotificationType } from 'src/notifications/enums/notification.enum';
   },
 })
 @UseFilters(new WebSocketExceptionFilter())
-export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
+export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   constructor(
     @Inject(Services.MESSAGES)
     private readonly messagesService: MessagesService,
@@ -89,6 +89,8 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       console.error(`Disconnect error: ${error.message}`);
     }
   }
+
+  // ======================== CONVERSATION HANDLERS ========================
 
   @SubscribeMessage('joinConversation')
   async handleJoin(@MessageBody() conversationId: number, @ConnectedSocket() socket: Socket) {
@@ -185,7 +187,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       const recipientId =
         userId === participants.user1Id ? participants.user2Id : participants.user1Id;
 
-      const message = await this.messagesService.create(createMessageDto);
+      const { message, unseenCount } = await this.messagesService.create(createMessageDto);
 
       // Emit to conversation room
       this.server
@@ -218,6 +220,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       return {
         status: 'success',
         data: message,
+        unseenCount,
       };
     } catch (error) {
       console.error(`Error creating message: ${error.message}`);
@@ -430,5 +433,69 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       console.error(`Error handling stop typing event: ${error.message}`);
       throw error;
     }
+  }
+
+  // ======================== POST HANDLERS ========================
+
+  @SubscribeMessage('joinPost')
+  async handleJoinPost(@MessageBody() postId: number, @ConnectedSocket() socket: Socket) {
+    try {
+      const userId = socket.data.userId;
+
+      if (!userId) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+
+      const parsedPostId = Number(postId);
+      socket.join(`post_${parsedPostId}`);
+
+      return {
+        status: 'success',
+        postId: parsedPostId,
+        message: 'Joined post room successfully',
+      };
+    } catch (error) {
+      console.error(`Error joining post room: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @SubscribeMessage('leavePost')
+  async handleLeavePost(@MessageBody() postId: number, @ConnectedSocket() socket: Socket) {
+    try {
+      const userId = socket.data.userId;
+
+      if (!userId) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+
+      const parsedPostId = Number(postId);
+      socket.leave(`post_${parsedPostId}`);
+
+      return {
+        status: 'success',
+        postId: parsedPostId,
+        message: 'Left post room successfully',
+      };
+    } catch (error) {
+      console.error(`Error leaving post room: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // ======================== SOCKET EMIT HELPERS ========================
+
+  /**
+   * Emit a post stats update to all clients in the post room
+   */
+  emitPostStatsUpdate(
+    postId: number,
+    eventName: 'likeUpdate' | 'repostUpdate' | 'commentUpdate',
+    count: number,
+  ) {
+    this.server.to(`post_${postId}`).emit(eventName, {
+      postId,
+      count,
+    });
   }
 }

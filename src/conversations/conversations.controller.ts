@@ -204,6 +204,45 @@ export class ConversationsController {
     };
   }
 
+  @Get('/unseen/:conversationId')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get count of unseen messages in a specific conversation for the authenticated user',
+    description: 'Retrieves the total number of unseen messages across all conversations',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Unseen messages count retrieved successfully',
+    schema: {
+      example: {
+        status: 'success',
+        unseenCount: 5,
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  async getConversationUnseenMessagesCount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('conversationId', ParseIntPipe) conversationId: number,
+  ) {
+    const unseenCount = await this.conversationsService.getConversationUnseenMessagesCount(
+      conversationId,
+      user.id,
+    );
+    return {
+      status: 'success',
+      unseenCount,
+    };
+  }
+
   @Get('/:conversationId')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()

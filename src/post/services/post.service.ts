@@ -18,9 +18,14 @@ import { Queue } from 'bullmq';
 import { SummarizeJob } from 'src/common/interfaces/summarizeJob.interface';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NotificationType } from 'src/notifications/enums/notification.enum';
+import { RedisService } from 'src/redis/redis.service';
+import { SocketService } from 'src/gateway/socket.service';
 
 import { MLService } from './ml.service';
 import { RawPost, TransformedPost } from '../interfaces/post.interface';
+
+export const POST_STATS_CACHE_PREFIX = 'post_stats:';
+const POST_STATS_CACHE_TTL = 300; // 5 minutes in seconds
 
 // This interface now reflects the complex object returned by our query
 
@@ -241,6 +246,9 @@ export class PostService {
     @InjectQueue(RedisQueues.postQueue.name)
     private readonly postQueue: Queue,
     private readonly eventEmitter: EventEmitter2,
+    @Inject(Services.REDIS)
+    private readonly redisService: RedisService,
+    private readonly socketService: SocketService,
   ) {}
 
   private extractHashtags(content: string): string[] {
@@ -282,7 +290,7 @@ export class PostService {
     return stats;
   }
 
-  private async findPosts(options: {
+  async findPosts(options: {
     where: PrismalSql.PostWhereInput;
     userId: number;
     page?: number;
@@ -330,6 +338,7 @@ export class PostService {
           where: { user_id: userId },
           select: { user_id: true },
         },
+        mentions: { where: { user_id: userId }, select: { user_id: true } },
       },
       skip: (page - 1) * limit,
       take: limit,
@@ -389,6 +398,14 @@ export class PostService {
         })),
       });
 
+      await tx.mention.createMany({
+        data:
+          postData.mentionsIds?.map((id) => ({
+            post_id: post.id,
+            user_id: id,
+          })) ?? [],
+      });
+
       // Handle notifications after transaction
       if (postData.parentId) {
         // Fetch parent post to get author
@@ -424,17 +441,43 @@ export class PostService {
     });
   }
 
+  private async checkUsersExistence(usersIds: number[]) {
+    if (usersIds.length === 0) {
+      return;
+    }
+    const uniqueIds = Array.from(new Set(usersIds));
+
+    const existingUsers = await this.prismaService.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true },
+    });
+
+    if (existingUsers.length !== uniqueIds.length) {
+      throw new UnprocessableEntityException('Some user IDs are invalid');
+    }
+  }
+
   async createPost(createPostDto: CreatePostDto) {
     let urls: string[] = [];
     try {
       const { content, media, userId } = createPostDto;
       urls = await this.storageService.uploadFiles(media);
+      console.log(createPostDto.mentionsIds);
+      await this.checkUsersExistence(createPostDto.mentionsIds ?? []);
 
       const hashtags = this.extractHashtags(content);
 
       const mediaWithType = this.getMediaWithType(urls, media);
 
       const post = await this.createPostTransaction(createPostDto, hashtags, mediaWithType);
+
+      // Update parent post stats cache if this is a reply or quote
+      if (
+        createPostDto.parentId &&
+        (createPostDto.type === 'REPLY' || createPostDto.type === 'QUOTE')
+      ) {
+        await this.updatePostStatsCache(createPostDto.parentId, 'commentsCount', 1);
+      }
 
       if (post.content) {
         await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
@@ -1010,11 +1053,20 @@ export class PostService {
         url: m.media_url,
         type: m.type,
       })),
+      mentions: post.mentions,
       isRepost: false,
       isQuote: PostType.QUOTE === post.type,
       createdAt: post.created_at,
     }));
   }
+
+  // async getUserMedia(userId: number, page:number, limit: number){
+  //   return await this.prismaService.media.findMany({
+  //     where:{
+  //       user
+  //     }
+  //   })
+  // }
 
   async getUserReplies(userId: number, page: number, limit: number) {
     return await this.findPosts({
@@ -1043,7 +1095,7 @@ export class PostService {
   }
 
   async deletePost(postId: number) {
-    return this.prismaService.$transaction(async (tx) => {
+    const result = await this.prismaService.$transaction(async (tx) => {
       const post = await tx.post.findFirst({
         where: { id: postId, is_deleted: false },
       });
@@ -1069,11 +1121,20 @@ export class PostService {
         where: { post_id: { in: postIds } },
       });
 
-      return tx.post.updateMany({
+      await tx.post.updateMany({
         where: { id: { in: postIds } },
         data: { is_deleted: true },
       });
+
+      return { post, repliesAndQuotesCount: repliesAndQuotes.length };
     });
+
+    // Update parent post stats cache if this was a reply or quote
+    if (result.post.parent_id && (result.post.type === 'REPLY' || result.post.type === 'QUOTE')) {
+      await this.updatePostStatsCache(result.post.parent_id, 'commentsCount', -1);
+    }
+
+    return result;
   }
 
   async getPostById(postId: number, userId: number) {
@@ -1087,6 +1148,108 @@ export class PostService {
       throw new NotFoundException('Post not found');
     }
     return post;
+  }
+
+  async getPostStats(postId: number) {
+    const cacheKey = `${POST_STATS_CACHE_PREFIX}${postId}`;
+
+    // Try to get stats from cache
+    const cachedStats = await this.redisService.get(cacheKey);
+    if (cachedStats) {
+      await this.redisService.expire(cacheKey, POST_STATS_CACHE_TTL); // Refresh TTL
+      return JSON.parse(cachedStats);
+    }
+
+    // Check if post exists
+    const post = await this.prismaService.post.findFirst({
+      where: { id: postId, is_deleted: false },
+      select: { id: true },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    // Fetch stats from database
+    const [likesCount, repostsCount, repliesCount] = await Promise.all([
+      this.prismaService.like.count({
+        where: { post_id: postId },
+      }),
+      this.prismaService.repost.count({
+        where: { post_id: postId },
+      }),
+      this.prismaService.post.count({
+        where: {
+          parent_id: postId,
+          is_deleted: false,
+        },
+      }),
+    ]);
+
+    const stats = {
+      likesCount: likesCount,
+      retweetsCount: repostsCount,
+      commentsCount: repliesCount,
+    };
+
+    // Cache the stats
+    await this.redisService.set(cacheKey, JSON.stringify(stats), POST_STATS_CACHE_TTL);
+
+    return stats;
+  }
+
+  async updatePostStatsCache(
+    postId: number,
+    field: 'likesCount' | 'retweetsCount' | 'commentsCount',
+    delta: number,
+  ): Promise<number> {
+    const cacheKey = `${POST_STATS_CACHE_PREFIX}${postId}`;
+
+    // Try to get stats from cache
+    let cachedStats = await this.redisService.get(cacheKey);
+    let stats: { likesCount: number; retweetsCount: number; commentsCount: number };
+
+    if (!cachedStats) {
+      // Cache doesn't exist, fetch from DB and create cache
+      const [likesCount, repostsCount, repliesCount] = await Promise.all([
+        this.prismaService.like.count({ where: { post_id: postId } }),
+        this.prismaService.repost.count({ where: { post_id: postId } }),
+        this.prismaService.post.count({ where: { parent_id: postId, is_deleted: false } }),
+      ]);
+
+      stats = {
+        likesCount,
+        retweetsCount: repostsCount,
+        commentsCount: repliesCount,
+      };
+    } else {
+      // Update the cached stats
+      stats = JSON.parse(cachedStats);
+      stats[field] = Math.max(0, (stats[field] || 0) + delta);
+    }
+
+    // Cache with TTL
+    await this.redisService.set(cacheKey, JSON.stringify(stats), POST_STATS_CACHE_TTL);
+
+    // Emit WebSocket event with the updated count
+    const eventName = this.mapFieldToEventName(field);
+    const count = stats[field];
+    this.socketService.emitPostStatsUpdate(postId, eventName, count);
+
+    return count;
+  }
+
+  private mapFieldToEventName(
+    field: 'likesCount' | 'retweetsCount' | 'commentsCount',
+  ): 'likeUpdate' | 'repostUpdate' | 'commentUpdate' {
+    switch (field) {
+      case 'likesCount':
+        return 'likeUpdate';
+      case 'retweetsCount':
+        return 'repostUpdate';
+      case 'commentsCount':
+        return 'commentUpdate';
+    }
   }
 
   async getForYouFeed(

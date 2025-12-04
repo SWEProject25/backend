@@ -1,5 +1,3 @@
-
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PostService } from './post.service';
@@ -92,7 +90,7 @@ describe('Post Service', () => {
       const mockUrls = ['https://s3/image.jpg', 'https://s3/video.mp4'];
       const mockFiles = [
         { mimetype: 'image/jpeg' },
-        { mimetype: 'video/mp4' }
+        { mimetype: 'video/mp4' },
       ] as Express.Multer.File[];
 
       const createPostDto = {
@@ -273,9 +271,7 @@ describe('Post Service', () => {
         limit: 10,
       };
 
-      const mockPosts = [
-        { id: 1, content: 'Post with #pain', user_id: 1 },
-      ];
+      const mockPosts = [{ id: 1, content: 'Post with #pain', user_id: 1 }];
 
       prisma.post.findMany.mockResolvedValue(mockPosts);
 
@@ -291,7 +287,6 @@ describe('Post Service', () => {
       });
       expect(result).toEqual(mockPosts);
     });
-
   });
 
   describe('getPostById', () => {
@@ -355,7 +350,7 @@ describe('Post Service', () => {
         },
       };
 
-      prisma.$transaction.mockImplementation(c => c(mockTx));
+      prisma.$transaction.mockImplementation((c) => c(mockTx));
 
       const result = await service.deletePost(postId);
 
@@ -400,7 +395,9 @@ describe('Post Service', () => {
 
       prisma.post.findFirst.mockResolvedValue(mockPost);
 
-      await expect(service.summarizePost(postId)).rejects.toThrow('Post has no content to summarize');
+      await expect(service.summarizePost(postId)).rejects.toThrow(
+        'Post has no content to summarize',
+      );
     });
   });
 });

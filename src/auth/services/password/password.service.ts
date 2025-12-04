@@ -188,6 +188,10 @@ export class PasswordService {
       throw new NotFoundException('User not found');
     }
 
-    return await this.verify(user.password, password);
+    const isMatched: boolean = await this.verify(user.password, password);
+    if (isMatched) {
+      return true;
+    }
+    throw new BadRequestException('incorrect password');
   }
 }

@@ -772,7 +772,7 @@ export class AuthController {
       data: {
         isValid,
       },
-      message: isValid ? 'Password is correct' : 'Password is incorrect',
+      message: 'Correct Password',
     };
   }
 }

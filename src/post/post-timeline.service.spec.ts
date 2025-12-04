@@ -119,7 +119,10 @@ describe('PostService - Timeline Endpoints', () => {
         { ...mockPostWithAllData, id: 1, personalizationScore: 30.0 },
         { ...mockPostWithAllData, id: 2, personalizationScore: 20.0 },
       ];
-      const qualityScores = new Map([[1, 0.7], [2, 0.9]]);
+      const qualityScores = new Map([
+        [1, 0.7],
+        [2, 0.9],
+      ]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(candidatePosts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
@@ -362,7 +365,10 @@ describe('PostService - Timeline Endpoints', () => {
         { ...mockPostWithAllData, id: 1, interest_id: 1, personalizationScore: 50.0 },
         { ...mockPostWithAllData, id: 2, interest_id: null, personalizationScore: 15.0 },
       ];
-      const qualityScores = new Map([[1, 0.8], [2, 0.9]]);
+      const qualityScores = new Map([
+        [1, 0.8],
+        [2, 0.9],
+      ]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(posts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);

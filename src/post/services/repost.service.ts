@@ -1,8 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NotificationType } from 'src/notifications/enums/notification.enum';
+import { PostService } from './post.service';
 
 @Injectable()
 export class RepostService {
@@ -10,6 +11,8 @@ export class RepostService {
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    @Inject(forwardRef(() => Services.POST))
+    private readonly postService: PostService,
   ) {}
 
   async toggleRepost(postId: number, userId: number) {
@@ -23,6 +26,9 @@ export class RepostService {
           where: { post_id_user_id: { post_id: postId, user_id: userId } },
         });
 
+        // Update/create cache and emit WebSocket event
+        await this.postService.updatePostStatsCache(postId, 'retweetsCount', -1);
+
         return { message: 'Repost removed' };
       } else {
         // Fetch post to get author for notification
@@ -34,6 +40,9 @@ export class RepostService {
         await tx.repost.create({
           data: { post_id: postId, user_id: userId },
         });
+
+        // Update/create cache and emit WebSocket event
+        await this.postService.updatePostStatsCache(postId, 'retweetsCount', 1);
 
         // Emit notification event (don't notify yourself)
         if (post && post.user_id !== userId) {

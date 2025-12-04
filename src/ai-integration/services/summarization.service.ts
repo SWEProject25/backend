@@ -33,13 +33,13 @@ export class AiSummarizationService {
       const summary = response.choices[0]?.message?.content;
 
       if (!summary || summary.trim().length === 0) {
-        return "Summary unavailable.";
+        return 'Summary unavailable.';
       }
 
       return summary;
     } catch (error) {
-      console.error("Error summarizing post:", error);
-      return "Summary unavailable.";
+      console.error('Error summarizing post:', error);
+      return 'Summary unavailable.';
     }
   }
 }

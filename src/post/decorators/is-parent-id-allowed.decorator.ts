@@ -1,9 +1,5 @@
 // src/common/validators/parent-id.validator.ts
-import {
-  registerDecorator,
-  ValidationArguments,
-  ValidationOptions,
-} from 'class-validator';
+import { registerDecorator, ValidationArguments, ValidationOptions } from 'class-validator';
 import { PostType } from '@prisma/client';
 
 export function IsParentIdAllowed(validationOptions?: ValidationOptions) {
@@ -18,7 +14,7 @@ export function IsParentIdAllowed(validationOptions?: ValidationOptions) {
           const dto = args.object as any;
 
           if (dto.type === PostType.POST && value !== undefined && value !== null) {
-            return false; 
+            return false;
           }
 
           return true;

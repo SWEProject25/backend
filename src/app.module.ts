@@ -19,6 +19,7 @@ import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AiIntegrationModule } from './ai-integration/ai-integration.module';
+import { GatewayModule } from './gateway/gateway.module';
 import envSchema from './config/validate-config';
 import { BullModule } from '@nestjs/bullmq';
 import redisConfig from './config/redis.config';
@@ -83,6 +84,7 @@ const envFilePath = '.env';
     ConversationsModule,
     PrismaModule,
     AiIntegrationModule,
+    GatewayModule,
     NotificationsModule,
   ],
   controllers: [],
