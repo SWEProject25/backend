@@ -1,4 +1,4 @@
 export interface SummarizeJob {
-    postId: number;
-    postContent: string;
+  postId: number;
+  postContent: string;
 }

@@ -22,21 +22,20 @@ export class AiSummarizationService {
 
       // GPT-4.1 / GPT-4o / GPT-o-mini etc.
       const response = await this.openai.responses.create({
-        model: "gpt-4o-mini", // similar price/perf to gemini flash
+        model: 'gpt-4o-mini', // similar price/perf to gemini flash
         input: prompt,
       });
 
-      const summary =
-        response.output_text;
+      const summary = response.output_text;
 
       if (!summary || summary.trim().length === 0) {
-        return "Summary unavailable.";
+        return 'Summary unavailable.';
       }
 
       return summary;
     } catch (error) {
-      console.error("Error summarizing post:", error);
-      return "Summary unavailable.";
+      console.error('Error summarizing post:', error);
+      return 'Summary unavailable.';
     }
   }
 }

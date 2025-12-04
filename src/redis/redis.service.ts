@@ -44,6 +44,11 @@ export class RedisService implements OnModuleInit {
     return await this.client.ttl(key);
   }
 
+  async expire(key: string, seconds: number): Promise<boolean> {
+    const result = await this.client.expire(key, seconds);
+    return result === 1;
+  }
+
   async del(key: string): Promise<number> {
     return await this.client.del(key);
   }
