@@ -13,11 +13,16 @@ import { JwtTokenService } from './services/jwt-token/jwt-token.service';
 import { Services } from 'src/utils/constants';
 import { OAuthProfileDto } from './dto/oauth-profile.dto';
 import { RedisService } from 'src/redis/redis.service';
+import { OAuth2Client } from 'google-auth-library';
+import googleOauthConfig from './config/google-oauth.config';
+import { ConfigType } from '@nestjs/config';
 
 const ISVERIFIED_CACHE_PREFIX = 'verified:';
 
 @Injectable()
 export class AuthService {
+  private googleClient: OAuth2Client;
+
   constructor(
     @Inject(Services.USER)
     private readonly userService: UserService,
@@ -27,7 +32,11 @@ export class AuthService {
     private readonly jwtTokenService: JwtTokenService,
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
-  ) {}
+    @Inject(googleOauthConfig.KEY)
+    private readonly googleOauthConfiguration: ConfigType<typeof googleOauthConfig>,
+  ) {
+    this.googleClient = new OAuth2Client(this.googleOauthConfiguration.clientID);
+  }
 
   public async registerUser(createUserDto: CreateUserDto) {
     if (!createUserDto.birthDate) {
@@ -164,6 +173,33 @@ export class AuthService {
       name: user.Profile?.name,
       profileImageUrl: user.Profile?.profile_image_url,
     };
+  }
+
+  public async verifyGoogleIdToken(idToken: string) {
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: this.googleOauthConfiguration.clientID,
+      });
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new UnauthorizedException('Invalid token payload');
+      }
+      const oauthProfile: OAuthProfileDto = {
+        email: payload.email!,
+        username: payload.email!.split('@')[0],
+        provider: 'google',
+        displayName: payload.name || payload.email!.split('@')[0],
+        providerId: payload.sub, // Google user ID
+        profileImageUrl: payload.picture,
+      };
+      const user = await this.validateGoogleUser(oauthProfile);
+      const userId = 'sub' in user ? user.sub : user.id;
+      const { accessToken, ...result } = await this.login(userId, user.username);
+      return { accessToken, result };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid Google ID token');
+    }
   }
 
   public async validateGithubUser(githubUserData: OAuthProfileDto) {

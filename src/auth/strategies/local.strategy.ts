@@ -20,6 +20,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     if (password === '') {
       throw new BadRequestException('Please provide your password');
     }
+    email = email.trim().toLowerCase();
     return await this.authService.validateLocalUser(email, password);
   }
 }
