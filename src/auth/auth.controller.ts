@@ -22,6 +22,7 @@ import {
   ApiCookieAuth,
   ApiNotFoundResponse,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTooManyRequestsResponse,
   ApiUnprocessableEntityResponse,
@@ -56,6 +57,7 @@ import { AuthenticatedUser } from './interfaces/user.interface';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyPasswordDto } from './dto/verify-password.dto';
 import { UserService } from 'src/user/user.service';
+import { GoogleMobileLoginDto } from './dto/google-mobile-login.dto';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -473,25 +475,21 @@ export class AuthController {
   @Get('google/redirect')
   @Public()
   @UseGuards(GoogleAuthGuard)
-  public async googleRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
+  public async googleRedirect(
+    @Req() req: RequestWithUser,
+    @Res() res: Response,
+    @Query('platform') platform: string,
+  ) {
     const { accessToken, ...user } = await this.authService.login(
       req.user.sub ?? req.user?.id,
       req.user.username,
     );
-    console.log('google controller', user);
     this.jwtTokenService.setAuthCookies(res, accessToken);
-    const userAgent = req.headers['user-agent'] || '';
-    const isFlutter = userAgent.includes('Flutter');
 
-    if (isFlutter) {
-      return res.send(`
-      <html>
-        <body>
-          <h2>Login Successful</h2>
-          <p>You can now close this window and return to the app.</p>
-        </body>
-      </html>
-    `);
+    const resolvedPlatform: string = platform || 'web';
+    if (resolvedPlatform == 'mobile') {
+      const mobileDomain = process.env.MOBILE_APP_OAUTH_REDIRECT;
+      return res.redirect(`${mobileDomain}#token=${accessToken}`);
     }
 
     const html = `
@@ -542,6 +540,128 @@ export class AuthController {
     res.send(html);
   }
 
+  @ApiOperation({
+    summary: 'Google OAuth for mobile/cross-platform apps',
+    description:
+      'Authenticate users using Google ID token from mobile apps (Flutter, React Native, etc.).  The client performs OAuth flow and sends the ID token to this endpoint for verification.',
+  })
+  @ApiBody({
+    type: GoogleMobileLoginDto,
+    description: 'Google ID token obtained from client-side OAuth flow',
+    examples: {
+      example1: {
+        summary: 'Valid ID token',
+        value: {
+          idToken: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjY4YWU1NDA.. .',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully authenticated with Google',
+    schema: {
+      type: 'object',
+      properties: {
+        status: {
+          type: 'string',
+          example: 'success',
+        },
+        data: {
+          type: 'object',
+          properties: {
+            user: {
+              type: 'object',
+              properties: {
+                sub: { type: 'number', example: 1 },
+                username: { type: 'string', example: 'mohamedalbaz492' },
+                role: { type: 'string', example: 'user' },
+                email: { type: 'string', example: 'mohamedalbaz492@gmail.com' },
+                name: { type: 'string', example: 'Mohamed Albaz' },
+                profileImageUrl: {
+                  type: 'string',
+                  example: 'https://lh3.googleusercontent.com/a/.. .',
+                  nullable: true,
+                },
+              },
+            },
+            onboardingStatus: {
+              properties: {
+                hasCompeletedFollowing: { type: 'boolean', example: false },
+                hasCompletedInterests: { type: 'boolean', example: false },
+                hasCompletedFollowing: { type: 'boolean', example: false },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or expired Google ID token',
+    schema: {
+      type: 'object',
+      properties: {
+        status: {
+          type: 'string',
+          example: 'error',
+        },
+        message: {
+          type: 'string',
+          example: 'Invalid Google ID token: Wrong recipient, payload audience != requiredAudience',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - missing or invalid idToken',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 400 },
+        message: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['idToken should not be empty', 'idToken must be a string'],
+        },
+        error: { type: 'string', example: 'Bad Request' },
+      },
+    },
+  })
+  @Post('google/mobile')
+  @Public()
+  public async googleMobileLogin(
+    @Body() googleLoginDto: GoogleMobileLoginDto,
+    @Res() res: Response,
+  ) {
+    const { accessToken, result } = await this.authService.verifyGoogleIdToken(
+      googleLoginDto.idToken,
+    );
+    this.jwtTokenService.setAuthCookies(res, accessToken);
+
+    return res.json({
+      status: 'success',
+      data: {
+        user: result.user,
+        onboardingStatus: result.onboarding,
+      },
+    });
+  }
+
+  @ApiOperation({
+    summary: 'GitHub OAuth Login',
+    description:
+      'Starts GitHub OAuth. Add ?platform=mobile if request is from a mobile app. Default = web.',
+  })
+  @ApiQuery({
+    name: 'platform',
+    required: false,
+    type: String,
+    example: 'mobile',
+    description: 'Platform requesting OAuth (web | mobile). Default: web',
+  })
   @Get('github/login')
   @Public()
   @UseGuards(GithubAuthGuard)
@@ -550,22 +670,18 @@ export class AuthController {
   @Get('github/redirect')
   @Public()
   @UseGuards(GithubAuthGuard)
-  public async githubRedirect(@Req() req: RequestWithUser, @Res() res: Response) {
+  public async githubRedirect(
+    @Req() req: RequestWithUser,
+    @Res() res: Response,
+    @Query('state') platform: string,
+  ) {
     const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
     this.jwtTokenService.setAuthCookies(res, accessToken);
-    console.log('github controller', user);
 
-    const userAgent = req.headers['user-agent'] || '';
-    const isFlutter = userAgent.includes('Flutter');
-    if (isFlutter) {
-      return res.send(`
-      <html>
-        <body>
-          <h2>Login Successful</h2>
-          <p>You can now close this window and return to the app.</p>
-        </body>
-      </html>
-    `);
+    const resolvedPlatform: string = platform || 'web';
+    if (resolvedPlatform == 'mobile') {
+      const mobileDomain = process.env.MOBILE_APP_OAUTH_REDIRECT;
+      return res.redirect(`${mobileDomain}#token=${accessToken}`);
     }
 
     const html = `
