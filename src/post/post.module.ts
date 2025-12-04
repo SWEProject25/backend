@@ -11,7 +11,7 @@ import { AiSummarizationService } from 'src/ai-integration/services/summarizatio
 import { BullModule } from '@nestjs/bullmq';
 import { HttpModule } from '@nestjs/axios';
 import { MLService } from './services/ml.service';
-import { RedisService } from 'src/redis/redis.service';
+import { RedisModule } from 'src/redis/redis.module';
 import { GatewayModule } from 'src/gateway/gateway.module';
 
 @Module({
@@ -46,15 +46,12 @@ import { GatewayModule } from 'src/gateway/gateway.module';
       provide: Services.ML,
       useClass: MLService,
     },
-    {
-      provide: Services.REDIS,
-      useClass: RedisService,
-    },
     MLService,
   ],
   imports: [
     PrismaModule,
     HttpModule,
+    RedisModule,
     GatewayModule,
     BullModule.registerQueue({
       name: RedisQueues.postQueue.name,
