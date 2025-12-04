@@ -1243,52 +1243,6 @@ export class PostController {
     };
   }
 
-  @Get('timeline/explore')
-  @UseGuards(JwtAuthGuard)
-  @ApiCookieAuth()
-  @ApiOperation({
-    summary: 'Get personalized "Explore" feed',
-    description:
-      'Returns posts matching user interests with personalized ranking. Requires authentication.',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Interest-based posts retrieved successfully',
-    type: TimelineFeedResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number for pagination',
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of posts per page',
-    example: 10,
-  })
-  async getExploreFeed(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    const posts = await this.postService.getExploreFeed(user.id, page, limit);
-
-    return {
-      status: 'success',
-      message: 'Explore posts retrieved successfully',
-      data: posts,
-    };
-  }
-
   @Get('timeline/explore/interests')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
@@ -1338,12 +1292,17 @@ export class PostController {
     @Query('interests', new ParseArrayPipe({ items: String, optional: false })) interests: string[],
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
+    @Query('sortBy') sortBy: 'score' | 'latest' = 'score',
     @CurrentUser() user: AuthenticatedUser,
   ) {
     if (!interests || !Array.isArray(interests) || interests.length === 0) {
       throw new BadRequestException('At least one interest is required');
     }
-    const posts = await this.postService.getExploreByInterestsFeed(user.id, interests, page, limit);
+    const posts = await this.postService.getExploreByInterestsFeed(user.id, interests, {
+      page,
+      limit,
+      sortBy,
+    });
 
     return {
       status: 'success',
