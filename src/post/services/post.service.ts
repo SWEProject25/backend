@@ -249,7 +249,7 @@ export class PostService {
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
     private readonly socketService: SocketService,
-  ) {}
+  ) { }
 
   private extractHashtags(content: string): string[] {
     if (!content) return [];
@@ -357,6 +357,33 @@ export class PostService {
     return this.transformPost(postsWithCounts);
   }
 
+  private async enrichIfQuoteOrReply(post: TransformedPost[], userId: number) {
+    const filteredPosts = post.filter(
+      (p) => (p.type === PostType.QUOTE || p.type === PostType.REPLY) && p.parentId !== null,
+    );
+
+    if (filteredPosts.length === 0) return post;
+
+    const parentPostIds = filteredPosts.map((p) => p.parentId!);
+
+    const parentPosts = await this.findPosts({
+      where: { id: { in: parentPostIds } },
+      userId: userId,
+      page: 1,
+      limit: parentPostIds.length,
+    });
+
+    const parentPostsMap = new Map<number, TransformedPost>();
+    parentPosts.forEach((p) => parentPostsMap.set(p.postId, p));
+
+    return post.map((p) => {
+      if ((p.type === PostType.QUOTE || p.type === PostType.REPLY) && p.parentId) {
+        p.originalPostData = parentPostsMap.get(p.parentId);
+      }
+      return p;
+    });
+  }
+
   private async createPostTransaction(
     postData: CreatePostDto,
     hashtags: string[],
@@ -393,6 +420,7 @@ export class PostService {
       await tx.media.createMany({
         data: mediaWithType.map((m) => ({
           post_id: post.id,
+          user_id: postData.userId,
           media_url: m.url,
           type: m.type,
         })),
@@ -527,16 +555,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-          ...(userId && { user_id: userId }),
-          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-          ...(type && { type }),
-          is_deleted: false,
-        }
+        ...(userId && { user_id: userId }),
+        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+        ...(type && { type }),
+        is_deleted: false,
+      }
       : {
-          // TODO: improve this fallback
-          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-          is_deleted: false,
-        };
+        // TODO: improve this fallback
+        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+        is_deleted: false,
+      };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -727,12 +755,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     // Build originalPostData
     let originalPostData: any = null;
@@ -964,29 +992,50 @@ export class PostService {
   }
 
   private async getReposts(userId: number, page: number, limit: number) {
-    return this.prismaService.repost.findMany({
+    const reposts = await this.prismaService.repost.findMany({
       where: {
         user_id: userId,
         post: {
           is_deleted: false,
         },
       },
-      select: {
-        post: true,
-        created_at: true,
-      },
-
       skip: (page - 1) * limit,
       take: limit,
       orderBy: {
         created_at: 'desc',
       },
     });
+
+    const originalPostIds = reposts.map((r) => r.post_id);
+
+    const originalPostData = await this.findPosts({
+      where: {
+        id: { in: originalPostIds },
+        is_deleted: false,
+      },
+      userId,
+      page,
+      limit: originalPostIds.length,
+    });
+
+    const postMap = new Map<number, any>();
+    originalPostData.forEach((p) => postMap.set(p.postId, p));
+
+    // 5. Embed original post data into reposts
+    return reposts.map((r) => ({
+      ...r,
+      originalPostData: postMap.get(r.post_id),
+    }));
   }
+
 
   private getTopPaginatedPosts(
     posts: TransformedPost[],
-    reposts: { post: Post; created_at: Date }[],
+    reposts: {
+      user_id: number;
+      created_at: Date;
+      post_id: number;
+    }[],
     page: number,
     limit: number,
   ) {
@@ -997,7 +1046,7 @@ export class PostService {
         reposted_at: p.createdAt,
       })),
       ...reposts.map((r) => ({
-        ...r.post,
+        ...r,
         isRepost: true,
         reposted_at: r.created_at,
       })),
@@ -1008,7 +1057,6 @@ export class PostService {
     const start = (page - 1) * limit;
     const end = start + limit;
     const paginated = combined.slice(start, end);
-
     return paginated;
   }
 
@@ -1027,8 +1075,9 @@ export class PostService {
       }),
       this.getReposts(userId, page, limit),
     ]);
+    const enrichIfQuoteOrReply = await this.enrichIfQuoteOrReply(posts, userId);
     // TODO: Remove in memory sorting and pagination
-    return this.getTopPaginatedPosts(posts, reposts, page, limit);
+    return this.getTopPaginatedPosts(enrichIfQuoteOrReply, reposts, page, limit);
   }
 
   private transformPost(posts: RawPost[]): TransformedPost[] {
@@ -1060,16 +1109,21 @@ export class PostService {
     }));
   }
 
-  // async getUserMedia(userId: number, page:number, limit: number){
-  //   return await this.prismaService.media.findMany({
-  //     where:{
-  //       user
-  //     }
-  //   })
-  // }
+  async getUserMedia(userId: number, page: number, limit: number) {
+    return await this.prismaService.media.findMany({
+      where: {
+        user_id: userId,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    })
+  }
 
   async getUserReplies(userId: number, page: number, limit: number) {
-    return await this.findPosts({
+    const replies = await this.findPosts({
       where: {
         type: PostType.REPLY,
         user_id: userId,
@@ -1079,6 +1133,8 @@ export class PostService {
       page,
       limit,
     });
+
+    return await this.enrichIfQuoteOrReply(replies, userId);
   }
 
   async getRepliesOfPost(postId: number, page: number, limit: number, userId: number) {
@@ -1842,12 +1898,12 @@ SELECT * FROM candidate_posts;
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     return {
       // User Information (reposter for simple reposts, author otherwise)
@@ -1881,42 +1937,42 @@ SELECT * FROM candidate_posts;
       originalPostData:
         isSimpleRepost || isQuote
           ? {
-              userId: post.user_id,
-              username: post.username,
-              verified: post.isVerified,
-              name: post.authorName || post.username,
-              avatar: post.authorProfileImage,
-              postId: post.id,
-              date: post.created_at,
-              likesCount: post.likeCount,
-              retweetsCount: post.repostCount,
-              commentsCount: post.replyCount,
-              isLikedByMe: post.isLikedByMe,
-              isFollowedByMe: post.isFollowedByMe,
-              isRepostedByMe: post.isRepostedByMe || false,
-              text: post.content || '',
-              media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-              ...(isQuote && post.originalPost
-                ? {
-                    // Override with quoted post data for quotes
-                    userId: post.originalPost.author.userId,
-                    username: post.originalPost.author.username,
-                    verified: post.originalPost.author.isVerified,
-                    name: post.originalPost.author.name,
-                    avatar: post.originalPost.author.avatar,
-                    postId: post.originalPost.postId,
-                    date: post.originalPost.createdAt,
-                    likesCount: post.originalPost.likeCount,
-                    retweetsCount: post.originalPost.repostCount,
-                    commentsCount: post.originalPost.replyCount,
-                    isLikedByMe: post.originalPost.isLikedByMe,
-                    isFollowedByMe: post.originalPost.isFollowedByMe,
-                    isRepostedByMe: post.originalPost.isRepostedByMe,
-                    text: post.originalPost.content || '',
-                    media: post.originalPost.media || [],
-                  }
-                : {}),
-            }
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+            postId: post.id,
+            date: post.created_at,
+            likesCount: post.likeCount,
+            retweetsCount: post.repostCount,
+            commentsCount: post.replyCount,
+            isLikedByMe: post.isLikedByMe,
+            isFollowedByMe: post.isFollowedByMe,
+            isRepostedByMe: post.isRepostedByMe || false,
+            text: post.content || '',
+            media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+            ...(isQuote && post.originalPost
+              ? {
+                // Override with quoted post data for quotes
+                userId: post.originalPost.author.userId,
+                username: post.originalPost.author.username,
+                verified: post.originalPost.author.isVerified,
+                name: post.originalPost.author.name,
+                avatar: post.originalPost.author.avatar,
+                postId: post.originalPost.postId,
+                date: post.originalPost.createdAt,
+                likesCount: post.originalPost.likeCount,
+                retweetsCount: post.originalPost.repostCount,
+                commentsCount: post.originalPost.replyCount,
+                isLikedByMe: post.originalPost.isLikedByMe,
+                isFollowedByMe: post.originalPost.isFollowedByMe,
+                isRepostedByMe: post.originalPost.isRepostedByMe,
+                text: post.originalPost.content || '',
+                media: post.originalPost.media || [],
+              }
+              : {}),
+          }
           : undefined,
 
       // Scores data
