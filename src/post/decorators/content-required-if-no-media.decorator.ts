@@ -1,8 +1,4 @@
-import {
-  registerDecorator,
-  ValidationArguments,
-  ValidationOptions,
-} from 'class-validator';
+import { registerDecorator, ValidationArguments, ValidationOptions } from 'class-validator';
 
 export function IsContentRequiredIfNoMedia(validationOptions?: ValidationOptions) {
   return function (object: Object, propertyName: string) {
@@ -15,8 +11,7 @@ export function IsContentRequiredIfNoMedia(validationOptions?: ValidationOptions
         validate(value: any, args: ValidationArguments) {
           const dto = args.object as any;
 
-          const hasMedia =
-            Array.isArray(dto.media) && dto.media.length > 0;
+          const hasMedia = Array.isArray(dto.media) && dto.media.length > 0;
 
           if (!hasMedia) {
             return typeof value === 'string' && value.trim().length > 0;

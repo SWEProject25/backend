@@ -11,6 +11,8 @@ import { SuggestedUserDto } from './dto/suggested-users.dto';
 import { INTEREST_SLUG_TO_ENUM, UserInterest } from './enums/user-interest.enum';
 import { InterestDto, UserInterestDto } from './dto/interest.dto';
 import { RedisService } from 'src/redis/redis.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NotificationType } from 'src/notifications/enums/notification.enum';
 
 @Injectable()
 export class UsersService {
@@ -22,6 +24,7 @@ export class UsersService {
     private readonly prismaService: PrismaService,
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async followUser(followerId: number, followingId: number) {
@@ -84,6 +87,14 @@ export class UsersService {
       },
     });
     await this.updateUserFollowingOnboarding(followerId);
+
+    // Emit notification event
+    this.eventEmitter.emit('notification.create', {
+      type: NotificationType.FOLLOW,
+      recipientId: followingId,
+      actorId: followerId,
+    });
+
     return follow;
   }
 
@@ -136,7 +147,12 @@ export class UsersService {
     }
   }
 
-  async getFollowers(userId: number, page: number = 1, limit: number = 10, authenticatedUserId: number) {
+  async getFollowers(
+    userId: number,
+    page: number = 1,
+    limit: number = 10,
+    authenticatedUserId: number,
+  ) {
     const [totalItems, followers] = await this.prismaService.$transaction([
       this.prismaService.follow.count({
         where: { followingId: userId },
@@ -193,7 +209,12 @@ export class UsersService {
     return { data, metadata };
   }
 
-  async getFollowing(userId: number, page: number = 1, limit: number = 10, authenticatedUserId: number) {
+  async getFollowing(
+    userId: number,
+    page: number = 1,
+    limit: number = 10,
+    authenticatedUserId: number,
+  ) {
     const [totalItems, following] = await this.prismaService.$transaction([
       this.prismaService.follow.count({
         where: { followerId: userId },

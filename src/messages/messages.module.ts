@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { MessagesService } from './messages.service';
-import { MessagesGateway } from './messages.gateway';
 import { MessagesController } from './messages.controller';
 import { Services } from 'src/utils/constants';
 import { JwtModule } from '@nestjs/jwt';
@@ -25,11 +24,11 @@ import redisConfig from 'src/config/redis.config';
   ],
   controllers: [MessagesController],
   providers: [
-    MessagesGateway,
     {
       provide: Services.MESSAGES,
       useClass: MessagesService,
     },
   ],
+  exports: [Services.MESSAGES],
 })
 export class MessagesModule {}

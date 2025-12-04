@@ -19,15 +19,26 @@ import { MessagesModule } from './messages/messages.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AiIntegrationModule } from './ai-integration/ai-integration.module';
+import { GatewayModule } from './gateway/gateway.module';
 import envSchema from './config/validate-config';
 import { BullModule } from '@nestjs/bullmq';
 import redisConfig from './config/redis.config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { FirebaseModule } from './firebase/firebase.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 const envFilePath = '.env';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ envFilePath, isGlobal: true, validationSchema: envSchema, load: [redisConfig] }),
+    ConfigModule.forRoot({
+      envFilePath,
+      isGlobal: true,
+      validationSchema: envSchema,
+      load: [redisConfig],
+    }),
+    EventEmitterModule.forRoot(),
+    FirebaseModule,
     AuthModule,
     UserModule,
     UsersModule,
@@ -73,6 +84,8 @@ const envFilePath = '.env';
     ConversationsModule,
     PrismaModule,
     AiIntegrationModule,
+    GatewayModule,
+    NotificationsModule,
   ],
   controllers: [],
   providers: [
@@ -82,4 +95,4 @@ const envFilePath = '.env';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

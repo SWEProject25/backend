@@ -44,6 +44,8 @@ import {
 } from './dto/like-response.dto';
 import { ToggleRepostResponseDto, GetRepostersResponseDto } from './dto/repost-response.dto';
 import { SearchByHashtagResponseDto } from './dto/hashtag-search-response.dto';
+import { SearchPostsResponseDto } from './dto/search-response.dto';
+import { GetPostStatsResponseDto } from './dto/post-stats-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
 
@@ -71,7 +73,7 @@ export class PostController {
     private readonly repostService: RepostService,
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
-  ) { }
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -213,6 +215,20 @@ export class PostController {
     example: 0.1,
   })
   @ApiQuery({
+    name: 'before_date',
+    required: false,
+    type: String,
+    description: 'Filter posts created before this date (ISO 8601 format)',
+    example: '2024-12-01T00:00:00Z',
+  })
+  @ApiQuery({
+    name: 'order_by',
+    required: false,
+    enum: ['relevance', 'latest'],
+    description: 'Order search results by relevance (default) or latest (created_at desc)',
+    example: 'relevance',
+  })
+  @ApiQuery({
     name: 'page',
     required: false,
     type: Number,
@@ -229,7 +245,7 @@ export class PostController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Search results retrieved successfully',
-    type: GetPostsResponseDto,
+    type: SearchPostsResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -250,7 +266,7 @@ export class PostController {
     return {
       status: 'success',
       message: 'Search results retrieved successfully',
-      data: posts,
+      data: { posts },
       metadata: {
         totalItems,
         page,
@@ -306,7 +322,7 @@ export class PostController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Posts with hashtag retrieved successfully',
-    type: SearchByHashtagResponseDto,
+    type: SearchPostsResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -330,7 +346,7 @@ export class PostController {
     return {
       status: 'success',
       message: `Posts with hashtag #${hashtag} retrieved successfully`,
-      data: posts,
+      data: { posts },
       metadata: {
         hashtag,
         totalItems,
@@ -371,6 +387,45 @@ export class PostController {
       status: 'success',
       message: 'Post retrieved successfully',
       data: post,
+    };
+  }
+
+  @Get(':postId/stats')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get post stats',
+    description:
+      'Retrieves engagement stats for a post including likes count, reposts count, replies count, and quotes count. Stats are cached for performance.',
+  })
+  @ApiParam({
+    name: 'postId',
+    type: Number,
+    description: 'The ID of the post to get stats for',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Post stats retrieved successfully',
+    type: GetPostStatsResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Post not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getPostStats(@Param('postId') postId: number) {
+    const stats = await this.postService.getPostStats(+postId);
+
+    return {
+      status: 'success',
+      message: 'Post stats retrieved successfully',
+      data: stats,
     };
   }
 
@@ -1036,12 +1091,7 @@ export class PostController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    const posts = await this.postService.getUserPosts(
-      userId,
-      +page,
-      +limit,
-      PostVisibility.EVERY_ONE,
-    );
+    const posts = await this.postService.getUserPosts(userId, +page, +limit);
 
     return {
       status: 'success',
@@ -1092,12 +1142,7 @@ export class PostController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    const replies = await this.postService.getUserReplies(
-      userId,
-      +page,
-      +limit,
-      PostVisibility.EVERY_ONE,
-    );
+    const replies = await this.postService.getUserReplies(userId, +page, +limit);
 
     return {
       status: 'success',

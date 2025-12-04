@@ -9,10 +9,16 @@ import {
   Max,
   Min,
   MinLength,
+  IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { PostType } from '@prisma/client';
+
+export enum SearchOrderBy {
+  RELEVANCE = 'relevance',
+  LATEST = 'latest',
+}
 
 export class SearchPostsDto extends PaginationDto {
   @ApiProperty({
@@ -50,4 +56,23 @@ export class SearchPostsDto extends PaginationDto {
   @Min(0)
   @Max(1)
   similarityThreshold?: number = 0.1;
+
+  @ApiPropertyOptional({
+    description: 'Filter posts created before this date (ISO 8601 format)',
+    example: '2024-12-01T00:00:00Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  before_date?: string;
+
+  @ApiPropertyOptional({
+    description: 'Order search results by relevance or latest',
+    enum: SearchOrderBy,
+    example: SearchOrderBy.RELEVANCE,
+  })
+  @IsOptional()
+  @IsEnum(SearchOrderBy, {
+    message: `order_by must be one of: ${Object.values(SearchOrderBy).join(', ')}`,
+  })
+  order_by?: SearchOrderBy = SearchOrderBy.RELEVANCE;
 }
