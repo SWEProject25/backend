@@ -48,6 +48,8 @@ export interface TransformedPost {
   name: string;
   avatar: string | null;
   postId: number;
+  parentId: number | null;
+  type: string;
   date: Date;
   likesCount: number;
   retweetsCount: number;
@@ -60,4 +62,5 @@ export interface TransformedPost {
   isRepost: boolean;
   isQuote: boolean;
   createdAt: Date;
+  originalPostData?: TransformedPost;
 }
