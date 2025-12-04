@@ -1,33 +1,36 @@
 import { Injectable } from '@nestjs/common';
-import OpenAI from 'openai';
+import Groq from 'groq-sdk';
 import configs from 'src/config/configs';
 
 @Injectable()
 export class AiSummarizationService {
-  private readonly openai: OpenAI;
+  private readonly groq: Groq;
 
   constructor() {
-    if (!configs.openAiApiKey) {
-      throw new Error('OPENAI_API_KEY is not defined');
+    if (!configs.groqApiKey) {
+      throw new Error('GROQ_API_KEY is not defined');
     }
 
-    this.openai = new OpenAI({
-      apiKey: configs.openAiApiKey,
+    this.groq = new Groq({
+      apiKey: configs.groqApiKey,
     });
   }
 
   async summarizePost(text: string): Promise<string> {
     try {
-      const prompt = `Summarize the following post:\n\n"${text}"`;
-
-      // GPT-4.1 / GPT-4o / GPT-o-mini etc.
-      const response = await this.openai.responses.create({
-        model: "gpt-4o-mini", // similar price/perf to gemini flash
-        input: prompt,
+      const response = await this.groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile", // Fast and best quality
+        messages: [
+          {
+            role: "user",
+            content: `Summarize the following post in one short sentence:\n\n"${text}"`,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 150,
       });
 
-      const summary =
-        response.output_text;
+      const summary = response.choices[0]?.message?.content;
 
       if (!summary || summary.trim().length === 0) {
         return "Summary unavailable.";
