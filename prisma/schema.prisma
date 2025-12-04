@@ -45,6 +45,7 @@ model User {
   ReceivedNotifications   Notification[] @relation("ReceivedNotifications")
   SentNotifications       Notification[] @relation("SentNotifications")
   DeviceTokens            DeviceToken[]
+  Media                   Media[]
 }
 
 model Profile {
@@ -269,8 +270,10 @@ model Media {
   media_url  String
   created_at DateTime  @default(now())
   type       MediaType
+  user_id    Int
 
   post Post @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  User User @relation(fields: [user_id], references: [id])
 }
 
 enum MediaType {
