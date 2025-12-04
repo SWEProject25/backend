@@ -1,5 +1,3 @@
-import { PostType } from "generated/prisma";
-
 interface Media {
   media_url: string;
   type: string;
