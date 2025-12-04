@@ -12,6 +12,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { HttpModule } from '@nestjs/axios';
 import { MLService } from './services/ml.service';
 import { RedisService } from 'src/redis/redis.service';
+import { GatewayModule } from 'src/gateway/gateway.module';
 
 @Module({
   controllers: [PostController],
@@ -54,6 +55,7 @@ import { RedisService } from 'src/redis/redis.service';
   imports: [
     PrismaModule,
     HttpModule,
+    GatewayModule,
     BullModule.registerQueue({
       name: RedisQueues.postQueue.name,
       defaultJobOptions: {

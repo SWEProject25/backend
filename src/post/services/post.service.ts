@@ -19,6 +19,7 @@ import { SummarizeJob } from 'src/common/interfaces/summarizeJob.interface';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NotificationType } from 'src/notifications/enums/notification.enum';
 import { RedisService } from 'src/redis/redis.service';
+import { SocketService } from 'src/gateway/socket.service';
 
 import { MLService } from './ml.service';
 import { RawPost, TransformedPost } from '../interfaces/post.interface';
@@ -247,6 +248,7 @@ export class PostService {
     private readonly eventEmitter: EventEmitter2,
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
+    private readonly socketService: SocketService,
   ) {}
 
   private extractHashtags(content: string): string[] {
@@ -1200,22 +1202,54 @@ export class PostService {
     postId: number,
     field: 'likesCount' | 'retweetsCount' | 'commentsCount',
     delta: number,
-  ) {
+  ): Promise<number> {
     const cacheKey = `${POST_STATS_CACHE_PREFIX}${postId}`;
 
     // Try to get stats from cache
-    const cachedStats = await this.redisService.get(cacheKey);
+    let cachedStats = await this.redisService.get(cacheKey);
+    let stats: { likesCount: number; retweetsCount: number; commentsCount: number };
+
     if (!cachedStats) {
-      // Cache doesn't exist, do nothing
-      return;
+      // Cache doesn't exist, fetch from DB and create cache
+      const [likesCount, repostsCount, repliesCount] = await Promise.all([
+        this.prismaService.like.count({ where: { post_id: postId } }),
+        this.prismaService.repost.count({ where: { post_id: postId } }),
+        this.prismaService.post.count({ where: { parent_id: postId, is_deleted: false } }),
+      ]);
+
+      stats = {
+        likesCount,
+        retweetsCount: repostsCount,
+        commentsCount: repliesCount,
+      };
+    } else {
+      // Update the cached stats
+      stats = JSON.parse(cachedStats);
+      stats[field] = Math.max(0, (stats[field] || 0) + delta);
     }
 
-    // Update the cached stats
-    const stats = JSON.parse(cachedStats);
-    stats[field] = Math.max(0, (stats[field] || 0) + delta);
-
-    // Re-cache with same TTL
+    // Cache with TTL
     await this.redisService.set(cacheKey, JSON.stringify(stats), POST_STATS_CACHE_TTL);
+
+    // Emit WebSocket event with the updated count
+    const eventName = this.mapFieldToEventName(field);
+    const count = stats[field];
+    this.socketService.emitPostStatsUpdate(postId, eventName, count);
+
+    return count;
+  }
+
+  private mapFieldToEventName(
+    field: 'likesCount' | 'retweetsCount' | 'commentsCount',
+  ): 'likeUpdate' | 'repostUpdate' | 'commentUpdate' {
+    switch (field) {
+      case 'likesCount':
+        return 'likeUpdate';
+      case 'retweetsCount':
+        return 'repostUpdate';
+      case 'commentsCount':
+        return 'commentUpdate';
+    }
   }
 
   async getForYouFeed(

@@ -34,7 +34,7 @@ export class LikeService {
         },
       });
 
-      // Update cache if exists
+      // Update/create cache and emit WebSocket event
       await this.postService.updatePostStatsCache(postId, 'likesCount', -1);
 
       return { liked: false, message: 'Post unliked' };
@@ -53,7 +53,7 @@ export class LikeService {
       },
     });
 
-    // Update cache if exists
+    // Update/create cache and emit WebSocket event
     await this.postService.updatePostStatsCache(postId, 'likesCount', 1);
 
     // Emit notification event (don't notify yourself)

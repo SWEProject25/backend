@@ -26,7 +26,7 @@ export class RepostService {
           where: { post_id_user_id: { post_id: postId, user_id: userId } },
         });
 
-        // Update cache if exists (after transaction)
+        // Update/create cache and emit WebSocket event
         await this.postService.updatePostStatsCache(postId, 'retweetsCount', -1);
 
         return { message: 'Repost removed' };
@@ -41,7 +41,7 @@ export class RepostService {
           data: { post_id: postId, user_id: userId },
         });
 
-        // Update cache if exists (after transaction)
+        // Update/create cache and emit WebSocket event
         await this.postService.updatePostStatsCache(postId, 'retweetsCount', 1);
 
         // Emit notification event (don't notify yourself)
