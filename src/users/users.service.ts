@@ -271,6 +271,62 @@ export class UsersService {
     return { data, metadata };
   }
 
+  async getFollowersYouKnow(
+    userId: number,
+    page: number = 1,
+    limit: number = 10,
+    authenticatedUserId: number,
+  ) {
+    // Get followers of userId who are also followed by authenticatedUserId,
+    // and check if they follow authenticatedUserId back
+    const followersYouKnow = await this.prismaService.$queryRawUnsafe(
+      `
+      SELECT 
+        u.id, 
+        u.username, 
+        p.name AS "displayName", 
+        p.bio, 
+        p.profile_image_url AS "profileImageUrl", 
+        f.created_at AS "followedAt",
+        CASE WHEN f_back.follower_id IS NOT NULL THEN true ELSE false END AS "isFollowingMe"
+      FROM "Follow" f
+      JOIN "User" u ON f.follower_id = u.id
+      LEFT JOIN "Profile" p ON u.id = p.user_id
+      JOIN "Follow" f_me ON f_me.follower_id = $2 AND f_me.following_id = u.id
+      LEFT JOIN "Follow" f_back ON f_back.follower_id = u.id AND f_back.following_id = $2
+      WHERE f.following_id = $1
+      ORDER BY f.created_at DESC
+      OFFSET $3 LIMIT $4
+    `,
+      userId,
+      authenticatedUserId,
+      (page - 1) * limit,
+      limit,
+    );
+
+    const totalItemsResult = (await this.prismaService.$queryRawUnsafe(
+      `
+      SELECT COUNT(*) AS count
+      FROM "Follow" f
+      JOIN "User" u ON f.follower_id = u.id
+      JOIN "Follow" f_me ON f_me.follower_id = $2 AND f_me.following_id = u.id
+      WHERE f.following_id = $1
+    `,
+      userId,
+      authenticatedUserId,
+    )) as any[];
+    const totalItems = parseInt((totalItemsResult[0] as any).count, 10);
+
+    const metadata = {
+      totalItems,
+      page,
+      limit,
+      totalPages: Math.ceil(totalItems / limit),
+    };
+
+    return { data: followersYouKnow, metadata };
+  }
+
   async blockUser(blockerId: number, blockedId: number) {
     if (blockerId === blockedId) {
       throw new ConflictException('You cannot block yourself');

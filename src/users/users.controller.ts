@@ -306,6 +306,78 @@ export class UsersController {
     };
   }
 
+  @Get(':id/followers-you-know')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get followers for a user who are also followed by the authenticated user',
+    description:
+      'Retrieves a list of users who follow the specified user and are also followed by the authenticated user',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'The ID of the user',
+    example: 123,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10, max: 100)',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully retrieved followers you know',
+    type: UserInteractionDto,
+    isArray: true,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request - Invalid input data',
+    schema: ErrorResponseDto.schemaExample('Invalid pagination parameters', 'Bad Request'),
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    schema: ErrorResponseDto.schemaExample(
+      'Authentication token is missing or invalid',
+      'Unauthorized',
+    ),
+  })
+  @ApiResponse({
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+    description: 'Internal server error',
+    schema: ErrorResponseDto.schemaExample('Internal server error', '500', 'fail'),
+  })
+  async getFollowersYouKnow(
+    @Param('id', ParseIntPipe) userId: number,
+    @Query() paginationQuery: PaginationDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    const { data, metadata } = await this.usersService.getFollowersYouKnow(
+      userId,
+      paginationQuery.page,
+      paginationQuery.limit,
+      currentUser.id,
+    );
+
+    return {
+      status: 'success',
+      message: 'Followers you know retrieved successfully',
+      data,
+      metadata,
+    };
+  }
+
   @Post(':id/block')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
