@@ -287,15 +287,15 @@ export class UsersService {
         p.name AS "displayName", 
         p.bio, 
         p.profile_image_url AS "profileImageUrl", 
-        f.created_at AS "followedAt",
-        CASE WHEN f_back.follower_id IS NOT NULL THEN true ELSE false END AS "isFollowingMe"
-      FROM "Follow" f
-      JOIN "User" u ON f.follower_id = u.id
-      LEFT JOIN "Profile" p ON u.id = p.user_id
-      JOIN "Follow" f_me ON f_me.follower_id = $2 AND f_me.following_id = u.id
-      LEFT JOIN "Follow" f_back ON f_back.follower_id = u.id AND f_back.following_id = $2
-      WHERE f.following_id = $1
-      ORDER BY f.created_at DESC
+        f."createdAt" AS "followedAt",
+        CASE WHEN f_back."followerId" IS NOT NULL THEN true ELSE false END AS "isFollowingMe"
+      FROM "follows" f
+      JOIN "User" u ON f."followerId" = u.id
+      LEFT JOIN "profiles" p ON u.id = p.user_id
+      JOIN "follows" f_me ON f_me."followerId" = $2 AND f_me."followingId" = u.id
+      LEFT JOIN "follows" f_back ON f_back."followerId" = u.id AND f_back."followingId" = $2
+      WHERE f."followingId" = $1
+      ORDER BY f."createdAt" DESC
       OFFSET $3 LIMIT $4
     `,
       userId,
@@ -307,10 +307,10 @@ export class UsersService {
     const totalItemsResult = (await this.prismaService.$queryRawUnsafe(
       `
       SELECT COUNT(*) AS count
-      FROM "Follow" f
-      JOIN "User" u ON f.follower_id = u.id
-      JOIN "Follow" f_me ON f_me.follower_id = $2 AND f_me.following_id = u.id
-      WHERE f.following_id = $1
+      FROM "follows" f
+      JOIN "User" u ON f."followerId" = u.id
+      JOIN "follows" f_me ON f_me."followerId" = $2 AND f_me."followingId" = u.id
+      WHERE f."followingId" = $1
     `,
       userId,
       authenticatedUserId,
