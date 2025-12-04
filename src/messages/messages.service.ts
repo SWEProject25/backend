@@ -43,7 +43,6 @@ export class MessagesService {
       where: getUnseenMessageCountWhere(
         createMessageDto.conversationId,
         isUser1 ? conversation.user2Id : conversation.user1Id,
-        !isUser1,
       ),
     });
 
