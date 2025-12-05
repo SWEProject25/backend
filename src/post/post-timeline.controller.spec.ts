@@ -1,10 +1,10 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostController } from './post.controller';
 import { PostService } from './services/post.service';
-import { BadRequestException } from '@nestjs/common';
-import { AuthenticatedUser } from '../auth/interfaces/user.interface';
 import { Role } from '@prisma/client';
-import { Services } from '../utils/constants';
+import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
+import { Services } from 'src/utils/constants';
 
 describe('PostController - Timeline Endpoints', () => {
   let controller: PostController;
@@ -13,7 +13,6 @@ describe('PostController - Timeline Endpoints', () => {
   const mockPostService = {
     getForYouFeed: jest.fn(),
     getFollowingForFeed: jest.fn(),
-    getExploreFeed: jest.fn(),
     getExploreByInterestsFeed: jest.fn(),
   };
 
@@ -338,98 +337,26 @@ describe('PostController - Timeline Endpoints', () => {
     });
   });
 
-  describe('getExploreFeed', () => {
-    it('should return "Explore" feed with default pagination', async () => {
-      mockPostService.getExploreFeed.mockResolvedValue(mockFeedResponse);
-
-      const result = await controller.getExploreFeed(1, 10, mockUser);
-
-      expect(result.status).toBe('success');
-      expect(result.message).toBe('Explore posts retrieved successfully');
-      expect(result.data).toEqual(mockFeedResponse);
-      expect(mockPostService.getExploreFeed).toHaveBeenCalledWith(1, 1, 10);
-    });
-
-    it('should handle custom pagination for explore feed', async () => {
-      mockPostService.getExploreFeed.mockResolvedValue(mockFeedResponse);
-
-      await controller.getExploreFeed(2, 25, mockUser);
-
-      expect(mockPostService.getExploreFeed).toHaveBeenCalledWith(1, 2, 25);
-    });
-
-    it('should return posts matching user interests with higher scores', async () => {
-      const interestMatchedPost = {
-        ...mockFeedPost,
-        personalizationScore: 50.0, // Higher score due to interest match
-      };
-      mockPostService.getExploreFeed.mockResolvedValue({ posts: [interestMatchedPost] });
-
-      const result = await controller.getExploreFeed(1, 10, mockUser);
-
-      expect(result.data.posts[0].personalizationScore).toBeGreaterThan(25);
-    });
-
-    it('should return posts from non-followed users', async () => {
-      const explorePost = {
-        ...mockFeedPost,
-        isFollowedByMe: false,
-      };
-      mockPostService.getExploreFeed.mockResolvedValue({ posts: [explorePost] });
-
-      const result = await controller.getExploreFeed(1, 10, mockUser);
-
-      expect(result.data.posts[0].isFollowedByMe).toBe(false);
-    });
-
-    it('should work even when user has no interests', async () => {
-      mockPostService.getExploreFeed.mockResolvedValue(mockFeedResponse);
-
-      const result = await controller.getExploreFeed(1, 10, mockUser);
-
-      expect(result.status).toBe('success');
-      expect(result.data.posts).toBeDefined();
-    });
-
-    it('should exclude blocked and muted users', async () => {
-      mockPostService.getExploreFeed.mockResolvedValue({ posts: [mockFeedPost] });
-
-      const result = await controller.getExploreFeed(1, 10, mockUser);
-
-      // Service should handle filtering, controller just returns the result
-      expect(result.data.posts).toBeDefined();
-      expect(mockPostService.getExploreFeed).toHaveBeenCalled();
-    });
-
-    it('should return diverse content types', async () => {
-      const diversePosts = [
-        { ...mockFeedPost, postId: 1, isQuote: false, isRepost: false },
-        { ...mockFeedPost, postId: 2, isQuote: true, isRepost: false },
-        { ...mockFeedPost, postId: 3, isQuote: false, isRepost: true },
-      ];
-      mockPostService.getExploreFeed.mockResolvedValue({ posts: diversePosts });
-
-      const result = await controller.getExploreFeed(1, 10, mockUser);
-
-      expect(result.data.posts).toHaveLength(3);
-    });
-  });
-
   describe('getExploreByInterestsFeed', () => {
-    it('should return posts filtered by single interest', async () => {
+    it('should return posts filtered by single interest with default sortBy', async () => {
       mockPostService.getExploreByInterestsFeed.mockResolvedValue(mockFeedResponse);
 
-      const result = await controller.getExploreByInterestsFeed(['Technology'], 1, 10, mockUser);
+      const result = await controller.getExploreByInterestsFeed(
+        ['Technology'],
+        1,
+        10,
+        'score',
+        mockUser,
+      );
 
       expect(result.status).toBe('success');
       expect(result.message).toBe('Interest-filtered posts retrieved successfully');
       expect(result.data).toEqual(mockFeedResponse);
-      expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(
-        1,
-        ['Technology'],
-        1,
-        10,
-      );
+      expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
     });
 
     it('should return posts filtered by multiple interests', async () => {
@@ -439,49 +366,78 @@ describe('PostController - Timeline Endpoints', () => {
         ['Technology', 'Sports', 'Music'],
         1,
         10,
+        'score',
         mockUser,
       );
 
       expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(
         1,
         ['Technology', 'Sports', 'Music'],
-        1,
-        10,
+        { page: 1, limit: 10, sortBy: 'score' },
       );
     });
 
+    it('should handle sortBy latest parameter', async () => {
+      mockPostService.getExploreByInterestsFeed.mockResolvedValue(mockFeedResponse);
+
+      await controller.getExploreByInterestsFeed(['Technology'], 1, 10, 'latest', mockUser);
+
+      expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'latest',
+      });
+    });
+
+    it('should default sortBy to score when not provided', async () => {
+      mockPostService.getExploreByInterestsFeed.mockResolvedValue(mockFeedResponse);
+
+      await controller.getExploreByInterestsFeed(['Technology'], 1, 10, undefined as any, mockUser);
+
+      expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
+    });
+
     it('should throw BadRequestException when interests array is empty', async () => {
-      await expect(controller.getExploreByInterestsFeed([], 1, 10, mockUser)).rejects.toThrow(
-        BadRequestException,
-      );
-      await expect(controller.getExploreByInterestsFeed([], 1, 10, mockUser)).rejects.toThrow(
-        'At least one interest is required',
-      );
+      await expect(
+        controller.getExploreByInterestsFeed([], 1, 10, 'score', mockUser),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        controller.getExploreByInterestsFeed([], 1, 10, 'score', mockUser),
+      ).rejects.toThrow('At least one interest is required');
     });
 
     it('should throw BadRequestException when interests is not an array', async () => {
       await expect(
-        controller.getExploreByInterestsFeed('Technology' as any, 1, 10, mockUser),
+        controller.getExploreByInterestsFeed(null as any, 1, 10, 'score', mockUser),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('should handle custom pagination', async () => {
       mockPostService.getExploreByInterestsFeed.mockResolvedValue(mockFeedResponse);
 
-      await controller.getExploreByInterestsFeed(['Technology'], 3, 20, mockUser);
+      await controller.getExploreByInterestsFeed(['Technology'], 2, 15, 'score', mockUser);
 
-      expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(
-        1,
-        ['Technology'],
-        3,
-        20,
-      );
+      expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(1, ['Technology'], {
+        page: 2,
+        limit: 15,
+        sortBy: 'score',
+      });
     });
 
     it('should return empty array when no posts match interests', async () => {
       mockPostService.getExploreByInterestsFeed.mockResolvedValue({ posts: [] });
 
-      const result = await controller.getExploreByInterestsFeed(['RareInterest'], 1, 10, mockUser);
+      const result = await controller.getExploreByInterestsFeed(
+        ['RareInterest'],
+        1,
+        10,
+        'score',
+        mockUser,
+      );
 
       expect(result.data.posts).toHaveLength(0);
     });
@@ -489,102 +445,136 @@ describe('PostController - Timeline Endpoints', () => {
     it('should handle case-sensitive interest names', async () => {
       mockPostService.getExploreByInterestsFeed.mockResolvedValue(mockFeedResponse);
 
-      await controller.getExploreByInterestsFeed(['technology'], 1, 10, mockUser);
+      await controller.getExploreByInterestsFeed(
+        ['technology', 'SPORTS'],
+        1,
+        10,
+        'score',
+        mockUser,
+      );
 
       expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(
         1,
-        ['technology'],
-        1,
-        10,
+        ['technology', 'SPORTS'],
+        { page: 1, limit: 10, sortBy: 'score' },
       );
     });
 
     it('should pass authenticated user ID correctly', async () => {
       mockPostService.getExploreByInterestsFeed.mockResolvedValue(mockFeedResponse);
-      const differentUser = createMockUser(7, 'tech_lover');
+      const anotherUser = createMockUser(7, 'another_user');
 
-      await controller.getExploreByInterestsFeed(['Technology'], 1, 10, differentUser);
+      await controller.getExploreByInterestsFeed(['Technology'], 1, 10, 'score', anotherUser);
 
-      expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(
-        7,
-        ['Technology'],
-        1,
-        10,
-      );
+      expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(7, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
     });
 
     it('should handle special characters in interest names', async () => {
       mockPostService.getExploreByInterestsFeed.mockResolvedValue(mockFeedResponse);
 
-      await controller.getExploreByInterestsFeed(['C++', 'Node.js'], 1, 10, mockUser);
+      await controller.getExploreByInterestsFeed(
+        ['C++', 'Node.js', "Rock 'n' Roll"],
+        1,
+        10,
+        'score',
+        mockUser,
+      );
 
       expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(
         1,
-        ['C++', 'Node.js'],
-        1,
-        10,
+        ['C++', 'Node.js', "Rock 'n' Roll"],
+        { page: 1, limit: 10, sortBy: 'score' },
       );
     });
 
-    it('should return posts with personalization scores', async () => {
-      const interestPost = {
-        ...mockFeedPost,
-        personalizationScore: 30.0,
-      };
-      mockPostService.getExploreByInterestsFeed.mockResolvedValue({ posts: [interestPost] });
+    it('should return posts with personalization scores when sortBy is score', async () => {
+      mockPostService.getExploreByInterestsFeed.mockResolvedValue(mockFeedResponse);
 
-      const result = await controller.getExploreByInterestsFeed(['Technology'], 1, 10, mockUser);
-
-      expect(result.data.posts[0]).toHaveProperty('personalizationScore');
-    });
-
-    it('should only return posts strictly matching provided interests', async () => {
-      const techPost = {
-        ...mockFeedPost,
-        postId: 1,
-      };
-      mockPostService.getExploreByInterestsFeed.mockResolvedValue({ posts: [techPost] });
-
-      const result = await controller.getExploreByInterestsFeed(['Technology'], 1, 10, mockUser);
-
-      // Service handles strict filtering
-      expect(result.data.posts).toBeDefined();
-      expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(
-        1,
+      const result = await controller.getExploreByInterestsFeed(
         ['Technology'],
         1,
         10,
+        'score',
+        mockUser,
       );
+
+      expect(result.data.posts[0]).toHaveProperty('personalizationScore');
+      expect(result.data.posts[0]).toHaveProperty('qualityScore');
+      expect(result.data.posts[0]).toHaveProperty('finalScore');
+    });
+
+    it('should return posts sorted by date when sortBy is latest', async () => {
+      const latestPosts = {
+        posts: [
+          { ...mockFeedPost, postId: 1, date: new Date('2023-11-22T10:00:00Z') },
+          { ...mockFeedPost, postId: 2, date: new Date('2023-11-21T10:00:00Z') },
+        ],
+      };
+      mockPostService.getExploreByInterestsFeed.mockResolvedValue(latestPosts);
+
+      const result = await controller.getExploreByInterestsFeed(
+        ['Technology'],
+        1,
+        10,
+        'latest',
+        mockUser,
+      );
+
+      expect(result.data.posts).toHaveLength(2);
+      expect(new Date(result.data.posts[0].date).getTime()).toBeGreaterThanOrEqual(
+        new Date(result.data.posts[1].date).getTime(),
+      );
+    });
+
+    it('should only return posts strictly matching provided interests', async () => {
+      const techPosts = {
+        posts: [
+          { ...mockFeedPost, postId: 1, text: 'Tech post 1' },
+          { ...mockFeedPost, postId: 2, text: 'Tech post 2' },
+        ],
+      };
+      mockPostService.getExploreByInterestsFeed.mockResolvedValue(techPosts);
+
+      const result = await controller.getExploreByInterestsFeed(
+        ['Technology'],
+        1,
+        10,
+        'score',
+        mockUser,
+      );
+
+      expect(result.data.posts).toHaveLength(2);
+      expect(mockPostService.getExploreByInterestsFeed).toHaveBeenCalledWith(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
     });
   });
 
   describe('Timeline Endpoints - Error Handling', () => {
     it('should handle service errors in For You feed', async () => {
-      mockPostService.getForYouFeed.mockRejectedValue(new Error('Database error'));
+      mockPostService.getForYouFeed.mockRejectedValue(new Error('Service error'));
 
-      await expect(controller.getForYouFeed(1, 10, mockUser)).rejects.toThrow('Database error');
+      await expect(controller.getForYouFeed(1, 10, mockUser)).rejects.toThrow('Service error');
     });
 
     it('should handle service errors in Following feed', async () => {
-      mockPostService.getFollowingForFeed.mockRejectedValue(new Error('Query timeout'));
+      mockPostService.getFollowingForFeed.mockRejectedValue(new Error('Service error'));
 
-      await expect(controller.getUserTimeline(1, 10, mockUser)).rejects.toThrow('Query timeout');
-    });
-
-    it('should handle service errors in Explore feed', async () => {
-      mockPostService.getExploreFeed.mockRejectedValue(new Error('ML service unavailable'));
-
-      await expect(controller.getExploreFeed(1, 10, mockUser)).rejects.toThrow(
-        'ML service unavailable',
-      );
+      await expect(controller.getUserTimeline(1, 10, mockUser)).rejects.toThrow('Service error');
     });
 
     it('should handle service errors in Explore by Interests feed', async () => {
-      mockPostService.getExploreByInterestsFeed.mockRejectedValue(new Error('Invalid interest ID'));
+      mockPostService.getExploreByInterestsFeed.mockRejectedValue(new Error('Service error'));
 
       await expect(
-        controller.getExploreByInterestsFeed(['Technology'], 1, 10, mockUser),
-      ).rejects.toThrow('Invalid interest ID');
+        controller.getExploreByInterestsFeed(['Technology'], 1, 10, 'score', mockUser),
+      ).rejects.toThrow('Service error');
     });
   });
 
@@ -594,14 +584,13 @@ describe('PostController - Timeline Endpoints', () => {
 
       await controller.getForYouFeed(0, 10, mockUser);
 
-      // Controller passes the value, service should handle validation
       expect(mockPostService.getForYouFeed).toHaveBeenCalledWith(1, 0, 10);
     });
 
     it('should handle very large page numbers', async () => {
       mockPostService.getForYouFeed.mockResolvedValue({ posts: [] });
 
-      const result = await controller.getForYouFeed(99999, 10, mockUser);
+      const result = await controller.getForYouFeed(1000, 10, mockUser);
 
       expect(result.data.posts).toHaveLength(0);
     });
@@ -615,11 +604,11 @@ describe('PostController - Timeline Endpoints', () => {
     });
 
     it('should handle limit of 1', async () => {
-      mockPostService.getForYouFeed.mockResolvedValue({ posts: [mockFeedPost] });
+      mockPostService.getForYouFeed.mockResolvedValue(mockFeedResponse);
 
-      const result = await controller.getForYouFeed(1, 1, mockUser);
+      await controller.getForYouFeed(1, 1, mockUser);
 
-      expect(result.data.posts).toHaveLength(1);
+      expect(mockPostService.getForYouFeed).toHaveBeenCalledWith(1, 1, 1);
     });
   });
 });

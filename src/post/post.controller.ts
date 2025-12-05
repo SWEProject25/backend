@@ -73,7 +73,7 @@ export class PostController {
     private readonly repostService: RepostService,
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
-  ) {}
+  ) { }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -1151,6 +1151,101 @@ export class PostController {
     };
   }
 
+  @Get('profile/me/media')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get user profile media',
+    description: 'Retrieves a paginated list of media created by the authenticated user',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of media items per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Media retrieved successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getProfileMedia(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const media = await this.postService.getUserMedia(user.id, +page, +limit);
+
+    return {
+      status: 'success',
+      message: 'Media retrieved successfully',
+      data: media,
+    };
+  }
+
+  @Get('profile/:userId/media')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get user profile media',
+    description: 'Retrieves a paginated list of media created by the specified user',
+  })
+  @ApiParam({
+    name: 'userId',
+    type: Number,
+    description: 'The ID of the user to get his/her media for',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of replies per page',
+    example: 10,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Media retrieved successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  async getUserMedia(
+    @Param('userId') userId: number,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    const media = await this.postService.getUserMedia(userId, +page, +limit);
+
+    return {
+      status: 'success',
+      message: 'Media retrieved successfully',
+      data: media,
+    };
+  }
+
+
   @Get('timeline/for-you')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
@@ -1243,52 +1338,6 @@ export class PostController {
     };
   }
 
-  @Get('timeline/explore')
-  @UseGuards(JwtAuthGuard)
-  @ApiCookieAuth()
-  @ApiOperation({
-    summary: 'Get personalized "Explore" feed',
-    description:
-      'Returns posts matching user interests with personalized ranking. Requires authentication.',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Interest-based posts retrieved successfully',
-    type: TimelineFeedResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number for pagination',
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Number of posts per page',
-    example: 10,
-  })
-  async getExploreFeed(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    const posts = await this.postService.getExploreFeed(user.id, page, limit);
-
-    return {
-      status: 'success',
-      message: 'Explore posts retrieved successfully',
-      data: posts,
-    };
-  }
-
   @Get('timeline/explore/interests')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
@@ -1338,12 +1387,17 @@ export class PostController {
     @Query('interests', new ParseArrayPipe({ items: String, optional: false })) interests: string[],
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
+    @Query('sortBy') sortBy: 'score' | 'latest' = 'score',
     @CurrentUser() user: AuthenticatedUser,
   ) {
     if (!interests || !Array.isArray(interests) || interests.length === 0) {
       throw new BadRequestException('At least one interest is required');
     }
-    const posts = await this.postService.getExploreByInterestsFeed(user.id, interests, page, limit);
+    const posts = await this.postService.getExploreByInterestsFeed(user.id, interests, {
+      page,
+      limit,
+      sortBy,
+    });
 
     return {
       status: 'success',

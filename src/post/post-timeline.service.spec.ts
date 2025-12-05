@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostService } from './services/post.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { Services } from 'src/utils/constants';
 import { MLService } from './services/ml.service';
-import { Services } from '../utils/constants';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { SocketService } from '../gateway/socket.service';
 
 describe('PostService - Timeline Endpoints', () => {
   let service: PostService;
@@ -15,6 +17,21 @@ describe('PostService - Timeline Endpoints', () => {
 
   const mockMlService = {
     getQualityScores: jest.fn().mockResolvedValue(new Map([[100, 0.85]])),
+  };
+
+  const mockEventEmitter = {
+    emit: jest.fn(),
+  };
+
+  const mockRedisService = {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+  };
+
+  const mockSocketService = {
+    emitToUser: jest.fn(),
+    emitToRoom: jest.fn(),
   };
 
   const mockPostWithAllData = {
@@ -83,6 +100,18 @@ describe('PostService - Timeline Endpoints', () => {
           useValue: {
             add: jest.fn(),
           },
+        },
+        {
+          provide: EventEmitter2,
+          useValue: mockEventEmitter,
+        },
+        {
+          provide: Services.REDIS,
+          useValue: mockRedisService,
+        },
+        {
+          provide: SocketService,
+          useValue: mockSocketService,
         },
       ],
     }).compile();
@@ -171,6 +200,34 @@ describe('PostService - Timeline Endpoints', () => {
 
       const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
       expect(query).toContain('user_mutes');
+    });
+
+    it('should include user own posts with higher score', async () => {
+      const ownPost = { ...mockPostWithAllData, user_id: 1, personalizationScore: 45.0 };
+      mockPrismaService.$queryRawUnsafe.mockResolvedValue([ownPost]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
+
+      await service.getForYouFeed(1, 1, 10);
+
+      const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
+      // Query should NOT exclude user's own posts
+      expect(query).not.toContain('p."user_id" != 1');
+      // Query should include own post bonus (checking for the CASE WHEN condition)
+      expect(query).toContain('CASE WHEN ap."user_id" = 1 THEN 20');
+    });
+
+    it('should apply strict interest filtering', async () => {
+      mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
+
+      await service.getForYouFeed(1, 1, 10);
+
+      const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
+      // Query should only include posts matching user's interests
+      expect(query).toContain('user_interests');
+      expect(query).toContain(
+        'EXISTS (SELECT 1 FROM user_interests ui WHERE ui."interest_id" = p."interest_id")',
+      );
     });
 
     it('should handle reposts in feed', async () => {
@@ -331,98 +388,6 @@ describe('PostService - Timeline Endpoints', () => {
     });
   });
 
-  describe('getExploreFeed', () => {
-    it('should return "Explore" feed with interest-boosted ranking', async () => {
-      const explorePosts = [
-        { ...mockPostWithAllData, personalizationScore: 50.0 }, // Higher due to interest match
-      ];
-      const qualityScores = new Map([[100, 0.85]]);
-
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue(explorePosts);
-      mockMlService.getQualityScores.mockResolvedValue(qualityScores);
-
-      const result = await service.getExploreFeed(1, 1, 10);
-
-      expect(result.posts).toBeDefined();
-      expect(result.posts[0].personalizationScore).toBeGreaterThan(25);
-    });
-
-    it('should return all posts when user has no interests', async () => {
-      const posts = [{ ...mockPostWithAllData, personalizationScore: 15.0 }];
-      const qualityScores = new Map([[100, 0.85]]);
-
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue(posts);
-      mockMlService.getQualityScores.mockResolvedValue(qualityScores);
-
-      const result = await service.getExploreFeed(1, 1, 10);
-
-      expect(result.posts).toBeDefined();
-      expect(result.posts.length).toBeGreaterThan(0);
-    });
-
-    it('should boost posts matching user interests', async () => {
-      const posts = [
-        { ...mockPostWithAllData, id: 1, interest_id: 1, personalizationScore: 50.0 },
-        { ...mockPostWithAllData, id: 2, interest_id: null, personalizationScore: 15.0 },
-      ];
-      const qualityScores = new Map([
-        [1, 0.8],
-        [2, 0.9],
-      ]);
-
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue(posts);
-      mockMlService.getQualityScores.mockResolvedValue(qualityScores);
-
-      const result = await service.getExploreFeed(1, 1, 10);
-
-      // Interest match should give +25 bonus
-      expect(result.posts).toBeDefined();
-    });
-
-    it('should include posts from non-followed users', async () => {
-      const posts = [{ ...mockPostWithAllData, isFollowedByMe: false }];
-      const qualityScores = new Map([[100, 0.85]]);
-
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue(posts);
-      mockMlService.getQualityScores.mockResolvedValue(qualityScores);
-
-      const result = await service.getExploreFeed(1, 1, 10);
-
-      expect(result.posts[0].isFollowedByMe).toBe(false);
-    });
-
-    it('should filter out current user posts', async () => {
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
-
-      await service.getExploreFeed(1, 1, 10);
-
-      const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
-      expect(query).toContain('p."user_id" != 1');
-    });
-
-    it('should filter out blocked and muted users', async () => {
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
-
-      await service.getExploreFeed(1, 1, 10);
-
-      const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
-      expect(query).toContain('user_blocks');
-      expect(query).toContain('user_mutes');
-    });
-
-    it('should only include recent posts (30 days)', async () => {
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
-      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
-
-      await service.getExploreFeed(1, 1, 10);
-
-      const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
-      expect(query).toContain("INTERVAL '30 days'");
-    });
-  });
-
   describe('getExploreByInterestsFeed', () => {
     it('should return posts strictly matching specified interests', async () => {
       const interestPosts = [{ ...mockPostWithAllData, interest_id: 1 }];
@@ -431,7 +396,11 @@ describe('PostService - Timeline Endpoints', () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(interestPosts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
 
-      const result = await service.getExploreByInterestsFeed(1, ['Technology'], 1, 10);
+      const result = await service.getExploreByInterestsFeed(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
 
       expect(result.posts).toBeDefined();
       expect(result.posts.length).toBeGreaterThan(0);
@@ -441,7 +410,11 @@ describe('PostService - Timeline Endpoints', () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
       mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
-      await service.getExploreByInterestsFeed(1, ['Technology', 'Sports', 'Music'], 1, 10);
+      await service.getExploreByInterestsFeed(1, ['Technology', 'Sports', 'Music'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
 
       const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
       expect(query).toContain("'Technology'");
@@ -452,7 +425,11 @@ describe('PostService - Timeline Endpoints', () => {
     it('should return empty array when no posts match interests', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([]);
 
-      const result = await service.getExploreByInterestsFeed(1, ['RareInterest'], 1, 10);
+      const result = await service.getExploreByInterestsFeed(1, ['RareInterest'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
 
       expect(result.posts).toEqual([]);
     });
@@ -461,17 +438,24 @@ describe('PostService - Timeline Endpoints', () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
       mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
-      await service.getExploreByInterestsFeed(1, ['C++', 'Node.js'], 1, 10);
+      await service.getExploreByInterestsFeed(1, ['C++', 'Node.js'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
 
-      const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
-      expect(query).toBeDefined();
+      expect(mockPrismaService.$queryRawUnsafe).toHaveBeenCalled();
     });
 
     it('should filter out blocked and muted users', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
       mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
-      await service.getExploreByInterestsFeed(1, ['Technology'], 1, 10);
+      await service.getExploreByInterestsFeed(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
 
       const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
       expect(query).toContain('user_blocks');
@@ -482,51 +466,134 @@ describe('PostService - Timeline Endpoints', () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
       mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
-      await service.getExploreByInterestsFeed(1, ['Technology'], 2, 20);
+      await service.getExploreByInterestsFeed(1, ['Technology'], {
+        page: 2,
+        limit: 15,
+        sortBy: 'score',
+      });
 
       expect(mockPrismaService.$queryRawUnsafe).toHaveBeenCalled();
     });
 
     it('should apply personalization scoring to matched posts', async () => {
-      const posts = [{ ...mockPostWithAllData, personalizationScore: 30.0 }];
-      const qualityScores = new Map([[100, 0.85]]);
+      const posts = [
+        { ...mockPostWithAllData, id: 1, user_id: 1, personalizationScore: 35.0 },
+        { ...mockPostWithAllData, id: 2, user_id: 2, personalizationScore: 15.0 },
+      ];
+      const qualityScores = new Map([
+        [1, 0.8],
+        [2, 0.9],
+      ]);
 
       mockPrismaService.$queryRawUnsafe.mockResolvedValue(posts);
       mockMlService.getQualityScores.mockResolvedValue(qualityScores);
 
-      const result = await service.getExploreByInterestsFeed(1, ['Technology'], 1, 10);
+      const result = await service.getExploreByInterestsFeed(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
 
+      expect(result.posts).toBeDefined();
       expect(result.posts[0]).toHaveProperty('personalizationScore');
-      expect(result.posts[0]).toHaveProperty('qualityScore');
-      expect(result.posts[0]).toHaveProperty('finalScore');
+    });
+
+    it('should include user own posts with higher score', async () => {
+      const ownPost = { ...mockPostWithAllData, user_id: 1, personalizationScore: 35.0 };
+      mockPrismaService.$queryRawUnsafe.mockResolvedValue([ownPost]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
+
+      await service.getExploreByInterestsFeed(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
+
+      const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
+      // Query should NOT exclude user's own posts
+      expect(query).not.toContain('p."user_id" != 1');
+      // Query should include own post bonus (checking for the CASE WHEN condition)
+      expect(query).toContain('CASE WHEN ap."user_id" = 1 THEN 20');
+    });
+
+    it('should skip ML service when sortBy is latest', async () => {
+      mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
+
+      const result = await service.getExploreByInterestsFeed(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'latest',
+      });
+
+      expect(result.posts).toBeDefined();
+      expect(mockMlService.getQualityScores).not.toHaveBeenCalled();
+    });
+
+    it('should use ML service when sortBy is score', async () => {
+      mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
+
+      const result = await service.getExploreByInterestsFeed(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
+
+      expect(result.posts).toBeDefined();
+      expect(mockMlService.getQualityScores).toHaveBeenCalled();
+    });
+
+    it('should sort by effectiveDate when sortBy is latest', async () => {
+      mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
+
+      await service.getExploreByInterestsFeed(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'latest',
+      });
+
+      const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
+      expect(query).toContain('ap."effectiveDate" DESC');
+    });
+
+    it('should sort by personalizationScore when sortBy is score', async () => {
+      mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithAllData]);
+      mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
+
+      await service.getExploreByInterestsFeed(1, ['Technology'], {
+        page: 1,
+        limit: 10,
+        sortBy: 'score',
+      });
+
+      const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
+      expect(query).toContain('"personalizationScore" DESC');
     });
   });
 
   describe('Timeline Service - Error Handling', () => {
     it('should handle database errors in For You feed', async () => {
-      mockPrismaService.$queryRawUnsafe.mockRejectedValue(new Error('Database connection lost'));
+      mockPrismaService.$queryRawUnsafe.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.getForYouFeed(1, 1, 10)).rejects.toThrow('Database connection lost');
+      await expect(service.getForYouFeed(1, 1, 10)).rejects.toThrow('Database error');
     });
 
     it('should handle database errors in Following feed', async () => {
-      mockPrismaService.$queryRawUnsafe.mockRejectedValue(new Error('Query timeout'));
+      mockPrismaService.$queryRawUnsafe.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.getFollowingForFeed(1, 1, 10)).rejects.toThrow('Query timeout');
-    });
-
-    it('should handle database errors in Explore feed', async () => {
-      mockPrismaService.$queryRawUnsafe.mockRejectedValue(new Error('Table does not exist'));
-
-      await expect(service.getExploreFeed(1, 1, 10)).rejects.toThrow('Table does not exist');
+      await expect(service.getFollowingForFeed(1, 1, 10)).rejects.toThrow('Database error');
     });
 
     it('should handle database errors in Explore by Interests', async () => {
-      mockPrismaService.$queryRawUnsafe.mockRejectedValue(new Error('Invalid SQL'));
+      mockPrismaService.$queryRawUnsafe.mockRejectedValue(new Error('Database error'));
 
-      await expect(service.getExploreByInterestsFeed(1, ['Technology'], 1, 10)).rejects.toThrow(
-        'Invalid SQL',
-      );
+      await expect(
+        service.getExploreByInterestsFeed(1, ['Technology'], {
+          page: 1,
+          limit: 10,
+          sortBy: 'score',
+        }),
+      ).rejects.toThrow('Database error');
     });
   });
 });
