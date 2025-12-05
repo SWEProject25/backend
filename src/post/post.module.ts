@@ -47,7 +47,7 @@ import { GatewayModule } from 'src/gateway/gateway.module';
       useClass: AiSummarizationService,
     },
     {
-      provide: Services.ML,
+      provide: Services.ML_SERVICE,
       useClass: MLService,
     },
     MLService,

@@ -253,7 +253,7 @@ export class PostService {
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
     private readonly socketService: SocketService,
-  ) {}
+  ) { }
 
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
@@ -351,6 +351,33 @@ export class PostService {
     return this.transformPost(postsWithCounts);
   }
 
+  private async enrichIfQuoteOrReply(post: TransformedPost[], userId: number) {
+    const filteredPosts = post.filter(
+      (p) => (p.type === PostType.QUOTE || p.type === PostType.REPLY) && p.parentId !== null,
+    );
+
+    if (filteredPosts.length === 0) return post;
+
+    const parentPostIds = filteredPosts.map((p) => p.parentId!);
+
+    const parentPosts = await this.findPosts({
+      where: { id: { in: parentPostIds } },
+      userId: userId,
+      page: 1,
+      limit: parentPostIds.length,
+    });
+
+    const parentPostsMap = new Map<number, TransformedPost>();
+    parentPosts.forEach((p) => parentPostsMap.set(p.postId, p));
+
+    return post.map((p) => {
+      if ((p.type === PostType.QUOTE || p.type === PostType.REPLY) && p.parentId) {
+        p.originalPostData = parentPostsMap.get(p.parentId);
+      }
+      return p;
+    });
+  }
+
   private async createPostTransaction(
     postData: CreatePostDto,
     hashtags: string[],
@@ -387,6 +414,7 @@ export class PostService {
       await tx.media.createMany({
         data: mediaWithType.map((m) => ({
           post_id: post.id,
+          user_id: postData.userId,
           media_url: m.url,
           type: m.type,
         })),
@@ -536,16 +564,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-          ...(userId && { user_id: userId }),
-          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-          ...(type && { type }),
-          is_deleted: false,
-        }
+        ...(userId && { user_id: userId }),
+        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+        ...(type && { type }),
+        is_deleted: false,
+      }
       : {
-          // TODO: improve this fallback
-          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-          is_deleted: false,
-        };
+        // TODO: improve this fallback
+        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+        is_deleted: false,
+      };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -736,12 +764,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     // Build originalPostData
     let originalPostData: any = null;
@@ -973,29 +1001,50 @@ export class PostService {
   }
 
   private async getReposts(userId: number, page: number, limit: number) {
-    return this.prismaService.repost.findMany({
+    const reposts = await this.prismaService.repost.findMany({
       where: {
         user_id: userId,
         post: {
           is_deleted: false,
         },
       },
-      select: {
-        post: true,
-        created_at: true,
-      },
-
       skip: (page - 1) * limit,
       take: limit,
       orderBy: {
         created_at: 'desc',
       },
     });
+
+    const originalPostIds = reposts.map((r) => r.post_id);
+
+    const originalPostData = await this.findPosts({
+      where: {
+        id: { in: originalPostIds },
+        is_deleted: false,
+      },
+      userId,
+      page,
+      limit: originalPostIds.length,
+    });
+
+    const postMap = new Map<number, any>();
+    originalPostData.forEach((p) => postMap.set(p.postId, p));
+
+    // 5. Embed original post data into reposts
+    return reposts.map((r) => ({
+      ...r,
+      originalPostData: postMap.get(r.post_id),
+    }));
   }
+
 
   private getTopPaginatedPosts(
     posts: TransformedPost[],
-    reposts: { post: Post; created_at: Date }[],
+    reposts: {
+      user_id: number;
+      created_at: Date;
+      post_id: number;
+    }[],
     page: number,
     limit: number,
   ) {
@@ -1006,7 +1055,7 @@ export class PostService {
         reposted_at: p.createdAt,
       })),
       ...reposts.map((r) => ({
-        ...r.post,
+        ...r,
         isRepost: true,
         reposted_at: r.created_at,
       })),
@@ -1017,7 +1066,6 @@ export class PostService {
     const start = (page - 1) * limit;
     const end = start + limit;
     const paginated = combined.slice(start, end);
-
     return paginated;
   }
 
@@ -1036,8 +1084,9 @@ export class PostService {
       }),
       this.getReposts(userId, page, limit),
     ]);
+    const enrichIfQuoteOrReply = await this.enrichIfQuoteOrReply(posts, userId);
     // TODO: Remove in memory sorting and pagination
-    return this.getTopPaginatedPosts(posts, reposts, page, limit);
+    return this.getTopPaginatedPosts(enrichIfQuoteOrReply, reposts, page, limit);
   }
 
   private transformPost(posts: RawPost[]): TransformedPost[] {
@@ -1069,16 +1118,21 @@ export class PostService {
     }));
   }
 
-  // async getUserMedia(userId: number, page:number, limit: number){
-  //   return await this.prismaService.media.findMany({
-  //     where:{
-  //       user
-  //     }
-  //   })
-  // }
+  async getUserMedia(userId: number, page: number, limit: number) {
+    return await this.prismaService.media.findMany({
+      where: {
+        user_id: userId,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    })
+  }
 
   async getUserReplies(userId: number, page: number, limit: number) {
-    return await this.findPosts({
+    const replies = await this.findPosts({
       where: {
         type: PostType.REPLY,
         user_id: userId,
@@ -1088,6 +1142,8 @@ export class PostService {
       page,
       limit,
     });
+
+    return await this.enrichIfQuoteOrReply(replies, userId);
   }
 
   async getRepliesOfPost(postId: number, page: number, limit: number, userId: number) {
@@ -1315,247 +1371,259 @@ export class PostService {
     limit = 50,
   ): Promise<PostWithAllData[]> {
     const personalizationWeights = {
-      following: 20.0,
-      directLike: 15.0,
-      commonLike: 8.0,
-      commonFollow: 5.0,
+      ownPost: 20.0, // NEW: Bonus for user's own posts
+      following: 15.0,
+      directLike: 10.0,
+      commonLike: 5.0,
+      commonFollow: 3.0,
     };
 
     const query = `
-    WITH user_follows AS (
-      SELECT "followingId" as following_id
-      FROM "follows"
-      WHERE "followerId" = ${userId}
-    ),
-    user_blocks AS (
-      SELECT "blockedId" as blocked_id
-      FROM "blocks"
-      WHERE "blockerId" = ${userId}
-    ),
-    user_mutes AS (
-      SELECT "mutedId" as muted_id
-      FROM "mutes"
-      WHERE "muterId" = ${userId}
-    ),
-    liked_authors AS (
-      SELECT DISTINCT p."user_id" as author_id
-      FROM "Like" l
-      JOIN "posts" p ON l."post_id" = p."id"
-      WHERE l."user_id" = ${userId}
-    ),
-    -- Get original posts and quotes (filter by type)
-    original_posts AS (
-      SELECT 
-        p."id",
-        p."user_id",
-        p."content",
-        p."created_at",
-        p."type",
-        p."visibility",
-        p."parent_id",
-        p."is_deleted",
-        false as "isRepost",
-        p."created_at" as "effectiveDate",
-        NULL::jsonb as "repostedBy"
-      FROM "posts" p
-      WHERE p."is_deleted" = false
-        AND p."type" IN ('POST', 'QUOTE')
-        AND p."created_at" > NOW() - INTERVAL '10 days'
-        AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
-        AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
-        AND p."user_id" != ${userId}
-    ),
-    -- Get reposts from Repost table (only reposts of POST or QUOTE types)
-    repost_items AS (
-      SELECT 
-        p."id",
-        p."user_id",
-        p."content",
-        p."created_at",
-        p."type",
-        p."visibility",
-        p."parent_id",
-        p."is_deleted",
-        true as "isRepost",
-        r."created_at" as "effectiveDate",
-        json_build_object(
-          'userId', ru."id",
-          'username', ru."username",
-          'verified', ru."is_verifed",
-          'name', COALESCE(rpr."name", ru."username"),
-          'avatar', rpr."profile_image_url"
-        )::jsonb as "repostedBy"
-      FROM "Repost" r
-      INNER JOIN "posts" p ON r."post_id" = p."id"
-      INNER JOIN "User" ru ON r."user_id" = ru."id"
-      LEFT JOIN "profiles" rpr ON rpr."user_id" = ru."id"
-      WHERE p."is_deleted" = false
-        AND p."type" IN ('POST', 'QUOTE')
-        AND r."created_at" > NOW() - INTERVAL '10 days'
-        AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
-        AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
-        AND r."user_id" != ${userId}
-        AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = r."user_id")
-        AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = r."user_id")
-    ),
-    -- Combine both
-    all_posts AS (
-      SELECT * FROM original_posts
-      UNION ALL
-      SELECT * FROM repost_items
-    ),
-    candidate_posts AS (
-      SELECT 
-        ap."id",
-        ap."user_id",
-        ap."content",
-        ap."created_at",
-        ap."effectiveDate",
-        ap."type",
-        ap."visibility",
-        ap."parent_id",
-        ap."is_deleted",
-        ap."isRepost",
-        ap."repostedBy",
-        
-        -- User/Author info
-        u."username",
-        u."is_verifed" as "isVerified",
-        COALESCE(pr."name", u."username") as "authorName",
-        pr."profile_image_url" as "authorProfileImage",
-        
-        -- Engagement counts (for original post)
-        COALESCE(engagement."likeCount", 0) as "likeCount",
-        COALESCE(engagement."replyCount", 0) as "replyCount",
-        COALESCE(engagement."repostCount", 0) as "repostCount",
-        
-        -- Author stats
-        author_stats."followersCount",
-        author_stats."followingCount",
-        author_stats."postsCount",
-        
-        -- Content features
-        CASE WHEN media_check."post_id" IS NOT NULL THEN true ELSE false END as "hasMedia",
-        COALESCE(hashtag_count."count", 0) as "hashtagCount",
-        COALESCE(mention_count."count", 0) as "mentionCount",
-        
-        -- User interaction flags
-        EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isLikedByMe",
-        EXISTS(SELECT 1 FROM user_follows uf WHERE uf.following_id = ap."user_id") as "isFollowedByMe",
-        EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isRepostedByMe",
-        
-        -- Media URLs (as JSON array)
-        COALESCE(
-          (SELECT json_agg(json_build_object('url', m."media_url", 'type', m."type"))
-           FROM "Media" m WHERE m."post_id" = ap."id"),
-          '[]'::json
-        ) as "mediaUrls",
-        
-        -- Original post for quotes only
-        CASE 
-          WHEN ap."parent_id" IS NOT NULL AND ap."type" = 'QUOTE' THEN
-            (SELECT json_build_object(
-              'postId', op."id",
-              'content', op."content",
-              'createdAt', op."created_at",
-              'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = op."id"), 0),
-              'repostCount', COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE "post_id" = op."id"), 0),
-              'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = op."id" AND "is_deleted" = false), 0),
-              'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = op."id" AND "user_id" = ${userId}),
-              'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = op."user_id"),
-              'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = op."id" AND "user_id" = ${userId}),
-              'author', json_build_object(
-                'userId', ou."id",
-                'username', ou."username",
-                'isVerified', ou."is_verifed",
-                'name', COALESCE(opr."name", ou."username"),
-                'avatar', opr."profile_image_url"
-              ),
-              'media', COALESCE(
-                (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type"))
-                 FROM "Media" om WHERE om."post_id" = op."id"),
-                '[]'::json
-              )
-            )
-            FROM "posts" op
-            LEFT JOIN "User" ou ON ou."id" = op."user_id"
-            LEFT JOIN "profiles" opr ON opr."user_id" = ou."id"
-            WHERE op."id" = ap."parent_id" AND op."is_deleted" = false)
-          ELSE NULL
-        END as "originalPost",
-        
-        -- Personalization score
-        (
-          CASE WHEN uf.following_id IS NOT NULL THEN ${personalizationWeights.following} ELSE 0 END +
-          CASE WHEN la.author_id IS NOT NULL THEN ${personalizationWeights.directLike} ELSE 0 END +
-          COALESCE(common_likes."count", 0) * ${personalizationWeights.commonLike} +
-          CASE WHEN common_follows."exists" THEN ${personalizationWeights.commonFollow} ELSE 0 END
-        )::double precision as "personalizationScore"
-        
-      FROM all_posts ap
-      INNER JOIN "User" u ON ap."user_id" = u."id"
-      LEFT JOIN "profiles" pr ON u."id" = pr."user_id"
-      LEFT JOIN user_follows uf ON ap."user_id" = uf.following_id
-      LEFT JOIN liked_authors la ON ap."user_id" = la.author_id
-      
-      -- Engagement metrics
-      LEFT JOIN LATERAL (
-        SELECT 
-          COUNT(DISTINCT l."user_id")::int as "likeCount",
-          COUNT(DISTINCT CASE WHEN replies."id" IS NOT NULL THEN replies."id" END)::int as "replyCount",
-          COUNT(DISTINCT r."user_id")::int as "repostCount"
-        FROM "posts" base
-        LEFT JOIN "Like" l ON l."post_id" = base."id"
-        LEFT JOIN "posts" replies ON replies."parent_id" = base."id" AND replies."is_deleted" = false
-        LEFT JOIN "Repost" r ON r."post_id" = base."id"
-        WHERE base."id" = ap."id"
-      ) engagement ON true
-      
-      -- Author stats
-      LEFT JOIN LATERAL (
-        SELECT 
-          (SELECT COUNT(*)::int FROM "follows" WHERE "followingId" = u."id") as "followersCount",
-          (SELECT COUNT(*)::int FROM "follows" WHERE "followerId" = u."id") as "followingCount",
-          (SELECT COUNT(*)::int FROM "posts" WHERE "user_id" = u."id" AND "is_deleted" = false) as "postsCount"
-      ) author_stats ON true
-      
-      -- Media check
-      LEFT JOIN LATERAL (
-        SELECT ap."id" as post_id FROM "Media" WHERE "post_id" = ap."id" LIMIT 1
-      ) media_check ON true
-      
-      -- Hashtag count
-      LEFT JOIN LATERAL (
-        SELECT COUNT(*)::int as count FROM "_PostHashtags" WHERE "B" = ap."id"
-      ) hashtag_count ON true
-      
-      -- Mention count
-      LEFT JOIN LATERAL (
-        SELECT COUNT(*)::int as count FROM "Mention" WHERE "post_id" = ap."id"
-      ) mention_count ON true
-      
-      -- Common likes
-      LEFT JOIN LATERAL (
-        SELECT COUNT(*)::float as count
-        FROM "Like" l
-        INNER JOIN user_follows uf_likes ON l."user_id" = uf_likes.following_id
-        WHERE l."post_id" = ap."id"
-      ) common_likes ON true
-      
-      -- Common follows
-      LEFT JOIN LATERAL (
-        SELECT EXISTS(
-          SELECT 1 FROM "follows" f
-          INNER JOIN user_follows uf_follows ON f."followerId" = uf_follows.following_id
-          WHERE f."followingId" = ap."user_id"
-        ) as exists
-      ) common_follows ON true
-      
-      ORDER BY "personalizationScore" DESC, ap."effectiveDate" DESC
-      LIMIT ${limit} OFFSET ${(page - 1) * limit}
-    )
-    SELECT * FROM candidate_posts;
-  `;
+WITH user_interests AS (
+  SELECT "interest_id"
+  FROM "user_interests"
+  WHERE "user_id" = ${userId}
+),
+user_follows AS (
+  SELECT "followingId" as following_id
+  FROM "follows"
+  WHERE "followerId" = ${userId}
+),
+user_blocks AS (
+  SELECT "blockedId" as blocked_id
+  FROM "blocks"
+  WHERE "blockerId" = ${userId}
+),
+user_mutes AS (
+  SELECT "mutedId" as muted_id
+  FROM "mutes"
+  WHERE "muterId" = ${userId}
+),
+liked_authors AS (
+  SELECT DISTINCT p."user_id" as author_id
+  FROM "Like" l
+  JOIN "posts" p ON l."post_id" = p."id"
+  WHERE l."user_id" = ${userId}
+),
+-- Get original posts and quotes (STRICT INTEREST FILTER - only posts matching user's interests)
+original_posts AS (
+  SELECT 
+    p."id",
+    p."user_id",
+    p."content",
+    p."created_at",
+    p."type",
+    p."visibility",
+    p."parent_id",
+    p."interest_id",
+    p."is_deleted",
+    false as "isRepost",
+    p."created_at" as "effectiveDate",
+    NULL::jsonb as "repostedBy"
+  FROM "posts" p
+  WHERE p."is_deleted" = false
+    AND p."type" IN ('POST', 'QUOTE')
+    AND p."created_at" > NOW() - INTERVAL '30 days'
+    AND p."interest_id" IS NOT NULL
+    AND EXISTS (SELECT 1 FROM user_interests ui WHERE ui."interest_id" = p."interest_id")
+    AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
+    AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
+),
+-- Get reposts from Repost table (STRICT INTEREST FILTER - only reposts matching user's interests)
+repost_items AS (
+  SELECT 
+    p."id",
+    p."user_id",
+    p."content",
+    p."created_at",
+    p."type",
+    p."visibility",
+    p."parent_id",
+    p."interest_id",
+    p."is_deleted",
+    true as "isRepost",
+    r."created_at" as "effectiveDate",
+    json_build_object(
+      'userId', ru."id",
+      'username', ru."username",
+      'verified', ru."is_verifed",
+      'name', COALESCE(rpr."name", ru."username"),
+      'avatar', rpr."profile_image_url"
+    )::jsonb as "repostedBy"
+  FROM "Repost" r
+  INNER JOIN "posts" p ON r."post_id" = p."id"
+  INNER JOIN "User" ru ON r."user_id" = ru."id"
+  LEFT JOIN "profiles" rpr ON rpr."user_id" = ru."id"
+  WHERE p."is_deleted" = false
+    AND p."type" IN ('POST', 'QUOTE')
+    AND p."interest_id" IS NOT NULL
+    AND EXISTS (SELECT 1 FROM user_interests ui WHERE ui."interest_id" = p."interest_id")
+    AND r."created_at" > NOW() - INTERVAL '30 days'
+    AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
+    AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
+    AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = r."user_id")
+    AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = r."user_id")
+),
+-- Combine both
+all_posts AS (
+  SELECT * FROM original_posts
+  UNION ALL
+  SELECT * FROM repost_items
+),
+candidate_posts AS (
+  SELECT 
+    ap."id",
+    ap."user_id",
+    ap."content",
+    ap."created_at",
+    ap."effectiveDate",
+    ap."type",
+    ap."visibility",
+    ap."parent_id",
+    ap."interest_id",
+    ap."is_deleted",
+    ap."isRepost",
+    ap."repostedBy",
+    
+    -- User/Author info
+    u."username",
+    u."is_verifed" as "isVerified",
+    COALESCE(pr."name", u."username") as "authorName",
+    pr."profile_image_url" as "authorProfileImage",
+    
+    -- Engagement counts (for original post)
+    COALESCE(engagement."likeCount", 0) as "likeCount",
+    COALESCE(engagement."replyCount", 0) as "replyCount",
+    COALESCE(engagement."repostCount", 0) as "repostCount",
+    
+    -- Author stats
+    author_stats."followersCount",
+    author_stats."followingCount",
+    author_stats."postsCount",
+    
+    -- Content features
+    CASE WHEN media_check."post_id" IS NOT NULL THEN true ELSE false END as "hasMedia",
+    COALESCE(hashtag_count."count", 0) as "hashtagCount",
+    COALESCE(mention_count."count", 0) as "mentionCount",
+    
+    -- User interaction flags
+    EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isLikedByMe",
+    EXISTS(SELECT 1 FROM user_follows uf WHERE uf.following_id = ap."user_id") as "isFollowedByMe",
+    EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isRepostedByMe",
+    
+    -- Media URLs (as JSON array)
+    COALESCE(
+      (SELECT json_agg(json_build_object('url', m."media_url", 'type', m."type"))
+       FROM "Media" m WHERE m."post_id" = ap."id"),
+      '[]'::json
+    ) as "mediaUrls",
+    
+    -- Original post for quotes only
+    CASE 
+      WHEN ap."parent_id" IS NOT NULL AND ap."type" = 'QUOTE' THEN
+        (SELECT json_build_object(
+          'postId', op."id",
+          'content', op."content",
+          'createdAt', op."created_at",
+          'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = op."id"), 0),
+          'repostCount', COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE "post_id" = op."id"), 0),
+          'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = op."id" AND "is_deleted" = false), 0),
+          'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = op."id" AND "user_id" = ${userId}),
+          'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = op."user_id"),
+          'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = op."id" AND "user_id" = ${userId}),
+          'author', json_build_object(
+            'userId', ou."id",
+            'username', ou."username",
+            'isVerified', ou."is_verifed",
+            'name', COALESCE(opr."name", ou."username"),
+            'avatar', opr."profile_image_url"
+          ),
+          'media', COALESCE(
+            (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type"))
+             FROM "Media" om WHERE om."post_id" = op."id"),
+            '[]'::json
+          )
+        )
+        FROM "posts" op
+        LEFT JOIN "User" ou ON ou."id" = op."user_id"
+        LEFT JOIN "profiles" opr ON opr."user_id" = ou."id"
+        WHERE op."id" = ap."parent_id" AND op."is_deleted" = false)
+      ELSE NULL
+    END as "originalPost",
+    
+    -- Personalization score (STRICT INTEREST MATCH + OWN POST BONUS)
+    (
+      CASE WHEN ap."user_id" = ${userId} THEN ${personalizationWeights.ownPost} ELSE 0 END +
+      CASE WHEN uf.following_id IS NOT NULL THEN ${personalizationWeights.following} ELSE 0 END +
+      CASE WHEN la.author_id IS NOT NULL THEN ${personalizationWeights.directLike} ELSE 0 END +
+      COALESCE(common_likes."count", 0) * ${personalizationWeights.commonLike} +
+      CASE WHEN common_follows."exists" THEN ${personalizationWeights.commonFollow} ELSE 0 END
+    )::double precision as "personalizationScore"
+    
+  FROM all_posts ap
+  INNER JOIN "User" u ON ap."user_id" = u."id"
+  LEFT JOIN "profiles" pr ON u."id" = pr."user_id"
+  LEFT JOIN user_follows uf ON ap."user_id" = uf.following_id
+  LEFT JOIN liked_authors la ON ap."user_id" = la.author_id
+  
+  -- Engagement metrics
+  LEFT JOIN LATERAL (
+    SELECT 
+      COUNT(DISTINCT l."user_id")::int as "likeCount",
+      COUNT(DISTINCT CASE WHEN replies."id" IS NOT NULL THEN replies."id" END)::int as "replyCount",
+      COUNT(DISTINCT r."user_id")::int as "repostCount"
+    FROM "posts" base
+    LEFT JOIN "Like" l ON l."post_id" = base."id"
+    LEFT JOIN "posts" replies ON replies."parent_id" = base."id" AND replies."is_deleted" = false
+    LEFT JOIN "Repost" r ON r."post_id" = base."id"
+    WHERE base."id" = ap."id"
+  ) engagement ON true
+  
+  -- Author stats
+  LEFT JOIN LATERAL (
+    SELECT 
+      (SELECT COUNT(*)::int FROM "follows" WHERE "followingId" = u."id") as "followersCount",
+      (SELECT COUNT(*)::int FROM "follows" WHERE "followerId" = u."id") as "followingCount",
+      (SELECT COUNT(*)::int FROM "posts" WHERE "user_id" = u."id" AND "is_deleted" = false) as "postsCount"
+  ) author_stats ON true
+  
+  -- Media check
+  LEFT JOIN LATERAL (
+    SELECT ap."id" as post_id FROM "Media" WHERE "post_id" = ap."id" LIMIT 1
+  ) media_check ON true
+  
+  -- Hashtag count
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::int as count FROM "_PostHashtags" WHERE "B" = ap."id"
+  ) hashtag_count ON true
+  
+  -- Mention count
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::int as count FROM "Mention" WHERE "post_id" = ap."id"
+  ) mention_count ON true
+  
+  -- Common likes
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::float as count
+    FROM "Like" l
+    INNER JOIN user_follows uf_likes ON l."user_id" = uf_likes.following_id
+    WHERE l."post_id" = ap."id"
+  ) common_likes ON true
+  
+  -- Common follows
+  LEFT JOIN LATERAL (
+    SELECT EXISTS(
+      SELECT 1 FROM "follows" f
+      INNER JOIN user_follows uf_follows ON f."followerId" = uf_follows.following_id
+      WHERE f."followingId" = ap."user_id"
+    ) as exists
+  ) common_follows ON true
+  
+  ORDER BY "personalizationScore" DESC, ap."effectiveDate" DESC
+  LIMIT ${limit} OFFSET ${(page - 1) * limit}
+)
+SELECT * FROM candidate_posts;
+`;
 
     return await this.prismaService.$queryRawUnsafe<PostWithAllData[]>(query);
   }
@@ -1839,12 +1907,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     return {
       // User Information (reposter for simple reposts, author otherwise)
@@ -1878,42 +1946,42 @@ export class PostService {
       originalPostData:
         isSimpleRepost || isQuote
           ? {
-              userId: post.user_id,
-              username: post.username,
-              verified: post.isVerified,
-              name: post.authorName || post.username,
-              avatar: post.authorProfileImage,
-              postId: post.id,
-              date: post.created_at,
-              likesCount: post.likeCount,
-              retweetsCount: post.repostCount,
-              commentsCount: post.replyCount,
-              isLikedByMe: post.isLikedByMe,
-              isFollowedByMe: post.isFollowedByMe,
-              isRepostedByMe: post.isRepostedByMe || false,
-              text: post.content || '',
-              media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-              ...(isQuote && post.originalPost
-                ? {
-                    // Override with quoted post data for quotes
-                    userId: post.originalPost.author.userId,
-                    username: post.originalPost.author.username,
-                    verified: post.originalPost.author.isVerified,
-                    name: post.originalPost.author.name,
-                    avatar: post.originalPost.author.avatar,
-                    postId: post.originalPost.postId,
-                    date: post.originalPost.createdAt,
-                    likesCount: post.originalPost.likeCount,
-                    retweetsCount: post.originalPost.repostCount,
-                    commentsCount: post.originalPost.replyCount,
-                    isLikedByMe: post.originalPost.isLikedByMe,
-                    isFollowedByMe: post.originalPost.isFollowedByMe,
-                    isRepostedByMe: post.originalPost.isRepostedByMe,
-                    text: post.originalPost.content || '',
-                    media: post.originalPost.media || [],
-                  }
-                : {}),
-            }
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+            postId: post.id,
+            date: post.created_at,
+            likesCount: post.likeCount,
+            retweetsCount: post.repostCount,
+            commentsCount: post.replyCount,
+            isLikedByMe: post.isLikedByMe,
+            isFollowedByMe: post.isFollowedByMe,
+            isRepostedByMe: post.isRepostedByMe || false,
+            text: post.content || '',
+            media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+            ...(isQuote && post.originalPost
+              ? {
+                // Override with quoted post data for quotes
+                userId: post.originalPost.author.userId,
+                username: post.originalPost.author.username,
+                verified: post.originalPost.author.isVerified,
+                name: post.originalPost.author.name,
+                avatar: post.originalPost.author.avatar,
+                postId: post.originalPost.postId,
+                date: post.originalPost.createdAt,
+                likesCount: post.originalPost.likeCount,
+                retweetsCount: post.originalPost.repostCount,
+                commentsCount: post.originalPost.replyCount,
+                isLikedByMe: post.originalPost.isLikedByMe,
+                isFollowedByMe: post.originalPost.isFollowedByMe,
+                isRepostedByMe: post.originalPost.isRepostedByMe,
+                text: post.originalPost.content || '',
+                media: post.originalPost.media || [],
+              }
+              : {}),
+          }
           : undefined,
 
       // Scores data
@@ -1942,47 +2010,58 @@ export class PostService {
       .sort((a, b) => b.finalScore - a.finalScore);
   }
 
-  async getExploreFeed(
+  async getExploreByInterestsFeed(
     userId: number,
-    page: number = 1,
-    limit: number = 50,
+    interestNames: string[],
+    options: { page?: number; limit?: number; sortBy?: 'score' | 'latest' } = {},
   ): Promise<{ posts: FeedPostResponse[] }> {
-    const qualityWeight = 0.3;
-    const personalizationWeight = 0.7;
+    const { sortBy = 'score' } = options;
 
-    const candidatePosts: PostWithAllData[] = await this.GetPersonalizedExplorePosts(
+    const candidatePosts: PostWithAllData[] = await this.GetPersonalizedExploreByInterestsPosts(
       userId,
-      page,
-      limit,
+      interestNames,
+      options,
     );
 
     if (!candidatePosts || candidatePosts.length === 0) {
       return { posts: [] };
     }
 
-    const postsForML = candidatePosts.map((p) => ({
-      postId: p.id,
-      contentLength: p.content?.length || 0,
-      hasMedia: !!p.hasMedia,
-      hashtagCount: Number(p.hashtagCount || 0),
-      mentionCount: Number(p.mentionCount || 0),
-      author: {
-        authorId: Number(p.user_id || 0),
-        authorFollowersCount: Number(p.followersCount || 0),
-        authorFollowingCount: Number(p.followingCount || 0),
-        authorTweetCount: Number(p.postsCount || 0),
-        authorIsVerified: !!p.isVerified,
-      },
-    }));
+    let rankedPosts: PostWithAllData[];
 
-    const qualityScores = await this.mlService.getQualityScores(postsForML);
+    if (sortBy === 'latest') {
+      // For latest sorting, posts are already sorted by effectiveDate in the query
+      // No need for ML scoring or hybrid ranking
+      rankedPosts = candidatePosts;
+    } else {
+      // For score-based sorting, use ML quality scoring + hybrid ranking
+      const qualityWeight = 0.3;
+      const personalizationWeight = 0.7;
 
-    const rankedPosts = this.rankPostsHybrid(
-      candidatePosts,
-      qualityScores,
-      qualityWeight,
-      personalizationWeight,
-    );
+      const postsForML = candidatePosts.map((p) => ({
+        postId: p.id,
+        contentLength: p.content?.length || 0,
+        hasMedia: !!p.hasMedia,
+        hashtagCount: Number(p.hashtagCount || 0),
+        mentionCount: Number(p.mentionCount || 0),
+        author: {
+          authorId: Number(p.user_id || 0),
+          authorFollowersCount: Number(p.followersCount || 0),
+          authorFollowingCount: Number(p.followingCount || 0),
+          authorTweetCount: Number(p.postsCount || 0),
+          authorIsVerified: !!p.isVerified,
+        },
+      }));
+
+      const qualityScores = await this.mlService.getQualityScores(postsForML);
+
+      rankedPosts = this.rankPostsHybrid(
+        candidatePosts,
+        qualityScores,
+        qualityWeight,
+        personalizationWeight,
+      );
+    }
 
     // Transform to frontend response format
     const formattedPosts = rankedPosts.map((post) => this.transformToFeedResponse(post));
@@ -1990,24 +2069,35 @@ export class PostService {
     return { posts: formattedPosts };
   }
 
-  private async GetPersonalizedExplorePosts(
+  private async GetPersonalizedExploreByInterestsPosts(
     userId: number,
-    page = 1,
-    limit = 50,
+    interestNames: string[],
+    options: { page?: number; limit?: number; sortBy?: 'score' | 'latest' },
   ): Promise<PostWithAllData[]> {
+    const { page = 1, limit = 50, sortBy = 'score' } = options;
     const personalizationWeights = {
-      interestMatch: 25.0, // Bonus for matching interests
+      ownPost: 20.0, // NEW: Bonus for user's own posts
       following: 15.0,
       directLike: 10.0,
       commonLike: 5.0,
       commonFollow: 3.0,
     };
 
+    const orderByClause =
+      sortBy === 'latest'
+        ? 'ap."effectiveDate" DESC'
+        : '"personalizationScore" DESC, ap."effectiveDate" DESC';
+
+    // Escape and format interest names for SQL IN clause
+    const escapedInterestNames = interestNames
+      .map((name) => `'${name.replace(/'/g, "''")}'`)
+      .join(', ');
+
     const query = `
-  WITH user_interests AS (
-    SELECT "interest_id"
-    FROM "user_interests"
-    WHERE "user_id" = ${userId}
+  WITH target_interests AS (
+    SELECT "id" as interest_id
+    FROM "interests"
+    WHERE "name" IN (${escapedInterestNames})
   ),
   user_follows AS (
     SELECT "followingId" as following_id
@@ -2030,7 +2120,7 @@ export class PostService {
     JOIN "posts" p ON l."post_id" = p."id"
     WHERE l."user_id" = ${userId}
   ),
-  -- Get original posts and quotes (NO INTEREST FILTER - all posts included)
+  -- Get original posts and quotes (STRICT filter by specified interests, INCLUDE user's own posts)
   original_posts AS (
     SELECT 
       p."id",
@@ -2049,11 +2139,12 @@ export class PostService {
     WHERE p."is_deleted" = false
       AND p."type" IN ('POST', 'QUOTE')
       AND p."created_at" > NOW() - INTERVAL '30 days'
+      AND p."interest_id" IS NOT NULL
+      AND EXISTS (SELECT 1 FROM target_interests ti WHERE ti.interest_id = p."interest_id")
       AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
       AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
-      AND p."user_id" != ${userId}
   ),
-  -- Get reposts from Repost table (NO INTEREST FILTER)
+  -- Get reposts from Repost table (STRICT filter, INCLUDE user's own reposts)
   repost_items AS (
     SELECT 
       p."id",
@@ -2080,10 +2171,11 @@ export class PostService {
     LEFT JOIN "profiles" rpr ON rpr."user_id" = ru."id"
     WHERE p."is_deleted" = false
       AND p."type" IN ('POST', 'QUOTE')
+      AND p."interest_id" IS NOT NULL
+      AND EXISTS (SELECT 1 FROM target_interests ti WHERE ti.interest_id = p."interest_id")
       AND r."created_at" > NOW() - INTERVAL '30 days'
       AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
       AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
-      AND r."user_id" != ${userId}
       AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = r."user_id")
       AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = r."user_id")
   ),
@@ -2174,14 +2266,9 @@ export class PostService {
         ELSE NULL
       END as "originalPost",
       
-      -- Personalization score (INTEREST GIVES BONUS, NOT FILTER)
+      -- Personalization score (with OWN POST BONUS)
       (
-        CASE 
-          WHEN ap."interest_id" IS NOT NULL 
-          AND EXISTS (SELECT 1 FROM user_interests ui WHERE ui."interest_id" = ap."interest_id")
-          THEN ${personalizationWeights.interestMatch} 
-          ELSE 0 
-        END +
+        CASE WHEN ap."user_id" = ${userId} THEN ${personalizationWeights.ownPost} ELSE 0 END +
         CASE WHEN uf.following_id IS NOT NULL THEN ${personalizationWeights.following} ELSE 0 END +
         CASE WHEN la.author_id IS NOT NULL THEN ${personalizationWeights.directLike} ELSE 0 END +
         COALESCE(common_likes."count", 0) * ${personalizationWeights.commonLike} +
@@ -2247,331 +2334,11 @@ export class PostService {
       ) as exists
     ) common_follows ON true
     
-    ORDER BY "personalizationScore" DESC, ap."effectiveDate" DESC
+    ORDER BY ${orderByClause}
     LIMIT ${limit} OFFSET ${(page - 1) * limit}
   )
   SELECT * FROM candidate_posts;
 `;
-
-    return await this.prismaService.$queryRawUnsafe<PostWithAllData[]>(query);
-  }
-  async getExploreByInterestsFeed(
-    userId: number,
-    interestNames: string[],
-    page: number = 1,
-    limit: number = 50,
-  ): Promise<{ posts: FeedPostResponse[] }> {
-    const qualityWeight = 0.3;
-    const personalizationWeight = 0.7;
-
-    const candidatePosts: PostWithAllData[] = await this.GetPersonalizedExploreByInterestsPosts(
-      userId,
-      interestNames,
-      page,
-      limit,
-    );
-
-    if (!candidatePosts || candidatePosts.length === 0) {
-      return { posts: [] };
-    }
-
-    const postsForML = candidatePosts.map((p) => ({
-      postId: p.id,
-      contentLength: p.content?.length || 0,
-      hasMedia: !!p.hasMedia,
-      hashtagCount: Number(p.hashtagCount || 0),
-      mentionCount: Number(p.mentionCount || 0),
-      author: {
-        authorId: Number(p.user_id || 0),
-        authorFollowersCount: Number(p.followersCount || 0),
-        authorFollowingCount: Number(p.followingCount || 0),
-        authorTweetCount: Number(p.postsCount || 0),
-        authorIsVerified: !!p.isVerified,
-      },
-    }));
-
-    const qualityScores = await this.mlService.getQualityScores(postsForML);
-
-    const rankedPosts = this.rankPostsHybrid(
-      candidatePosts,
-      qualityScores,
-      qualityWeight,
-      personalizationWeight,
-    );
-
-    // Transform to frontend response format
-    const formattedPosts = rankedPosts.map((post) => this.transformToFeedResponse(post));
-
-    return { posts: formattedPosts };
-  }
-
-  private async GetPersonalizedExploreByInterestsPosts(
-    userId: number,
-    interestNames: string[],
-    page = 1,
-    limit = 50,
-  ): Promise<PostWithAllData[]> {
-    const personalizationWeights = {
-      interestMatch: 40.0, // Higher weight for matching interests
-      following: 15.0,
-      directLike: 10.0,
-      commonLike: 5.0,
-      commonFollow: 3.0,
-    };
-
-    // Escape and format interest names for SQL IN clause
-    const escapedInterestNames = interestNames
-      .map((name) => `'${name.replace(/'/g, "''")}'`)
-      .join(', ');
-
-    const query = `
-    WITH target_interests AS (
-      SELECT "id" as interest_id
-      FROM "interests"
-      WHERE "name" IN (${escapedInterestNames})
-    ),
-    user_follows AS (
-      SELECT "followingId" as following_id
-      FROM "follows"
-      WHERE "followerId" = ${userId}
-    ),
-    user_blocks AS (
-      SELECT "blockedId" as blocked_id
-      FROM "blocks"
-      WHERE "blockerId" = ${userId}
-    ),
-    user_mutes AS (
-      SELECT "mutedId" as muted_id
-      FROM "mutes"
-      WHERE "muterId" = ${userId}
-    ),
-    liked_authors AS (
-      SELECT DISTINCT p."user_id" as author_id
-      FROM "Like" l
-      JOIN "posts" p ON l."post_id" = p."id"
-      WHERE l."user_id" = ${userId}
-    ),
-    -- Get original posts and quotes (filter by type and specified interests)
-    original_posts AS (
-      SELECT 
-        p."id",
-        p."user_id",
-        p."content",
-        p."created_at",
-        p."type",
-        p."visibility",
-        p."parent_id",
-        p."interest_id",
-        p."is_deleted",
-        false as "isRepost",
-        p."created_at" as "effectiveDate",
-        NULL::jsonb as "repostedBy"
-      FROM "posts" p
-      WHERE p."is_deleted" = false
-        AND p."type" IN ('POST', 'QUOTE')
-        AND p."created_at" > NOW() - INTERVAL '30 days'
-        AND p."interest_id" IS NOT NULL
-        AND EXISTS (SELECT 1 FROM target_interests ti WHERE ti.interest_id = p."interest_id")
-        AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
-        AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
-        AND p."user_id" != ${userId}
-    ),
-    -- Get reposts from Repost table (only reposts of POST or QUOTE types with specified interests)
-    repost_items AS (
-      SELECT 
-        p."id",
-        p."user_id",
-        p."content",
-        p."created_at",
-        p."type",
-        p."visibility",
-        p."parent_id",
-        p."interest_id",
-        p."is_deleted",
-        true as "isRepost",
-        r."created_at" as "effectiveDate",
-        json_build_object(
-          'userId', ru."id",
-          'username', ru."username",
-          'verified', ru."is_verifed",
-          'name', COALESCE(rpr."name", ru."username"),
-          'avatar', rpr."profile_image_url"
-        )::jsonb as "repostedBy"
-      FROM "Repost" r
-      INNER JOIN "posts" p ON r."post_id" = p."id"
-      INNER JOIN "User" ru ON r."user_id" = ru."id"
-      LEFT JOIN "profiles" rpr ON rpr."user_id" = ru."id"
-      WHERE p."is_deleted" = false
-        AND p."type" IN ('POST', 'QUOTE')
-        AND p."interest_id" IS NOT NULL
-        AND EXISTS (SELECT 1 FROM target_interests ti WHERE ti.interest_id = p."interest_id")
-        AND r."created_at" > NOW() - INTERVAL '30 days'
-        AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
-        AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
-        AND r."user_id" != ${userId}
-        AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = r."user_id")
-        AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = r."user_id")
-    ),
-    -- Combine both
-    all_posts AS (
-      SELECT * FROM original_posts
-      UNION ALL
-      SELECT * FROM repost_items
-    ),
-    candidate_posts AS (
-      SELECT 
-        ap."id",
-        ap."user_id",
-        ap."content",
-        ap."created_at",
-        ap."effectiveDate",
-        ap."type",
-        ap."visibility",
-        ap."parent_id",
-        ap."interest_id",
-        ap."is_deleted",
-        ap."isRepost",
-        ap."repostedBy",
-        
-        -- User/Author info
-        u."username",
-        u."is_verifed" as "isVerified",
-        COALESCE(pr."name", u."username") as "authorName",
-        pr."profile_image_url" as "authorProfileImage",
-        
-        -- Engagement counts (for original post)
-        COALESCE(engagement."likeCount", 0) as "likeCount",
-        COALESCE(engagement."replyCount", 0) as "replyCount",
-        COALESCE(engagement."repostCount", 0) as "repostCount",
-        
-        -- Author stats
-        author_stats."followersCount",
-        author_stats."followingCount",
-        author_stats."postsCount",
-        
-        -- Content features
-        CASE WHEN media_check."post_id" IS NOT NULL THEN true ELSE false END as "hasMedia",
-        COALESCE(hashtag_count."count", 0) as "hashtagCount",
-        COALESCE(mention_count."count", 0) as "mentionCount",
-        
-        -- User interaction flags
-        EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isLikedByMe",
-        EXISTS(SELECT 1 FROM user_follows uf WHERE uf.following_id = ap."user_id") as "isFollowedByMe",
-        EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isRepostedByMe",
-        
-        -- Media URLs (as JSON array)
-        COALESCE(
-          (SELECT json_agg(json_build_object('url', m."media_url", 'type', m."type"))
-           FROM "Media" m WHERE m."post_id" = ap."id"),
-          '[]'::json
-        ) as "mediaUrls",
-        
-        -- Original post for quotes only
-        CASE 
-          WHEN ap."parent_id" IS NOT NULL AND ap."type" = 'QUOTE' THEN
-            (SELECT json_build_object(
-              'postId', op."id",
-              'content', op."content",
-              'createdAt', op."created_at",
-              'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = op."id"), 0),
-              'repostCount', COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE "post_id" = op."id"), 0),
-              'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = op."id" AND "is_deleted" = false), 0),
-              'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = op."id" AND "user_id" = ${userId}),
-              'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = op."user_id"),
-              'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = op."id" AND "user_id" = ${userId}),
-              'author', json_build_object(
-                'userId', ou."id",
-                'username', ou."username",
-                'isVerified', ou."is_verifed",
-                'name', COALESCE(opr."name", ou."username"),
-                'avatar', opr."profile_image_url"
-              ),
-              'media', COALESCE(
-                (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type"))
-                 FROM "Media" om WHERE om."post_id" = op."id"),
-                '[]'::json
-              )
-            )
-            FROM "posts" op
-            LEFT JOIN "User" ou ON ou."id" = op."user_id"
-            LEFT JOIN "profiles" opr ON opr."user_id" = ou."id"
-            WHERE op."id" = ap."parent_id" AND op."is_deleted" = false)
-          ELSE NULL
-        END as "originalPost",
-        
-        -- Personalization score (with interest matching weight)
-        (
-          ${personalizationWeights.interestMatch} +
-          CASE WHEN uf.following_id IS NOT NULL THEN ${personalizationWeights.following} ELSE 0 END +
-          CASE WHEN la.author_id IS NOT NULL THEN ${personalizationWeights.directLike} ELSE 0 END +
-          COALESCE(common_likes."count", 0) * ${personalizationWeights.commonLike} +
-          CASE WHEN common_follows."exists" THEN ${personalizationWeights.commonFollow} ELSE 0 END
-        )::double precision as "personalizationScore"
-        
-      FROM all_posts ap
-      INNER JOIN "User" u ON ap."user_id" = u."id"
-      LEFT JOIN "profiles" pr ON u."id" = pr."user_id"
-      LEFT JOIN user_follows uf ON ap."user_id" = uf.following_id
-      LEFT JOIN liked_authors la ON ap."user_id" = la.author_id
-      
-      -- Engagement metrics
-      LEFT JOIN LATERAL (
-        SELECT 
-          COUNT(DISTINCT l."user_id")::int as "likeCount",
-          COUNT(DISTINCT CASE WHEN replies."id" IS NOT NULL THEN replies."id" END)::int as "replyCount",
-          COUNT(DISTINCT r."user_id")::int as "repostCount"
-        FROM "posts" base
-        LEFT JOIN "Like" l ON l."post_id" = base."id"
-        LEFT JOIN "posts" replies ON replies."parent_id" = base."id" AND replies."is_deleted" = false
-        LEFT JOIN "Repost" r ON r."post_id" = base."id"
-        WHERE base."id" = ap."id"
-      ) engagement ON true
-      
-      -- Author stats
-      LEFT JOIN LATERAL (
-        SELECT 
-          (SELECT COUNT(*)::int FROM "follows" WHERE "followingId" = u."id") as "followersCount",
-          (SELECT COUNT(*)::int FROM "follows" WHERE "followerId" = u."id") as "followingCount",
-          (SELECT COUNT(*)::int FROM "posts" WHERE "user_id" = u."id" AND "is_deleted" = false) as "postsCount"
-      ) author_stats ON true
-      
-      -- Media check
-      LEFT JOIN LATERAL (
-        SELECT ap."id" as post_id FROM "Media" WHERE "post_id" = ap."id" LIMIT 1
-      ) media_check ON true
-      
-      -- Hashtag count
-      LEFT JOIN LATERAL (
-        SELECT COUNT(*)::int as count FROM "_PostHashtags" WHERE "B" = ap."id"
-      ) hashtag_count ON true
-      
-      -- Mention count
-      LEFT JOIN LATERAL (
-        SELECT COUNT(*)::int as count FROM "Mention" WHERE "post_id" = ap."id"
-      ) mention_count ON true
-      
-      -- Common likes
-      LEFT JOIN LATERAL (
-        SELECT COUNT(*)::float as count
-        FROM "Like" l
-        INNER JOIN user_follows uf_likes ON l."user_id" = uf_likes.following_id
-        WHERE l."post_id" = ap."id"
-      ) common_likes ON true
-      
-      -- Common follows
-      LEFT JOIN LATERAL (
-        SELECT EXISTS(
-          SELECT 1 FROM "follows" f
-          INNER JOIN user_follows uf_follows ON f."followerId" = uf_follows.following_id
-          WHERE f."followingId" = ap."user_id"
-        ) as exists
-      ) common_follows ON true
-      
-      ORDER BY "personalizationScore" DESC, ap."effectiveDate" DESC
-      LIMIT ${limit} OFFSET ${(page - 1) * limit}
-    )
-    SELECT * FROM candidate_posts;
-  `;
 
     return await this.prismaService.$queryRawUnsafe<PostWithAllData[]>(query);
   }

@@ -785,12 +785,23 @@ async function main() {
     },
   ];
 
-  for (const m of media) {
+  const mediaWithUserId = media.map((m) => {
+    const post = createdPosts.find((p) => p.id === m.post_id);
+    if (!post) throw new Error("Post not found for media item");
+    return {
+      post_id: m.post_id,
+      user_id: post.user_id, 
+      media_url: m.media_url,
+      type: m.type,
+    };
+  });
+
+  for (const m of mediaWithUserId) {
     await prisma.media.create({
       data: m,
     });
   }
-  console.log(`Created ${media.length} media items`);
+  console.log(`Created ${mediaWithUserId.length} media items`);
 
   // Create conversations
   const conversations = [
