@@ -489,7 +489,7 @@ export class AuthController {
     const resolvedPlatform: string = platform || 'web';
     if (resolvedPlatform == 'mobile') {
       const mobileDomain = process.env.MOBILE_APP_OAUTH_REDIRECT;
-      return res.redirect(`${mobileDomain}#token=${accessToken}`);
+      return res.redirect(`${mobileDomain}?token=${accessToken}`);
     }
 
     const html = `
@@ -681,7 +681,7 @@ export class AuthController {
     const resolvedPlatform: string = platform || 'web';
     if (resolvedPlatform == 'mobile') {
       const mobileDomain = process.env.MOBILE_APP_OAUTH_REDIRECT;
-      return res.redirect(`${mobileDomain}#token=${accessToken}`);
+      return res.redirect(`${mobileDomain}?token=${accessToken}`);
     }
 
     const html = `

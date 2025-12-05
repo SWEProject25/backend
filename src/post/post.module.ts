@@ -11,11 +11,15 @@ import { AiSummarizationService } from 'src/ai-integration/services/summarizatio
 import { BullModule } from '@nestjs/bullmq';
 import { HttpModule } from '@nestjs/axios';
 import { MLService } from './services/ml.service';
+import { HashtagTrendService } from './services/hashtag-trends.service';
 import { RedisModule } from 'src/redis/redis.module';
+import { HashtagController } from './hashtag.controller';
+import { HashtagCalculateTrendsProcessor } from './processors/hashtag-calculate-trends.processor';
+import { HashtagBulkRecalculateProcessor } from './processors/hashtag-bulk-recalculate.processor';
 import { GatewayModule } from 'src/gateway/gateway.module';
 
 @Module({
-  controllers: [PostController],
+  controllers: [PostController, HashtagController],
   providers: [
     PostService,
     {
@@ -47,6 +51,18 @@ import { GatewayModule } from 'src/gateway/gateway.module';
       useClass: MLService,
     },
     MLService,
+    {
+      provide: Services.HASHTAG_TRENDS,
+      useClass: HashtagTrendService,
+    },
+    {
+      provide: Services.HASHTAG_JOB_QUEUE,
+      useClass: HashtagCalculateTrendsProcessor,
+    },
+    {
+      provide: Services.HASHTAG_BULK_JOB_QUEUE,
+      useClass: HashtagBulkRecalculateProcessor,
+    },
   ],
   imports: [
     PrismaModule,
@@ -55,6 +71,20 @@ import { GatewayModule } from 'src/gateway/gateway.module';
     GatewayModule,
     BullModule.registerQueue({
       name: RedisQueues.postQueue.name,
+      defaultJobOptions: {
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    }),
+    BullModule.registerQueue({
+      name: RedisQueues.hashTagQueue.name,
+      defaultJobOptions: {
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    }),
+    BullModule.registerQueue({
+      name: RedisQueues.bulkHashTagQueue.name,
       defaultJobOptions: {
         removeOnComplete: true,
         removeOnFail: true,

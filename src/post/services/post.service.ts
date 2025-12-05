@@ -23,6 +23,8 @@ import { SocketService } from 'src/gateway/socket.service';
 
 import { MLService } from './ml.service';
 import { RawPost, TransformedPost } from '../interfaces/post.interface';
+import { HashtagTrendService } from './hashtag-trends.service';
+import { extractHashtags } from 'src/utils/extractHashtags';
 
 export const POST_STATS_CACHE_PREFIX = 'post_stats:';
 const POST_STATS_CACHE_TTL = 300; // 5 minutes in seconds
@@ -245,21 +247,13 @@ export class PostService {
     private readonly aiSummarizationService: AiSummarizationService,
     @InjectQueue(RedisQueues.postQueue.name)
     private readonly postQueue: Queue,
+    @Inject(Services.HASHTAG_TRENDS)
+    private readonly hashtagTrendService: HashtagTrendService,
     private readonly eventEmitter: EventEmitter2,
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
     private readonly socketService: SocketService,
   ) { }
-
-  private extractHashtags(content: string): string[] {
-    if (!content) return [];
-
-    const matches = content.match(/#(\w+)/g);
-
-    if (!matches) return [];
-
-    return [...new Set(matches.map((tag) => tag.slice(1).toLowerCase()))];
-  }
 
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
@@ -465,7 +459,10 @@ export class PostService {
         }
       }
 
-      return { ...post, mediaUrls: mediaWithType.map((m) => m.url) };
+      return {
+        post: { ...post, mediaUrls: mediaWithType.map((m) => m.url) },
+        hashtagIds: hashtagRecords.map((r) => r.id),
+      };
     });
   }
 
@@ -493,11 +490,23 @@ export class PostService {
       console.log(createPostDto.mentionsIds);
       await this.checkUsersExistence(createPostDto.mentionsIds ?? []);
 
-      const hashtags = this.extractHashtags(content);
+      const hashtags = extractHashtags(content);
 
       const mediaWithType = this.getMediaWithType(urls, media);
 
-      const post = await this.createPostTransaction(createPostDto, hashtags, mediaWithType);
+      const { post, hashtagIds } = await this.createPostTransaction(
+        createPostDto,
+        hashtags,
+        mediaWithType,
+      );
+
+      if (hashtagIds.length > 0) {
+        setImmediate(() => {
+          this.hashtagTrendService.queueTrendCalculation(hashtagIds).catch((error) => {
+            console.log('Failed to queue trends:', error.stack);
+          });
+        });
+      }
 
       // Update parent post stats cache if this is a reply or quote
       if (

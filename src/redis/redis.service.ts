@@ -11,6 +11,7 @@ export class RedisService implements OnModuleInit {
     @Inject(redisConfig.KEY)
     private readonly redisConfiguration: ConfigType<typeof redisConfig>,
   ) {}
+
   async onModuleInit() {
     this.client = createClient({
       socket: {
@@ -51,6 +52,26 @@ export class RedisService implements OnModuleInit {
 
   async del(key: string): Promise<number> {
     return await this.client.del(key);
+  }
+
+  async getJSON<T>(key: string): Promise<T | null> {
+    const data = await this.client.get(key);
+    return data ? JSON.parse(data) : null;
+  }
+
+  async setJSON(key: string, value: any, ttl?: number): Promise<void> {
+    const data = JSON.stringify(value);
+    if (ttl) {
+      await this.client.setEx(key, ttl, data);
+    } else {
+      await this.client.set(key, data);
+    }
+  }
+
+  async delPattern(pattern: string): Promise<number> {
+    const keys = await this.client.keys(pattern);
+    if (keys.length === 0) return 0;
+    return await this.client.del(keys);
   }
 
   getClient(): RedisClientType {

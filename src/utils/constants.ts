@@ -26,6 +26,9 @@ export enum Services {
   REDIS = 'REDIS_SERVICE',
   AI_SUMMARIZATION = 'AI_SUMMARIZATION_SERVICE',
   QUEUE_CONSUMER = 'QUEUE_CONSUMER_SERVICE',
+  HASHTAG_TRENDS = 'HASHTAG_TRENDS_SERVICE',
+  HASHTAG_JOB_QUEUE = 'HASHTAG_CALCULATE_PROCESSOR',
+  HASHTAG_BULK_JOB_QUEUE = 'HASHTAG_RECALCULATE_PROCESSOR',
   ML_SERVICE = 'ML_SERVICE',
   NOTIFICATION = 'NOTIFICATION_SERVICE',
   FIREBASE = 'FIREBASE_SERVICE',
@@ -41,6 +44,18 @@ export const RedisQueues = {
     name: 'post-queue',
     processes: {
       summarizePostContent: 'summarize-post-content',
+    },
+  },
+  hashTagQueue: {
+    name: 'hashtag-trending',
+    processes: {
+      calculateTrends: 'calculate-trends',
+    },
+  },
+  bulkHashTagQueue: {
+    name: 'recalculate-bulk-trends',
+    processes: {
+      recalculateTrends: 'recalculate-trends',
     },
   },
 };
