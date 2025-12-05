@@ -15,5 +15,5 @@ export const ImageVideoUploadPipe = new ParseFilePipe({
       fileType: ALLOWED_FILE_TYPES_REGEX,
     }),
   ],
-  fileIsRequired: false, 
+  fileIsRequired: false,
 });

@@ -16,6 +16,7 @@ import { RedisModule } from 'src/redis/redis.module';
 import { HashtagController } from './hashtag.controller';
 import { HashtagCalculateTrendsProcessor } from './processors/hashtag-calculate-trends.processor';
 import { HashtagBulkRecalculateProcessor } from './processors/hashtag-bulk-recalculate.processor';
+import { GatewayModule } from 'src/gateway/gateway.module';
 
 @Module({
   controllers: [PostController, HashtagController],
@@ -67,6 +68,7 @@ import { HashtagBulkRecalculateProcessor } from './processors/hashtag-bulk-recal
     PrismaModule,
     HttpModule,
     RedisModule,
+    GatewayModule,
     BullModule.registerQueue({
       name: RedisQueues.postQueue.name,
       defaultJobOptions: {

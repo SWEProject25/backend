@@ -1,10 +1,10 @@
-import { Processor, WorkerHost } from "@nestjs/bullmq";
-import { RedisQueues, Services } from "src/utils/constants";
-import { AiSummarizationService } from "./summarization.service";
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { RedisQueues, Services } from 'src/utils/constants';
+import { AiSummarizationService } from './summarization.service';
 import { Job } from 'bullmq';
-import { SummarizeJob } from "src/common/interfaces/summarizeJob.interface";
-import { Inject } from "@nestjs/common";
-import { PrismaService } from "src/prisma/prisma.service";
+import { SummarizeJob } from 'src/common/interfaces/summarizeJob.interface';
+import { Inject } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Processor(RedisQueues.postQueue.name)
 export class QueueConsumerService extends WorkerHost {
@@ -30,11 +30,10 @@ export class QueueConsumerService extends WorkerHost {
   private async handleSummarizePostContent(job: Job<SummarizeJob>) {
     const { postContent, postId } = job.data;
     const summary = await this.aiSummarizationService.summarizePost(postContent);
-    
+
     await this.prismaService.post.update({
       where: { id: postId },
       data: { summary },
     });
   }
-
 }

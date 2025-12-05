@@ -5,11 +5,7 @@ import { SendEmailDto } from './dto/send-email.dto';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { Resend } from 'resend';
-import {
-  EmailClient,
-  EmailMessage,
-  KnownEmailSendStatus,
-} from '@azure/communication-email';
+import { EmailClient, EmailMessage, KnownEmailSendStatus } from '@azure/communication-email';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 
@@ -131,7 +127,9 @@ export class EmailService {
     });
 
     try {
-      this.logger.log(`📧 [AWS SES] Sending email from: ${this.mailerConfiguration.awsSes.fromEmail}`);
+      this.logger.log(
+        `📧 [AWS SES] Sending email from: ${this.mailerConfiguration.awsSes.fromEmail}`,
+      );
       this.logger.log(`📧 [AWS SES] Recipients: ${toRecipients.join(', ')}`);
 
       const info = await this.awsSesTransporter.sendMail({
@@ -172,7 +170,9 @@ export class EmailService {
     });
 
     try {
-      this.logger.log(`📧 [RESEND] Sending email from: ${this.mailerConfiguration.resend.fromEmail}`);
+      this.logger.log(
+        `📧 [RESEND] Sending email from: ${this.mailerConfiguration.resend.fromEmail}`,
+      );
       this.logger.log(`📧 [RESEND] Recipients: ${toRecipients.join(', ')}`);
 
       const response = await this.resendClient.emails.send({
@@ -233,7 +233,7 @@ export class EmailService {
 
     try {
       this.logger.log(`📧 [AZURE] Sending email from: ${this.mailerConfiguration.azure.fromEmail}`);
-      const recipientEmails = recipients.map(r => typeof r === 'string' ? r : r.email);
+      const recipientEmails = recipients.map((r) => (typeof r === 'string' ? r : r.email));
       this.logger.log(`📧 [AZURE] Recipients: ${recipientEmails.join(', ')}`);
 
       const poller = await this.azureClient.beginSend(message);

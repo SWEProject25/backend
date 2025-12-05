@@ -484,10 +484,7 @@ describe('UsersService', () => {
       mockPrismaService.$transaction.mockResolvedValue([2, mockFollowing]);
 
       // Mock follow relationship query
-      mockPrismaService.follow.findMany.mockResolvedValue([
-        { followingId: 2 },
-        { followingId: 3 },
-      ]);
+      mockPrismaService.follow.findMany.mockResolvedValue([{ followingId: 2 }, { followingId: 3 }]);
 
       const result = await service.getFollowing(userId, undefined, undefined, authenticatedUserId);
 
