@@ -58,6 +58,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyPasswordDto } from './dto/verify-password.dto';
 import { UserService } from 'src/user/user.service';
 import { GoogleMobileLoginDto } from './dto/google-mobile-login.dto';
+import { ExchangeOAuthCodeDto } from './dto/exchange-oauth-code.dto';
 
 @Controller(Routes.AUTH)
 export class AuthController {
@@ -475,6 +476,17 @@ export class AuthController {
   @Get('google/redirect')
   @Public()
   @UseGuards(GoogleAuthGuard)
+  @ApiOperation({
+    summary: 'Google OAuth callback',
+    description:
+      'Handles Google OAuth callback. For mobile apps (platform=mobile), returns a one-time code instead of tokens.',
+  })
+  @ApiQuery({
+    name: 'platform',
+    required: false,
+    type: String,
+    description: 'Platform type (web | mobile)',
+  })
   public async googleRedirect(
     @Req() req: RequestWithUser,
     @Res() res: Response,
@@ -484,13 +496,16 @@ export class AuthController {
       req.user.sub ?? req.user?.id,
       req.user.username,
     );
-    this.jwtTokenService.setAuthCookies(res, accessToken);
 
     const resolvedPlatform: string = platform || 'web';
-    if (resolvedPlatform == 'mobile') {
-      const mobileDomain = process.env.MOBILE_APP_OAUTH_REDIRECT;
-      return res.redirect(`${mobileDomain}?token=${accessToken}`);
+
+    if (resolvedPlatform === 'mobile') {
+      const code = await this.authService.createOAuthCode(accessToken, user);
+      const mobileDomain = process.env.MOBILE_APP_OAUTH_REDIRECT || 'myapp://oauth/callback';
+      return res.redirect(`${mobileDomain}?code=${code}`);
     }
+
+    this.jwtTokenService.setAuthCookies(res, accessToken);
 
     const html = `
       <!DOCTYPE html>
@@ -502,7 +517,6 @@ export class AuthController {
                 process.env.NODE_ENV === 'dev'
                   ? process.env.FRONTEND_URL
                   : process.env.FRONTEND_URL_PROD
-                // process.env.FRONTEND_URL_PROD
               }";
               const url = frontendBase + '/home';
               const user = ${JSON.stringify(user)};
@@ -670,19 +684,33 @@ export class AuthController {
   @Get('github/redirect')
   @Public()
   @UseGuards(GithubAuthGuard)
+  @ApiOperation({
+    summary: 'GitHub OAuth callback',
+    description:
+      'Handles GitHub OAuth callback. For mobile apps (platform=mobile), returns a one-time code instead of tokens.',
+  })
+  @ApiQuery({
+    name: 'state',
+    required: false,
+    type: String,
+    description: 'Platform type (web | mobile)',
+  })
   public async githubRedirect(
     @Req() req: RequestWithUser,
     @Res() res: Response,
     @Query('state') platform: string,
   ) {
     const { accessToken, ...user } = await this.authService.login(req.user.sub, req.user.username);
-    this.jwtTokenService.setAuthCookies(res, accessToken);
 
     const resolvedPlatform: string = platform || 'web';
-    if (resolvedPlatform == 'mobile') {
-      const mobileDomain = process.env.MOBILE_APP_OAUTH_REDIRECT;
-      return res.redirect(`${mobileDomain}?token=${accessToken}`);
+
+    if (resolvedPlatform === 'mobile') {
+      const code = await this.authService.createOAuthCode(accessToken, user);
+      const mobileDomain = process.env.MOBILE_APP_OAUTH_REDIRECT || 'myapp://oauth/callback';
+      return res.redirect(`${mobileDomain}?code=${code}`);
     }
+
+    this.jwtTokenService.setAuthCookies(res, accessToken);
 
     const html = `
       <!DOCTYPE html>
@@ -694,7 +722,6 @@ export class AuthController {
                 process.env.NODE_ENV === 'dev'
                   ? process.env.FRONTEND_URL
                   : process.env.FRONTEND_URL_PROD
-                // process.env.FRONTEND_URL_PROD
               }";
               const url = frontendBase + '/home';
               const user = ${JSON.stringify(user)};
@@ -708,7 +735,6 @@ export class AuthController {
                   window.opener.postMessage(message, frontendBase);
                   setTimeout(() => window.close(), 100);
                 } else {
-                  // If no opener, redirect the popup to the frontend
                   window.location.href = url;
                 }
               } catch (err) {
@@ -722,6 +748,83 @@ export class AuthController {
     `;
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
+  }
+
+  @Post('oauth/exchange-code')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Exchange OAuth one-time code for tokens',
+    description:
+      'Mobile apps use this endpoint to exchange the one-time code received from OAuth callback for authentication tokens. The code is valid for 5 minutes and can only be used once.',
+  })
+  @ApiBody({
+    type: ExchangeOAuthCodeDto,
+    description: 'One-time code received from OAuth redirect',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully exchanged code for tokens',
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'success' },
+        message: { type: 'string', example: 'Authentication successful' },
+        data: {
+          type: 'object',
+          properties: {
+            user: {
+              type: 'object',
+              properties: {
+                id: { type: 'number', example: 1 },
+                username: { type: 'string', example: 'johndoe' },
+                role: { type: 'string', example: 'USER' },
+                email: { type: 'string', example: 'john@example.com' },
+              },
+            },
+            onboarding: {
+              type: 'object',
+              properties: {
+                hasCompeletedFollowing: { type: 'boolean', example: false },
+                hasCompeletedInterests: { type: 'boolean', example: false },
+                hasCompletedBirthDate: { type: 'boolean', example: false },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or expired code',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 401 },
+        message: { type: 'string', example: 'Invalid or expired OAuth code' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - missing or invalid code',
+  })
+  public async exchangeOAuthCode(
+    @Body() exchangeCodeDto: ExchangeOAuthCodeDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const oauthData = await this.authService.exchangeCode(exchangeCodeDto.code);
+    this.jwtTokenService.setAuthCookies(res, oauthData.accessToken);
+
+    return {
+      status: 'success',
+      message: 'Authentication successful',
+      data: {
+        user: oauthData.user.user,
+        onboarding: oauthData.user.onboarding,
+      },
+    };
   }
 
   @Get('test')
