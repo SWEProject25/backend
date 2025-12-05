@@ -178,7 +178,7 @@ export class ConversationsService {
     const unseenCounts = await Promise.all(
       conversations.map((conv) =>
         this.prismaService.message.count({
-          where: getUnseenMessageCountWhere(conv.id, userId, userId === conv.User1.id),
+          where: getUnseenMessageCountWhere(conv.id, userId),
         }),
       ),
     );
@@ -338,7 +338,7 @@ export class ConversationsService {
 
     // Fetch exact unseen count from database
     const unseenCount = await this.prismaService.message.count({
-      where: getUnseenMessageCountWhere(conversationId, userId, isUser1),
+      where: getUnseenMessageCountWhere(conversationId, userId),
     });
 
     const transformedConversation = {
@@ -402,7 +402,7 @@ export class ConversationsService {
     }
 
     return this.prismaService.message.count({
-      where: getUnseenMessageCountWhere(conversationId, userId, isUser1),
+      where: getUnseenMessageCountWhere(conversationId, userId),
     });
   }
 }
