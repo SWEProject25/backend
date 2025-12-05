@@ -27,6 +27,9 @@ export enum Services {
   AI_SUMMARIZATION = 'AI_SUMMARIZATION_SERVICE',
   QUEUE_CONSUMER = 'QUEUE_CONSUMER_SERVICE',
   ML = 'ML_SERVICE',
+  HASHTAG_TRENDS = 'HASHTAG_TRENDS_SERVICE',
+  HASHTAG_JOB_QUEUE = 'HASHTAG_CALCULATE_PROCESSOR',
+  HASHTAG_BULK_JOB_QUEUE = 'HASHTAG_RECALCULATE_PROCESSOR',
 }
 
 export enum RequestType {
@@ -39,6 +42,18 @@ export const RedisQueues = {
     name: 'post-queue',
     processes: {
       summarizePostContent: 'summarize-post-content',
+    },
+  },
+  hashTagQueue: {
+    name: 'hashtag-trending',
+    processes: {
+      calculateTrends: 'calculate-trends',
+    },
+  },
+  bulkHashTagQueue: {
+    name: 'recalculate-bulk-trends',
+    processes: {
+      recalculateTrends: 'recalculate-trends',
     },
   },
 };

@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisQueues, Services } from 'src/utils/constants';
 import { CreatePostDto } from '../dto/create-post.dto';
@@ -14,8 +19,8 @@ import { SummarizeJob } from 'src/common/interfaces/summarizeJob.interface';
 
 import { MLService } from './ml.service';
 import { RawPost, TransformedPost } from '../interfaces/post.interface';
-
-
+import { HashtagTrendService } from './hashtag-trends.service';
+import { extractHashtags } from 'src/utils/extractHashtags';
 
 // This interface now reflects the complex object returned by our query
 
@@ -235,17 +240,9 @@ export class PostService {
     private readonly aiSummarizationService: AiSummarizationService,
     @InjectQueue(RedisQueues.postQueue.name)
     private readonly postQueue: Queue,
-  ) { }
-
-  private extractHashtags(content: string): string[] {
-    if (!content) return [];
-
-    const matches = content.match(/#(\w+)/g);
-
-    if (!matches) return [];
-
-    return [...new Set(matches.map((tag) => tag.slice(1).toLowerCase()))];
-  }
+    @Inject(Services.HASHTAG_TRENDS)
+    private readonly hashtagTrendService: HashtagTrendService,
+  ) {}
 
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
@@ -255,12 +252,7 @@ export class PostService {
     }));
   }
 
-  private async findPosts(options: {
-    where: any;
-    userId: number;
-    page?: number;
-    limit?: number;
-  }) {
+  private async findPosts(options: { where: any; userId: number; page?: number; limit?: number }) {
     const { where, userId, page = 1, limit = 10 } = options;
 
     const posts = await this.prismaService.post.findMany({
@@ -314,7 +306,6 @@ export class PostService {
     return this.transformPost(posts);
   }
 
-
   private async createPostTransaction(
     postData: CreatePostDto,
     hashtags: string[],
@@ -356,7 +347,10 @@ export class PostService {
         })),
       });
 
-      return { ...post, mediaUrls: mediaWithType.map((m) => m.url) };
+      return {
+        post: { ...post, mediaUrls: mediaWithType.map((m) => m.url) },
+        hashtagIds: hashtagRecords.map((r) => r.id),
+      };
     });
   }
 
@@ -366,16 +360,24 @@ export class PostService {
       const { content, media, userId } = createPostDto;
       urls = await this.storageService.uploadFiles(media);
 
-      const hashtags = this.extractHashtags(content);
+      const hashtags = extractHashtags(content);
 
       const mediaWithType = this.getMediaWithType(urls, media);
 
-      const post = await this.createPostTransaction(
+      const { post, hashtagIds } = await this.createPostTransaction(
         createPostDto,
         hashtags,
         mediaWithType,
       );
-      
+
+      if (hashtagIds.length > 0) {
+        setImmediate(() => {
+          this.hashtagTrendService.queueTrendCalculation(hashtagIds).catch((error) => {
+            console.log('Failed to queue trends:', error.stack);
+          });
+        });
+      }
+
       if (post.content) {
         await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
       }
@@ -396,10 +398,7 @@ export class PostService {
   }
 
   private async addToSummarizationQueue(job: SummarizeJob) {
-    await this.postQueue.add(
-      RedisQueues.postQueue.processes.summarizePostContent,
-      job
-    );
+    await this.postQueue.add(RedisQueues.postQueue.processes.summarizePostContent, job);
   }
 
   async summarizePost(postId: number) {
@@ -427,16 +426,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-        ...(userId && { user_id: userId }),
-        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-        ...(type && { type }),
-        is_deleted: false,
-      }
+          ...(userId && { user_id: userId }),
+          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+          ...(type && { type }),
+          is_deleted: false,
+        }
       : {
-        // TODO: improve this fallback
-        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-        is_deleted: false,
-      };
+          // TODO: improve this fallback
+          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+          is_deleted: false,
+        };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -552,42 +551,42 @@ export class PostService {
     // Build block/mute filters
     const blockMuteFilter = currentUserId
       ? {
-        AND: [
-          {
-            NOT: {
-              User: {
-                Blockers: {
-                  some: {
-                    blockerId: currentUserId,
+          AND: [
+            {
+              NOT: {
+                User: {
+                  Blockers: {
+                    some: {
+                      blockerId: currentUserId,
+                    },
                   },
                 },
               },
             },
-          },
-          {
-            NOT: {
-              User: {
-                Blocked: {
-                  some: {
-                    blockedId: currentUserId,
+            {
+              NOT: {
+                User: {
+                  Blocked: {
+                    some: {
+                      blockedId: currentUserId,
+                    },
                   },
                 },
               },
             },
-          },
-          {
-            NOT: {
-              User: {
-                Muters: {
-                  some: {
-                    muterId: currentUserId,
+            {
+              NOT: {
+                User: {
+                  Muters: {
+                    some: {
+                      muterId: currentUserId,
+                    },
                   },
                 },
               },
             },
-          },
-        ],
-      }
+          ],
+        }
       : {};
 
     // Count total posts with this hashtag
@@ -1501,12 +1500,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-          userId: post.user_id,
-          username: post.username,
-          verified: post.isVerified,
-          name: post.authorName || post.username,
-          avatar: post.authorProfileImage,
-        };
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+          };
 
     return {
       // User Information (reposter for simple reposts, author otherwise)
@@ -1540,42 +1539,42 @@ export class PostService {
       originalPostData:
         isSimpleRepost || isQuote
           ? {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-            postId: post.id,
-            date: post.created_at,
-            likesCount: post.likeCount,
-            retweetsCount: post.repostCount,
-            commentsCount: post.replyCount,
-            isLikedByMe: post.isLikedByMe,
-            isFollowedByMe: post.isFollowedByMe,
-            isRepostedByMe: post.isRepostedByMe || false,
-            text: post.content || '',
-            media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-            ...(isQuote && post.originalPost
-              ? {
-                // Override with quoted post data for quotes
-                userId: post.originalPost.author.userId,
-                username: post.originalPost.author.username,
-                verified: post.originalPost.author.isVerified,
-                name: post.originalPost.author.name,
-                avatar: post.originalPost.author.avatar,
-                postId: post.originalPost.postId,
-                date: post.originalPost.createdAt,
-                likesCount: post.originalPost.likeCount,
-                retweetsCount: post.originalPost.repostCount,
-                commentsCount: post.originalPost.replyCount,
-                isLikedByMe: post.originalPost.isLikedByMe,
-                isFollowedByMe: post.originalPost.isFollowedByMe,
-                isRepostedByMe: post.originalPost.isRepostedByMe,
-                text: post.originalPost.content || '',
-                media: post.originalPost.media || [],
-              }
-              : {}),
-          }
+              userId: post.user_id,
+              username: post.username,
+              verified: post.isVerified,
+              name: post.authorName || post.username,
+              avatar: post.authorProfileImage,
+              postId: post.id,
+              date: post.created_at,
+              likesCount: post.likeCount,
+              retweetsCount: post.repostCount,
+              commentsCount: post.replyCount,
+              isLikedByMe: post.isLikedByMe,
+              isFollowedByMe: post.isFollowedByMe,
+              isRepostedByMe: post.isRepostedByMe || false,
+              text: post.content || '',
+              media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+              ...(isQuote && post.originalPost
+                ? {
+                    // Override with quoted post data for quotes
+                    userId: post.originalPost.author.userId,
+                    username: post.originalPost.author.username,
+                    verified: post.originalPost.author.isVerified,
+                    name: post.originalPost.author.name,
+                    avatar: post.originalPost.author.avatar,
+                    postId: post.originalPost.postId,
+                    date: post.originalPost.createdAt,
+                    likesCount: post.originalPost.likeCount,
+                    retweetsCount: post.originalPost.repostCount,
+                    commentsCount: post.originalPost.replyCount,
+                    isLikedByMe: post.originalPost.isLikedByMe,
+                    isFollowedByMe: post.originalPost.isFollowedByMe,
+                    isRepostedByMe: post.originalPost.isRepostedByMe,
+                    text: post.originalPost.content || '',
+                    media: post.originalPost.media || [],
+                  }
+                : {}),
+            }
           : undefined,
 
       // Scores data
