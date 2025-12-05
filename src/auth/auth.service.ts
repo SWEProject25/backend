@@ -16,8 +16,12 @@ import { RedisService } from 'src/redis/redis.service';
 import { OAuth2Client } from 'google-auth-library';
 import googleOauthConfig from './config/google-oauth.config';
 import { ConfigType } from '@nestjs/config';
+import { randomBytes } from 'crypto';
+import { OAuthCodeData } from './interfaces/oauth-code-data.interface';
 
 const ISVERIFIED_CACHE_PREFIX = 'verified:';
+const OAUTH_CODE_PREFIX = 'oauth:code:';
+const CODE_EXPIRY = 300; // 5 minutes
 
 @Injectable()
 export class AuthService {
@@ -301,5 +305,34 @@ export class AuthService {
     }
 
     await this.userService.updateUsername(userId, username);
+  }
+
+  public async createOAuthCode(accessToken: string, user: any): Promise<string> {
+    const code = this.generateCode();
+    const key = `${OAUTH_CODE_PREFIX}${code}`;
+
+    const data = {
+      accessToken,
+      user,
+      createdAt: Date.now(),
+    };
+    await this.redisService.setJSON(key, data, CODE_EXPIRY);
+
+    return code;
+  }
+
+  public async exchangeCode(code: string): Promise<OAuthCodeData> {
+    const key = `${OAUTH_CODE_PREFIX}${code}`;
+    const data = await this.redisService.getJSON<OAuthCodeData>(key);
+    if (!data) {
+      throw new UnauthorizedException('Invalid or expired OAuth code');
+    }
+    await this.redisService.del(key);
+
+    return data;
+  }
+
+  private generateCode(): string {
+    return randomBytes(32).toString('hex');
   }
 }
