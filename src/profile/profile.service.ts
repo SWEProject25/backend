@@ -46,6 +46,7 @@ export class ProfileService {
     isBeenBlocked: boolean = false,
     isBlockedByMe: boolean = false,
     isMutedByMe: boolean = false,
+    isFollowingMe: boolean = false,
   ) {
     const { User, ...profileData } = profile;
     const { _count, ...userData } = User;
@@ -59,6 +60,7 @@ export class ProfileService {
       is_been_blocked: isBeenBlocked,
       is_blocked_by_me: isBlockedByMe,
       is_muted_by_me: isMutedByMe,
+      is_following_me: isFollowingMe,
       verified: User.is_verified || false,
     };
   }
@@ -84,6 +86,7 @@ export class ProfileService {
     let isBeenBlocked = false;
     let isBlockedByMe = false;
     let isMutedByMe = false;
+    let isFollowingMe = false;
 
     if (currentUserId && currentUserId !== userId) {
       // Check if current user follows the profile user
@@ -96,6 +99,17 @@ export class ProfileService {
         },
       });
       isFollowedByMe = !!followRelation;
+
+      // Check if the profile user follows the current user
+      const followingMeRelation = await this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: userId,
+            followingId: currentUserId,
+          },
+        },
+      });
+      isFollowingMe = !!followingMeRelation;
 
       // Check if the profile user has blocked the current user
       const blockByProfile = await this.prismaService.block.findUnique({
@@ -137,6 +151,7 @@ export class ProfileService {
       isBeenBlocked,
       isBlockedByMe,
       isMutedByMe,
+      isFollowingMe,
     );
   }
 
@@ -163,6 +178,7 @@ export class ProfileService {
     let isBeenBlocked = false;
     let isBlockedByMe = false;
     let isMutedByMe = false;
+    let isFollowingMe = false;
 
     if (currentUserId && currentUserId !== profile.user_id) {
       // Check if current user follows the profile user
@@ -175,6 +191,17 @@ export class ProfileService {
         },
       });
       isFollowedByMe = !!followRelation;
+
+      // Check if the profile user follows the current user
+      const followingMeRelation = await this.prismaService.follow.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: profile.user_id,
+            followingId: currentUserId,
+          },
+        },
+      });
+      isFollowingMe = !!followingMeRelation;
 
       // Check if the profile user has blocked the current user
       const blockByProfile = await this.prismaService.block.findUnique({
@@ -216,6 +243,7 @@ export class ProfileService {
       isBeenBlocked,
       isBlockedByMe,
       isMutedByMe,
+      isFollowingMe,
     );
   }
 
@@ -370,12 +398,13 @@ export class ProfileService {
 
     // Get follow and mute status for each profile if user is authenticated
     let followStatusMap = new Map<number, boolean>();
+    let followingMeStatusMap = new Map<number, boolean>();
     let muteStatusMap = new Map<number, boolean>();
 
     if (currentUserId && profiles.length > 0) {
       const profileUserIds = profiles.map((p) => p.user_id);
 
-      // Batch check follow status
+      // Batch check follow status (current user follows profile users)
       const followRelations = await this.prismaService.follow.findMany({
         where: {
           followerId: currentUserId,
@@ -388,6 +417,20 @@ export class ProfileService {
         },
       });
       followRelations.forEach((rel) => followStatusMap.set(rel.followingId, true));
+
+      // Batch check if profile users follow current user
+      const followingMeRelations = await this.prismaService.follow.findMany({
+        where: {
+          followerId: {
+            in: profileUserIds,
+          },
+          followingId: currentUserId,
+        },
+        select: {
+          followerId: true,
+        },
+      });
+      followingMeRelations.forEach((rel) => followingMeStatusMap.set(rel.followerId, true));
 
       // Batch check mute status
       const muteRelations = await this.prismaService.mute.findMany({
@@ -409,6 +452,7 @@ export class ProfileService {
       return {
         ...formatted,
         is_followed_by_me: followStatusMap.get(profile.user_id) || false,
+        is_following_me: followingMeStatusMap.get(profile.user_id) || false,
         is_muted_by_me: muteStatusMap.get(profile.user_id) || false,
         verified: profile.User.is_verified || false,
       };

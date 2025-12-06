@@ -119,6 +119,12 @@ export class ProfileResponseDto {
   is_followed_by_me?: boolean;
 
   @ApiPropertyOptional({
+    description: 'Whether this profile follows the current user',
+    example: false,
+  })
+  is_following_me?: boolean;
+
+  @ApiPropertyOptional({
     description: 'Whether the user is verified',
     example: true,
   })
