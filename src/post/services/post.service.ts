@@ -340,7 +340,16 @@ export class PostService {
           where: { user_id: userId },
           select: { user_id: true },
         },
-        mentions: { where: { user_id: userId }, select: { user_id: true } },
+        mentions: {
+          select: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
+          }
+        },
       },
       skip: (page - 1) * limit,
       take: limit,
@@ -1083,7 +1092,7 @@ export class PostService {
 
   private getTopPaginatedPosts(
     posts: TransformedPost[],
-    reposts:RepostedPost[],
+    reposts: RepostedPost[],
     page: number,
     limit: number,
   ) {
@@ -1150,7 +1159,10 @@ export class PostService {
         url: m.media_url,
         type: m.type,
       })),
-      mentions: post.mentions,
+      mentions: post.mentions.map(mention => ({
+        userId: mention.user.id,
+        username: mention.user.username
+      })),
       isRepost: false,
       isQuote: PostType.QUOTE === post.type,
     }));
@@ -1250,7 +1262,9 @@ export class PostService {
     if (!post) {
       throw new NotFoundException('Post not found');
     }
-    return post;
+
+    const enrichedPost = await this.enrichIfQuoteOrReply([post], userId);
+    return enrichedPost;
   }
 
   async getPostStats(postId: number) {
