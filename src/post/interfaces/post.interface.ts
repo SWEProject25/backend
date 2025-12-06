@@ -14,6 +14,21 @@ interface User {
   is_verified: boolean;
   Profile: UserProfile | null;
   Followers?: { followerId: number }[];
+  Muters?: { muterId: number }[];
+  Blockers?: { blockerId: number }[];
+}
+
+export interface RepostedPost {
+    userId: number;
+    username: string;
+    verified: boolean;
+    name: string;
+    avatar: string | null;
+    isFollowedByMe: boolean;
+    isMutedByMe: boolean;
+    isBlockedByMe: boolean;
+    date: Date;
+    originalPostData: TransformedPost;
 }
 
 interface Count {
@@ -57,10 +72,11 @@ export interface TransformedPost {
   isLikedByMe: boolean;
   isFollowedByMe: boolean;
   isRepostedByMe: boolean;
+  isMutedByMe: boolean;
+  isBlockedByMe: boolean;
   text: string | null;
   media: { url: string; type: string }[];
   isRepost: boolean;
   isQuote: boolean;
-  createdAt: Date;
   originalPostData?: TransformedPost;
 }

@@ -22,7 +22,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { SocketService } from 'src/gateway/socket.service';
 
 import { MLService } from './ml.service';
-import { RawPost, TransformedPost } from '../interfaces/post.interface';
+import { RawPost, RepostedPost, TransformedPost } from '../interfaces/post.interface';
 import { HashtagTrendService } from './hashtag-trends.service';
 import { extractHashtags } from 'src/utils/extractHashtags';
 
@@ -316,6 +316,14 @@ export class PostService {
               where: { followerId: userId },
               select: { followerId: true },
             },
+            Muters: {
+              where: { muterId: userId },
+              select: { muterId: true }
+            },
+            Blockers: {
+              where: { blockerId: userId },
+              select: { blockerId: true }
+            }
           },
         },
         media: {
@@ -487,7 +495,7 @@ export class PostService {
     try {
       const { content, media, userId } = createPostDto;
       urls = await this.storageService.uploadFiles(media);
-      console.log(createPostDto.mentionsIds);
+
       await this.checkUsersExistence(createPostDto.mentionsIds ?? []);
 
       const hashtags = extractHashtags(content);
@@ -1000,12 +1008,39 @@ export class PostService {
     };
   }
 
-  private async getReposts(userId: number, page: number, limit: number) {
+  private async getReposts(userId: number, page: number, limit: number): Promise<RepostedPost[]> {
     const reposts = await this.prismaService.repost.findMany({
       where: {
         user_id: userId,
         post: {
           is_deleted: false,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            is_verified: true,
+            Profile: {
+              select: {
+                name: true,
+                profile_image_url: true,
+              },
+            },
+            Followers: {
+              where: { followerId: userId },
+              select: { followerId: true },
+            },
+            Muters: {
+              where: { muterId: userId },
+              select: { muterId: true }
+            },
+            Blockers: {
+              where: { blockerId: userId },
+              select: { blockerId: true }
+            }
+          },
         },
       },
       skip: (page - 1) * limit,
@@ -1032,7 +1067,15 @@ export class PostService {
 
     // 5. Embed original post data into reposts
     return reposts.map((r) => ({
-      ...r,
+      userId: r.user_id,
+      username: r.user.username,
+      verified: r.user.is_verified,
+      name: r.user.Profile?.name || r.user.username,
+      avatar: r.user.Profile?.profile_image_url || null,
+      isFollowedByMe: (r.user.Followers && r.user.Followers.length > 0) || false,
+      isMutedByMe: (r.user.Muters && r.user.Muters.length > 0) || false,
+      isBlockedByMe: (r.user.Blockers && r.user.Blockers.length > 0) || false,
+      date: r.created_at,
       originalPostData: postMap.get(r.post_id),
     }));
   }
@@ -1040,11 +1083,7 @@ export class PostService {
 
   private getTopPaginatedPosts(
     posts: TransformedPost[],
-    reposts: {
-      user_id: number;
-      created_at: Date;
-      post_id: number;
-    }[],
+    reposts:RepostedPost[],
     page: number,
     limit: number,
   ) {
@@ -1052,16 +1091,14 @@ export class PostService {
       ...posts.map((p) => ({
         ...p,
         isRepost: false,
-        reposted_at: p.createdAt,
       })),
       ...reposts.map((r) => ({
         ...r,
         isRepost: true,
-        reposted_at: r.created_at,
       })),
     ];
 
-    combined.sort((a, b) => new Date(b.reposted_at).getTime() - new Date(a.reposted_at).getTime());
+    combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const start = (page - 1) * limit;
     const end = start + limit;
@@ -1106,6 +1143,8 @@ export class PostService {
       isLikedByMe: post.likes.length > 0,
       isFollowedByMe: (post.User.Followers && post.User.Followers.length > 0) || false,
       isRepostedByMe: post.repostedBy.length > 0,
+      isMutedByMe: (post.User.Muters && post.User.Muters.length > 0) || false,
+      isBlockedByMe: (post.User.Blockers && post.User.Blockers.length > 0) || false,
       text: post.content,
       media: post.media.map((m) => ({
         url: m.media_url,
@@ -1114,7 +1153,6 @@ export class PostService {
       mentions: post.mentions,
       isRepost: false,
       isQuote: PostType.QUOTE === post.type,
-      createdAt: post.created_at,
     }));
   }
 
