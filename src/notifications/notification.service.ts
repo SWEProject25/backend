@@ -303,10 +303,21 @@ export class NotificationService {
     page: number = 1,
     limit: number = 20,
     unreadOnly: boolean = false,
+    include?: string,
+    exclude?: string,
   ) {
     const where: any = { recipientId: userId };
     if (unreadOnly) {
       where.isRead = false;
+    }
+
+    // Handle include/exclude filters for notification types
+    if (include) {
+      const includeTypes = include.split(',').map((type) => type.trim().toUpperCase());
+      where.type = { in: includeTypes };
+    } else if (exclude) {
+      const excludeTypes = exclude.split(',').map((type) => type.trim().toUpperCase());
+      where.type = { notIn: excludeTypes };
     }
 
     const [totalItems, notifications, unreadCount] = await Promise.all([
@@ -331,7 +342,6 @@ export class NotificationService {
         page,
         limit,
         totalPages: Math.ceil(totalItems / limit),
-        unreadCount,
       },
     };
   }
@@ -339,10 +349,19 @@ export class NotificationService {
   /**
    * Get unread notifications count for a user
    */
-  async getUnreadCount(userId: number): Promise<number> {
-    return this.prismaService.notification.count({
-      where: { recipientId: userId, isRead: false },
-    });
+  async getUnreadCount(userId: number, include?: string, exclude?: string): Promise<number> {
+    const where: any = { recipientId: userId, isRead: false };
+
+    // Handle include/exclude filters for notification types
+    if (include) {
+      const includeTypes = include.split(',').map((type) => type.trim().toUpperCase());
+      where.type = { in: includeTypes };
+    } else if (exclude) {
+      const excludeTypes = exclude.split(',').map((type) => type.trim().toUpperCase());
+      where.type = { notIn: excludeTypes };
+    }
+
+    return this.prismaService.notification.count({ where });
   }
 
   /**
