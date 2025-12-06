@@ -176,9 +176,7 @@ export class UsersService {
 
     if (userId !== authenticatedUserId) {
       const blockedUsers = await this.prismaService.block.findMany({
-        where: {
-          blockerId: authenticatedUserId,
-        },
+        where: { OR: [{ blockerId: authenticatedUserId }, { blockedId: authenticatedUserId }] },
         select: { blockedId: true },
       });
 
@@ -262,7 +260,7 @@ export class UsersService {
     if (userId !== authenticatedUserId) {
     const blockedUsers = await this.prismaService.block.findMany({
       where: {
-        blockerId: authenticatedUserId,
+        OR: [{ blockerId: authenticatedUserId }, { blockedId: authenticatedUserId }],
       },
       select: { blockedId: true },
     });
