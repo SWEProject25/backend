@@ -19,21 +19,27 @@ interface User {
 }
 
 export interface RepostedPost {
-    userId: number;
-    username: string;
-    verified: boolean;
-    name: string;
-    avatar: string | null;
-    isFollowedByMe: boolean;
-    isMutedByMe: boolean;
-    isBlockedByMe: boolean;
-    date: Date;
-    originalPostData: TransformedPost;
+  userId: number;
+  username: string;
+  verified: boolean;
+  name: string;
+  avatar: string | null;
+  isFollowedByMe: boolean;
+  isMutedByMe: boolean;
+  isBlockedByMe: boolean;
+  date: Date;
+  originalPostData: TransformedPost;
 }
 
 interface Count {
   likes: number;
   repostedBy: number;
+}
+interface Mention {
+  user: {
+    id: number,
+    username: string
+  }
 }
 
 export interface RawPost {
@@ -53,7 +59,7 @@ export interface RawPost {
   media: Media[];
   likes: { user_id: number }[];
   repostedBy: { user_id: number }[];
-  mentions: { user_id: number }[];
+  mentions: Mention[]
 }
 
 export interface TransformedPost {
