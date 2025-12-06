@@ -153,7 +153,7 @@ export class UsersService {
     limit: number = 10,
     authenticatedUserId: number,
   ) {
-    const [totalItems, followers] = await this.prismaService.$transaction([
+    let [totalItems, followers] = await this.prismaService.$transaction([
       this.prismaService.follow.count({
         where: { followingId: userId },
       }),
@@ -174,20 +174,40 @@ export class UsersService {
       }),
     ]);
 
+    if (userId !== authenticatedUserId) {
+      const blockedUsers = await this.prismaService.block.findMany({
+        where: { OR: [{ blockerId: authenticatedUserId }, { blockedId: authenticatedUserId }] },
+        select: { blockedId: true },
+      });
+
+      followers = followers.filter((f) => !blockedUsers.some((b) => b.blockedId === f.Follower.id));
+    }
+
     // Get all follower IDs
     const followerIds = followers.map((f) => f.Follower.id);
 
     // Single query to check which ones the authenticated user is following
-    const followingRelations = await this.prismaService.follow.findMany({
-      where: {
-        followerId: authenticatedUserId,
-        followingId: { in: followerIds },
-      },
-      select: { followingId: true },
-    });
+    // and which ones are following the authenticated user
+    const [followingRelations, followingMeRelations] = await Promise.all([
+      this.prismaService.follow.findMany({
+        where: {
+          followerId: authenticatedUserId,
+          followingId: { in: followerIds },
+        },
+        select: { followingId: true },
+      }),
+      this.prismaService.follow.findMany({
+        where: {
+          followerId: { in: followerIds },
+          followingId: authenticatedUserId,
+        },
+        select: { followerId: true },
+      }),
+    ]);
 
-    // Create a Set for O(1) lookup
+    // Create Sets for O(1) lookup
     const followingSet = new Set(followingRelations.map((f) => f.followingId));
+    const followingMeSet = new Set(followingMeRelations.map((f) => f.followerId));
 
     const data = followers.map((follow) => ({
       id: follow.Follower.id,
@@ -197,6 +217,7 @@ export class UsersService {
       profileImageUrl: follow.Follower.Profile?.profile_image_url || null,
       followedAt: follow.createdAt,
       is_followed_by_me: followingSet.has(follow.Follower.id),
+      is_following_me: followingMeSet.has(follow.Follower.id),
     }));
 
     const metadata = {
@@ -215,7 +236,7 @@ export class UsersService {
     limit: number = 10,
     authenticatedUserId: number,
   ) {
-    const [totalItems, following] = await this.prismaService.$transaction([
+    let [totalItems, following] = await this.prismaService.$transaction([
       this.prismaService.follow.count({
         where: { followerId: userId },
       }),
@@ -236,20 +257,42 @@ export class UsersService {
       }),
     ]);
 
+    if (userId !== authenticatedUserId) {
+    const blockedUsers = await this.prismaService.block.findMany({
+      where: {
+        OR: [{ blockerId: authenticatedUserId }, { blockedId: authenticatedUserId }],
+      },
+      select: { blockedId: true },
+    });
+
+    following = following.filter((f) => !blockedUsers.some((b) => b.blockedId === f.Following.id)); 
+  }
+
     // Get all following IDs
     const followingIds = following.map((f) => f.Following.id);
 
     // Single query to check which ones the authenticated user is following
-    const followingRelations = await this.prismaService.follow.findMany({
-      where: {
-        followerId: authenticatedUserId,
-        followingId: { in: followingIds },
-      },
-      select: { followingId: true },
-    });
+    // and which ones are following the authenticated user
+    const [followingRelations, followingMeRelations] = await Promise.all([
+      this.prismaService.follow.findMany({
+        where: {
+          followerId: authenticatedUserId,
+          followingId: { in: followingIds },
+        },
+        select: { followingId: true },
+      }),
+      this.prismaService.follow.findMany({
+        where: {
+          followerId: { in: followingIds },
+          followingId: authenticatedUserId,
+        },
+        select: { followerId: true },
+      }),
+    ]);
 
-    // Create a Set for O(1) lookup
+    // Create Sets for O(1) lookup
     const followingSet = new Set(followingRelations.map((f) => f.followingId));
+    const followingMeSet = new Set(followingMeRelations.map((f) => f.followerId));
 
     const data = following.map((follow) => ({
       id: follow.Following.id,
@@ -259,6 +302,7 @@ export class UsersService {
       profileImageUrl: follow.Following.Profile?.profile_image_url || null,
       followedAt: follow.createdAt,
       is_followed_by_me: followingSet.has(follow.Following.id),
+      is_following_me: followingMeSet.has(follow.Following.id),
     }));
 
     const metadata = {
@@ -288,7 +332,7 @@ export class UsersService {
         p.bio, 
         p.profile_image_url AS "profileImageUrl", 
         f."createdAt" AS "followedAt",
-        CASE WHEN f_back."followerId" IS NOT NULL THEN true ELSE false END AS "isFollowingMe"
+        CASE WHEN f_back."followerId" IS NOT NULL THEN true ELSE false END AS "is_following_me"
       FROM "follows" f
       JOIN "User" u ON f."followerId" = u.id
       LEFT JOIN "profiles" p ON u.id = p.user_id
