@@ -26,7 +26,7 @@ export class NotificationService {
    */
   async createNotification(dto: CreateNotificationDto): Promise<NotificationPayload | null> {
     try {
-      // Optional: Check for duplicates before attempting creation (early exit optimization)
+      // Check for duplicates before attempting creation (early exit optimization)
       const isDuplicate = await this.checkDuplicateNotification(dto);
       if (isDuplicate) {
         this.logger.debug(
@@ -396,40 +396,7 @@ export class NotificationService {
               (SELECT json_agg(json_build_object('url', m.media_url, 'type', m.type))
                FROM "Media" m WHERE m.post_id = p.id),
               '[]'::json
-            ) as "mediaUrls",
-            
-            -- Original post for quotes only
-            CASE 
-              WHEN p.parent_id IS NOT NULL AND p.type = 'QUOTE' THEN
-                (SELECT json_build_object(
-                  'postId', op.id,
-                  'content', op.content,
-                  'createdAt', op.created_at,
-                  'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE post_id = op.id), 0),
-                  'repostCount', COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE post_id = op.id), 0),
-                  'replyCount', COALESCE((SELECT COUNT(*)::int FROM posts WHERE parent_id = op.id AND is_deleted = false), 0),
-                  'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE post_id = op.id AND user_id = ${recipientId}),
-                  'isFollowedByMe', EXISTS(SELECT 1 FROM follows WHERE "followerId" = ${recipientId} AND "followingId" = op.user_id),
-                  'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE post_id = op.id AND user_id = ${recipientId}),
-                  'author', json_build_object(
-                    'userId', ou.id,
-                    'username', ou.username,
-                    'isVerified', ou.is_verifed,
-                    'name', COALESCE(opr.name, ou.username),
-                    'avatar', opr.profile_image_url
-                  ),
-                  'media', COALESCE(
-                    (SELECT json_agg(json_build_object('url', om.media_url, 'type', om.type))
-                     FROM "Media" om WHERE om.post_id = op.id),
-                    '[]'::json
-                  )
-                )
-                FROM posts op
-                LEFT JOIN "User" ou ON ou.id = op.user_id
-                LEFT JOIN profiles opr ON opr.user_id = ou.id
-                WHERE op.id = p.parent_id AND op.is_deleted = false)
-              ELSE NULL
-            END as "originalPost"
+            ) as "mediaUrls"
             
           FROM posts p
           LEFT JOIN "User" u ON u.id = p.user_id
@@ -447,29 +414,7 @@ export class NotificationService {
       if (posts.length === 0) return null;
 
       const post = posts[0];
-      const isQuote = post.type === 'QUOTE' && post.parent_id && post.originalPost;
-
-      // Build originalPostData if this is a quote
-      let originalPostData: NotificationPostData['originalPostData'] = undefined;
-      if (isQuote && post.originalPost) {
-        originalPostData = {
-          userId: post.originalPost.author.userId,
-          username: post.originalPost.author.username,
-          verified: post.originalPost.author.isVerified,
-          name: post.originalPost.author.name,
-          avatar: post.originalPost.author.avatar,
-          postId: post.originalPost.postId,
-          date: post.originalPost.createdAt,
-          likesCount: post.originalPost.likeCount,
-          retweetsCount: post.originalPost.repostCount,
-          commentsCount: post.originalPost.replyCount,
-          isLikedByMe: post.originalPost.isLikedByMe,
-          isFollowedByMe: post.originalPost.isFollowedByMe,
-          isRepostedByMe: post.originalPost.isRepostedByMe,
-          text: post.originalPost.content || '',
-          media: post.originalPost.media || [],
-        };
-      }
+      const isQuote = post.type === 'QUOTE' && !!post.parent_id;
 
       return {
         userId: post.user_id,
@@ -489,7 +434,6 @@ export class NotificationService {
         media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
         isRepost: false,
         isQuote,
-        originalPostData,
       };
     } catch (error) {
       this.logger.error(`Failed to fetch post data for notification`, error);
