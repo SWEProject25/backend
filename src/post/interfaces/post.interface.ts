@@ -35,7 +35,7 @@ interface Count {
   likes: number;
   repostedBy: number;
 }
-interface Mention {
+export interface Mention {
   user: {
     id: number,
     username: string

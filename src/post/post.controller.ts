@@ -319,6 +319,20 @@ export class PostController {
     description: 'Number of posts per page',
     example: 10,
   })
+  @ApiQuery({
+    name: 'before_date',
+    required: false,
+    type: String,
+    description: 'Filter posts created before this date (ISO 8601 format)',
+    example: '2024-12-01T00:00:00Z',
+  })
+  @ApiQuery({
+    name: 'order_by',
+    required: false,
+    enum: ['most_liked', 'latest'],
+    description: 'Order search results by most liked or latest (default: most_liked)',
+    example: 'most_liked',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Posts with hashtag retrieved successfully',

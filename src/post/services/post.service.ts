@@ -22,7 +22,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { SocketService } from 'src/gateway/socket.service';
 
 import { MLService } from './ml.service';
-import { RawPost, RepostedPost, TransformedPost } from '../interfaces/post.interface';
+import { Mention, RawPost, RepostedPost, TransformedPost } from '../interfaces/post.interface';
 import { HashtagTrendService } from './hashtag-trends.service';
 import { extractHashtags } from 'src/utils/extractHashtags';
 
@@ -89,6 +89,7 @@ export interface FeedPostResponse {
   personalizationScore: number;
   qualityScore?: number;
   finalScore?: number;
+  mentions?: Mention[];
 }
 
 export interface PostWithAllData extends Post {
@@ -154,71 +155,7 @@ export interface PostWithAllData extends Post {
     };
     media: Array<{ url: string; type: MediaType }>;
   };
-}
-
-export interface PostWithAllData extends Post {
-  // Personalization & ML scores
-  personalizationScore: number;
-  qualityScore?: number;
-  finalScore?: number;
-
-  // Content features (for ML)
-  hasMedia: boolean;
-  hashtagCount: number;
-  mentionCount: number;
-
-  // Author info
-  username: string;
-  isVerified: boolean;
-  authorName: string | null;
-  authorProfileImage: string | null;
-  followersCount: number;
-  followingCount: number;
-  postsCount: number;
-
-  // Engagement counts
-  likeCount: number;
-  replyCount: number;
-  repostCount: number;
-
-  // User interaction flags
-  isLikedByMe: boolean;
-  isFollowedByMe: boolean;
-  isRepostedByMe: boolean;
-
-  // Media
-  mediaUrls: Array<{ url: string; type: MediaType }>;
-
-  // Retweet/Repost case (if applicable)
-  isRepost: boolean;
-  effectiveDate?: Date;
-  repostedBy?: {
-    userId: number;
-    username: string;
-    verified: boolean;
-    name: string;
-    avatar: string | null;
-  };
-
-  originalPost?: {
-    postId: number;
-    content: string;
-    createdAt: Date;
-    likeCount: number;
-    repostCount: number;
-    replyCount: number;
-    isLikedByMe: boolean;
-    isFollowedByMe: boolean;
-    isRepostedByMe: boolean;
-    author: {
-      userId: number;
-      username: string;
-      isVerified: boolean;
-      name: string;
-      avatar: string | null;
-    };
-    media: Array<{ url: string; type: MediaType }>;
-  };
+  mentions?: Mention[];
 }
 
 // Minimal interface for ML service input
@@ -348,7 +285,7 @@ export class PostService {
                 username: true,
               },
             },
-          }
+          },
         },
       },
       skip: (page - 1) * limit,
@@ -720,6 +657,15 @@ export class PostService {
             '[]'::json
           ) as "mediaUrls",
           
+          -- Mentions (as JSON array)
+          COALESCE(
+            (SELECT json_agg(json_build_object('id', mu.id, 'username', mu.username))
+             FROM "Mention" men
+             INNER JOIN "User" mu ON mu.id = men.user_id
+             WHERE men.post_id = p.id),
+            '[]'::json
+          ) as "mentions",
+          
           -- Original post for quotes only
           CASE 
             WHEN p.parent_id IS NOT NULL AND p.type = 'QUOTE' THEN
@@ -870,11 +816,20 @@ export class PostService {
       isRepost: isSimpleRepost,
       isQuote: isQuote,
       originalPostData,
+      mentions: post.mentions,
     };
   }
 
   async searchPostsByHashtag(searchDto: SearchByHashtagDto, currentUserId: number) {
-    const { hashtag, userId, type, page = 1, limit = 10 } = searchDto;
+    const {
+      hashtag,
+      userId,
+      type,
+      page = 1,
+      limit = 10,
+      before_date,
+      order_by = 'most_liked',
+    } = searchDto;
     const offset = (page - 1) * limit;
 
     // Normalize hashtag (remove # if present and convert to lowercase)
@@ -897,6 +852,17 @@ export class PostService {
     `
       : PrismalSql.empty;
 
+    // Build before_date filter
+    const beforeDateFilter = before_date
+      ? PrismalSql.sql`AND p.created_at < ${before_date}::timestamp`
+      : PrismalSql.empty;
+
+    // Build ORDER BY clause
+    const orderByClause =
+      order_by === 'latest'
+        ? PrismalSql.sql`ORDER BY p.created_at DESC`
+        : PrismalSql.sql`ORDER BY "likeCount" DESC, p.created_at DESC`;
+
     // Count total posts with this hashtag
     const countResult = await this.prismaService.$queryRaw<[{ count: bigint }]>(
       PrismalSql.sql`
@@ -909,6 +875,7 @@ export class PostService {
           AND h.tag = ${normalizedHashtag}
           ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
           ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
+          ${beforeDateFilter}
           ${blockMuteFilter}
       `,
     );
@@ -963,6 +930,15 @@ export class PostService {
             '[]'::json
           ) as "mediaUrls",
           
+          -- Mentions (as JSON array)
+          COALESCE(
+            (SELECT json_agg(json_build_object('id', mu.id, 'username', mu.username))
+             FROM "Mention" men
+             INNER JOIN "User" mu ON mu.id = men.user_id
+             WHERE men.post_id = p.id),
+            '[]'::json
+          ) as "mentions",
+          
           -- Original post for quotes only
           CASE 
             WHEN p.parent_id IS NOT NULL AND p.type = 'QUOTE' THEN
@@ -1012,9 +988,10 @@ export class PostService {
           AND h.tag = ${normalizedHashtag}
           ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
           ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
+          ${beforeDateFilter}
           ${blockMuteFilter}
         GROUP BY p.id, u.id, u.username, u.is_verifed, pr.name, pr.profile_image_url
-        ORDER BY p.created_at DESC
+        ${orderByClause}
         LIMIT ${limit} 
         OFFSET ${offset}
       `,
@@ -1173,9 +1150,9 @@ export class PostService {
         url: m.media_url,
         type: m.type,
       })),
-      mentions: post.mentions.map(mention => ({
+      mentions: post.mentions.map((mention) => ({
         userId: mention.user.id,
-        username: mention.user.username
+        username: mention.user.username,
       })),
       isRepost: false,
       isQuote: PostType.QUOTE === post.type,
