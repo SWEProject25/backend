@@ -253,7 +253,7 @@ export class PostService {
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
     private readonly socketService: SocketService,
-  ) { }
+  ) {}
 
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
@@ -318,12 +318,12 @@ export class PostService {
             },
             Muters: {
               where: { muterId: userId },
-              select: { muterId: true }
+              select: { muterId: true },
             },
             Blockers: {
               where: { blockerId: userId },
-              select: { blockerId: true }
-            }
+              select: { blockerId: true },
+            },
           },
         },
         media: {
@@ -445,40 +445,17 @@ export class PostService {
           })) ?? [],
       });
 
-      // Handle notifications after transaction
-      if (postData.parentId) {
-        // Fetch parent post to get author
-        const parentPost = await tx.post.findUnique({
-          where: { id: postData.parentId },
-          select: { user_id: true, type: true },
-        });
-
-        if (parentPost && parentPost.user_id !== postData.userId) {
-          // Determine notification type based on post type
-          if (post.type === PostType.REPLY) {
-            this.eventEmitter.emit('notification.create', {
-              type: NotificationType.REPLY,
-              recipientId: parentPost.user_id,
-              actorId: postData.userId,
-              postId: postData.parentId,
-              replyId: post.id,
-              threadPostId: postData.parentId,
-            });
-          } else if (post.type === PostType.QUOTE) {
-            this.eventEmitter.emit('notification.create', {
-              type: NotificationType.QUOTE,
-              recipientId: parentPost.user_id,
-              actorId: postData.userId,
-              quotePostId: post.id,
-              postId: postData.parentId,
-            });
-          }
-        }
-      }
-
       return {
         post: { ...post, mediaUrls: mediaWithType.map((m) => m.url) },
         hashtagIds: hashtagRecords.map((r) => r.id),
+        parentPostAuthorId: postData.parentId
+          ? (
+              await tx.post.findUnique({
+                where: { id: postData.parentId },
+                select: { user_id: true },
+              })
+            )?.user_id
+          : undefined,
       };
     });
   }
@@ -511,11 +488,49 @@ export class PostService {
 
       const mediaWithType = this.getMediaWithType(urls, media);
 
-      const { post, hashtagIds } = await this.createPostTransaction(
+      const { post, hashtagIds, parentPostAuthorId } = await this.createPostTransaction(
         createPostDto,
         hashtags,
         mediaWithType,
       );
+
+      // Emit notifications after transaction is complete
+      // Handle parent post notifications (REPLY/QUOTE)
+      if (createPostDto.parentId && parentPostAuthorId && parentPostAuthorId !== userId) {
+        if (createPostDto.type === PostType.REPLY) {
+          this.eventEmitter.emit('notification.create', {
+            type: NotificationType.REPLY,
+            recipientId: parentPostAuthorId,
+            actorId: userId,
+            postId: createPostDto.parentId,
+            replyId: post.id,
+            threadPostId: createPostDto.parentId,
+          });
+        } else if (createPostDto.type === PostType.QUOTE) {
+          this.eventEmitter.emit('notification.create', {
+            type: NotificationType.QUOTE,
+            recipientId: parentPostAuthorId,
+            actorId: userId,
+            quotePostId: post.id,
+            postId: createPostDto.parentId,
+          });
+        }
+      }
+
+      // Emit mention notifications for all mentioned users
+      if (createPostDto.mentionsIds && createPostDto.mentionsIds.length > 0) {
+        createPostDto.mentionsIds.forEach((mentionedUserId) => {
+          // Don't notify yourself
+          if (mentionedUserId !== userId) {
+            this.eventEmitter.emit('notification.create', {
+              type: NotificationType.MENTION,
+              recipientId: mentionedUserId,
+              actorId: userId,
+              postId: post.id,
+            });
+          }
+        });
+      }
 
       if (hashtagIds.length > 0) {
         setImmediate(() => {
@@ -581,16 +596,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-        ...(userId && { user_id: userId }),
-        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-        ...(type && { type }),
-        is_deleted: false,
-      }
+          ...(userId && { user_id: userId }),
+          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+          ...(type && { type }),
+          is_deleted: false,
+        }
       : {
-        // TODO: improve this fallback
-        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-        is_deleted: false,
-      };
+          // TODO: improve this fallback
+          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+          is_deleted: false,
+        };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -781,12 +796,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-          userId: post.user_id,
-          username: post.username,
-          verified: post.isVerified,
-          name: post.authorName || post.username,
-          avatar: post.authorProfileImage,
-        };
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+          };
 
     // Build originalPostData
     let originalPostData: any = null;
@@ -1043,12 +1058,12 @@ export class PostService {
             },
             Muters: {
               where: { muterId: userId },
-              select: { muterId: true }
+              select: { muterId: true },
             },
             Blockers: {
               where: { blockerId: userId },
-              select: { blockerId: true }
-            }
+              select: { blockerId: true },
+            },
           },
         },
       },
@@ -1088,7 +1103,6 @@ export class PostService {
       originalPostData: postMap.get(r.post_id),
     }));
   }
-
 
   private getTopPaginatedPosts(
     posts: TransformedPost[],
@@ -1178,7 +1192,7 @@ export class PostService {
       },
       skip: (page - 1) * limit,
       take: limit,
-    })
+    });
   }
 
   async getUserReplies(userId: number, page: number, limit: number) {
@@ -1959,12 +1973,12 @@ SELECT * FROM candidate_posts;
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-          userId: post.user_id,
-          username: post.username,
-          verified: post.isVerified,
-          name: post.authorName || post.username,
-          avatar: post.authorProfileImage,
-        };
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+          };
 
     return {
       // User Information (reposter for simple reposts, author otherwise)
@@ -1998,42 +2012,42 @@ SELECT * FROM candidate_posts;
       originalPostData:
         isSimpleRepost || isQuote
           ? {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-            postId: post.id,
-            date: post.created_at,
-            likesCount: post.likeCount,
-            retweetsCount: post.repostCount,
-            commentsCount: post.replyCount,
-            isLikedByMe: post.isLikedByMe,
-            isFollowedByMe: post.isFollowedByMe,
-            isRepostedByMe: post.isRepostedByMe || false,
-            text: post.content || '',
-            media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-            ...(isQuote && post.originalPost
-              ? {
-                // Override with quoted post data for quotes
-                userId: post.originalPost.author.userId,
-                username: post.originalPost.author.username,
-                verified: post.originalPost.author.isVerified,
-                name: post.originalPost.author.name,
-                avatar: post.originalPost.author.avatar,
-                postId: post.originalPost.postId,
-                date: post.originalPost.createdAt,
-                likesCount: post.originalPost.likeCount,
-                retweetsCount: post.originalPost.repostCount,
-                commentsCount: post.originalPost.replyCount,
-                isLikedByMe: post.originalPost.isLikedByMe,
-                isFollowedByMe: post.originalPost.isFollowedByMe,
-                isRepostedByMe: post.originalPost.isRepostedByMe,
-                text: post.originalPost.content || '',
-                media: post.originalPost.media || [],
-              }
-              : {}),
-          }
+              userId: post.user_id,
+              username: post.username,
+              verified: post.isVerified,
+              name: post.authorName || post.username,
+              avatar: post.authorProfileImage,
+              postId: post.id,
+              date: post.created_at,
+              likesCount: post.likeCount,
+              retweetsCount: post.repostCount,
+              commentsCount: post.replyCount,
+              isLikedByMe: post.isLikedByMe,
+              isFollowedByMe: post.isFollowedByMe,
+              isRepostedByMe: post.isRepostedByMe || false,
+              text: post.content || '',
+              media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+              ...(isQuote && post.originalPost
+                ? {
+                    // Override with quoted post data for quotes
+                    userId: post.originalPost.author.userId,
+                    username: post.originalPost.author.username,
+                    verified: post.originalPost.author.isVerified,
+                    name: post.originalPost.author.name,
+                    avatar: post.originalPost.author.avatar,
+                    postId: post.originalPost.postId,
+                    date: post.originalPost.createdAt,
+                    likesCount: post.originalPost.likeCount,
+                    retweetsCount: post.originalPost.repostCount,
+                    commentsCount: post.originalPost.replyCount,
+                    isLikedByMe: post.originalPost.isLikedByMe,
+                    isFollowedByMe: post.originalPost.isFollowedByMe,
+                    isRepostedByMe: post.originalPost.isRepostedByMe,
+                    text: post.originalPost.content || '',
+                    media: post.originalPost.media || [],
+                  }
+                : {}),
+            }
           : undefined,
 
       // Scores data

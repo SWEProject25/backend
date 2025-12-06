@@ -95,25 +95,33 @@ export class NotificationListener {
         messagePreview,
       );
 
-      // Send same data structure as Firestore for consistency
-      await this.notificationService.sendPushNotification(event.recipientId, title, body, {
+      // Build FCM data payload with stringified objects
+      const fcmData: Record<string, string> = {
         id: notification.id,
         type: notification.type,
         recipientId: notification.recipientId.toString(),
-        actorId: notification.actor.id.toString(),
-        actorUsername: notification.actor.username,
-        actorDisplayName: notification.actor.displayName || '',
-        actorAvatarUrl: notification.actor.avatarUrl || '',
-        postId: notification.postId?.toString() || '',
-        quotePostId: notification.quotePostId?.toString() || '',
-        replyId: notification.replyId?.toString() || '',
-        threadPostId: notification.threadPostId?.toString() || '',
-        postPreviewText: notification.postPreviewText || '',
-        conversationId: notification.conversationId?.toString() || '',
-        messagePreview: notification.messagePreview || '',
         isRead: notification.isRead.toString(),
         createdAt: notification.createdAt,
-      });
+        // Stringify actor as JSON
+        actor: JSON.stringify(notification.actor),
+        // Optional fields
+        ...(notification.postId && { postId: notification.postId.toString() }),
+        ...(notification.quotePostId && { quotePostId: notification.quotePostId.toString() }),
+        ...(notification.replyId && { replyId: notification.replyId.toString() }),
+        ...(notification.threadPostId && { threadPostId: notification.threadPostId.toString() }),
+        ...(notification.postPreviewText && { postPreviewText: notification.postPreviewText }),
+        ...(notification.conversationId && { conversationId: notification.conversationId.toString() }),
+        ...(notification.messagePreview && { messagePreview: notification.messagePreview }),
+        // Stringify post data as JSON if it exists
+        ...(notification.post && { post: JSON.stringify(notification.post) }),
+      };
+
+      await this.notificationService.sendPushNotification(
+        event.recipientId,
+        title,
+        body,
+        fcmData,
+      );
 
       this.logger.log(`Notification processed: ${event.type} for user ${event.recipientId}`);
     } catch (error) {
