@@ -874,7 +874,15 @@ export class PostService {
   }
 
   async searchPostsByHashtag(searchDto: SearchByHashtagDto, currentUserId: number) {
-    const { hashtag, userId, type, page = 1, limit = 10 } = searchDto;
+    const {
+      hashtag,
+      userId,
+      type,
+      page = 1,
+      limit = 10,
+      before_date,
+      order_by = 'most_liked',
+    } = searchDto;
     const offset = (page - 1) * limit;
 
     // Normalize hashtag (remove # if present and convert to lowercase)
@@ -897,6 +905,17 @@ export class PostService {
     `
       : PrismalSql.empty;
 
+    // Build before_date filter
+    const beforeDateFilter = before_date
+      ? PrismalSql.sql`AND p.created_at < ${before_date}::timestamp`
+      : PrismalSql.empty;
+
+    // Build ORDER BY clause
+    const orderByClause =
+      order_by === 'latest'
+        ? PrismalSql.sql`ORDER BY p.created_at DESC`
+        : PrismalSql.sql`ORDER BY "likeCount" DESC, p.created_at DESC`;
+
     // Count total posts with this hashtag
     const countResult = await this.prismaService.$queryRaw<[{ count: bigint }]>(
       PrismalSql.sql`
@@ -909,6 +928,7 @@ export class PostService {
           AND h.tag = ${normalizedHashtag}
           ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
           ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
+          ${beforeDateFilter}
           ${blockMuteFilter}
       `,
     );
@@ -1012,9 +1032,10 @@ export class PostService {
           AND h.tag = ${normalizedHashtag}
           ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
           ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
+          ${beforeDateFilter}
           ${blockMuteFilter}
         GROUP BY p.id, u.id, u.username, u.is_verifed, pr.name, pr.profile_image_url
-        ORDER BY p.created_at DESC
+        ${orderByClause}
         LIMIT ${limit} 
         OFFSET ${offset}
       `,
