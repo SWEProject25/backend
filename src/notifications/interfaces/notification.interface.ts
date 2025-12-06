@@ -7,6 +7,43 @@ export interface NotificationActor {
   avatarUrl: string | null;
 }
 
+export interface NotificationPostData {
+  userId: number;
+  username: string;
+  verified: boolean;
+  name: string;
+  avatar: string | null;
+  postId: number;
+  date: Date | string;
+  likesCount: number;
+  retweetsCount: number;
+  commentsCount: number;
+  isLikedByMe: boolean;
+  isFollowedByMe: boolean;
+  isRepostedByMe: boolean;
+  text: string;
+  media: Array<{ url: string; type: string }>;
+  isRepost: boolean;
+  isQuote: boolean;
+  originalPostData?: {
+    userId: number;
+    username: string;
+    verified: boolean;
+    name: string;
+    avatar: string | null;
+    postId: number;
+    date: Date | string;
+    likesCount: number;
+    retweetsCount: number;
+    commentsCount: number;
+    isLikedByMe: boolean;
+    isFollowedByMe: boolean;
+    isRepostedByMe: boolean;
+    text: string;
+    media: Array<{ url: string; type: string }>;
+  };
+}
+
 export interface NotificationPayload {
   id: string;
   type: NotificationType;
@@ -23,6 +60,9 @@ export interface NotificationPayload {
 
   conversationId?: number;
   messagePreview?: string;
+
+  // Full post data for REPLY, QUOTE, MENTION notifications
+  post?: NotificationPostData;
 }
 
 export interface CreateNotificationDto {
