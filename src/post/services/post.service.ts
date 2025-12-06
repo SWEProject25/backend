@@ -22,7 +22,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { SocketService } from 'src/gateway/socket.service';
 
 import { MLService } from './ml.service';
-import { RawPost, RepostedPost, TransformedPost } from '../interfaces/post.interface';
+import { Mention, RawPost, RepostedPost, TransformedPost } from '../interfaces/post.interface';
 import { HashtagTrendService } from './hashtag-trends.service';
 import { extractHashtags } from 'src/utils/extractHashtags';
 
@@ -89,6 +89,7 @@ export interface FeedPostResponse {
   personalizationScore: number;
   qualityScore?: number;
   finalScore?: number;
+  mentions?: Mention[];
 }
 
 export interface PostWithAllData extends Post {
@@ -154,71 +155,7 @@ export interface PostWithAllData extends Post {
     };
     media: Array<{ url: string; type: MediaType }>;
   };
-}
-
-export interface PostWithAllData extends Post {
-  // Personalization & ML scores
-  personalizationScore: number;
-  qualityScore?: number;
-  finalScore?: number;
-
-  // Content features (for ML)
-  hasMedia: boolean;
-  hashtagCount: number;
-  mentionCount: number;
-
-  // Author info
-  username: string;
-  isVerified: boolean;
-  authorName: string | null;
-  authorProfileImage: string | null;
-  followersCount: number;
-  followingCount: number;
-  postsCount: number;
-
-  // Engagement counts
-  likeCount: number;
-  replyCount: number;
-  repostCount: number;
-
-  // User interaction flags
-  isLikedByMe: boolean;
-  isFollowedByMe: boolean;
-  isRepostedByMe: boolean;
-
-  // Media
-  mediaUrls: Array<{ url: string; type: MediaType }>;
-
-  // Retweet/Repost case (if applicable)
-  isRepost: boolean;
-  effectiveDate?: Date;
-  repostedBy?: {
-    userId: number;
-    username: string;
-    verified: boolean;
-    name: string;
-    avatar: string | null;
-  };
-
-  originalPost?: {
-    postId: number;
-    content: string;
-    createdAt: Date;
-    likeCount: number;
-    repostCount: number;
-    replyCount: number;
-    isLikedByMe: boolean;
-    isFollowedByMe: boolean;
-    isRepostedByMe: boolean;
-    author: {
-      userId: number;
-      username: string;
-      isVerified: boolean;
-      name: string;
-      avatar: string | null;
-    };
-    media: Array<{ url: string; type: MediaType }>;
-  };
+  mentions?: Mention[];
 }
 
 // Minimal interface for ML service input
@@ -348,7 +285,7 @@ export class PostService {
                 username: true,
               },
             },
-          }
+          },
         },
       },
       skip: (page - 1) * limit,
@@ -720,6 +657,15 @@ export class PostService {
             '[]'::json
           ) as "mediaUrls",
           
+          -- Mentions (as JSON array)
+          COALESCE(
+            (SELECT json_agg(json_build_object('id', mu.id, 'username', mu.username))
+             FROM "Mention" men
+             INNER JOIN "User" mu ON mu.id = men.user_id
+             WHERE men.post_id = p.id),
+            '[]'::json
+          ) as "mentions",
+          
           -- Original post for quotes only
           CASE 
             WHEN p.parent_id IS NOT NULL AND p.type = 'QUOTE' THEN
@@ -870,6 +816,7 @@ export class PostService {
       isRepost: isSimpleRepost,
       isQuote: isQuote,
       originalPostData,
+      mentions: post.mentions,
     };
   }
 
@@ -982,6 +929,15 @@ export class PostService {
              FROM "Media" m WHERE m.post_id = p.id),
             '[]'::json
           ) as "mediaUrls",
+          
+          -- Mentions (as JSON array)
+          COALESCE(
+            (SELECT json_agg(json_build_object('id', mu.id, 'username', mu.username))
+             FROM "Mention" men
+             INNER JOIN "User" mu ON mu.id = men.user_id
+             WHERE men.post_id = p.id),
+            '[]'::json
+          ) as "mentions",
           
           -- Original post for quotes only
           CASE 
@@ -1194,9 +1150,9 @@ export class PostService {
         url: m.media_url,
         type: m.type,
       })),
-      mentions: post.mentions.map(mention => ({
+      mentions: post.mentions.map((mention) => ({
         userId: mention.user.id,
-        username: mention.user.username
+        username: mention.user.username,
       })),
       isRepost: false,
       isQuote: PostType.QUOTE === post.type,
