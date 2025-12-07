@@ -177,10 +177,13 @@ export class UsersService {
     if (userId !== authenticatedUserId) {
       const blockedUsers = await this.prismaService.block.findMany({
         where: { OR: [{ blockerId: authenticatedUserId }, { blockedId: authenticatedUserId }] },
-        select: { blockedId: true },
+        select: { blockedId: true, blockerId: true },
       });
 
-      followers = followers.filter((f) => !blockedUsers.some((b) => b.blockedId === f.Follower.id));
+      followers = followers.filter(
+        (f) =>
+          !blockedUsers.some((b) => b.blockedId === f.Follower.id || b.blockerId === f.Follower.id),
+      );
     }
 
     // Get all follower IDs
@@ -258,15 +261,20 @@ export class UsersService {
     ]);
 
     if (userId !== authenticatedUserId) {
-    const blockedUsers = await this.prismaService.block.findMany({
-      where: {
-        OR: [{ blockerId: authenticatedUserId }, { blockedId: authenticatedUserId }],
-      },
-      select: { blockedId: true },
-    });
+      const blockedUsers = await this.prismaService.block.findMany({
+        where: {
+          OR: [{ blockerId: authenticatedUserId }, { blockedId: authenticatedUserId }],
+        },
+        select: { blockedId: true, blockerId: true },
+      });
 
-    following = following.filter((f) => !blockedUsers.some((b) => b.blockedId === f.Following.id)); 
-  }
+      following = following.filter(
+        (f) =>
+          !blockedUsers.some(
+            (b) => b.blockedId === f.Following.id || b.blockerId === f.Following.id,
+          ),
+      );
+    }
 
     // Get all following IDs
     const followingIds = following.map((f) => f.Following.id);
