@@ -13,7 +13,7 @@ export class LikeService {
     @Inject(Services.POST)
     private readonly postService: PostService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async togglePostLike(postId: number, userId: number) {
     const existingLike = await this.prismaService.like.findUnique({
@@ -79,8 +79,13 @@ export class LikeService {
           select: {
             id: true,
             username: true,
-            email: true,
             is_verified: true,
+            Profile: {
+              select: {
+                name: true,
+                profile_image_url: true
+              }
+            }
           },
         },
       },
@@ -88,7 +93,13 @@ export class LikeService {
       take: limit,
     });
 
-    return likers.map((like) => like.user);
+    return likers.map(liker => ({
+      id: liker.user.id,
+      username: liker.user.username,
+      verified: liker.user.is_verified,
+      name: liker.user.Profile?.name,
+      profileImageUrl: liker.user.Profile?.profile_image_url
+    }))
   }
 
   async getLikedPostsByUser(userId: number, page: number, limit: number) {
