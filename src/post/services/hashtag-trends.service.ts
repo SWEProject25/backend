@@ -6,6 +6,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { RedisQueues, Services } from 'src/utils/constants';
 import { PostService } from './post.service';
 import { extractHashtags } from 'src/utils/extractHashtags';
+import { TrendCategory, CATEGORY_TO_INTERESTS } from '../enums/trend-category.enum';
 
 const HASHTAG_TRENDS_TOKEN_PREFIX = 'hashtags:trending:';
 
@@ -44,33 +45,45 @@ export class HashtagTrendService {
     }
   }
 
-  public async calculateTrend(hashtagId: number): Promise<number> {
+  public async calculateTrend(
+    hashtagId: number,
+    category: TrendCategory = TrendCategory.GENERAL,
+  ): Promise<number> {
     try {
       const now = new Date();
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+      const interestSlugs = CATEGORY_TO_INTERESTS[category];
+      const whereClause: any = {
+        hashtags: { some: { id: hashtagId } },
+        is_deleted: false,
+      };
+
+      if (interestSlugs.length > 0) {
+        whereClause.Interest = {
+          slug: { in: interestSlugs },
+        };
+      }
+
       const [count1h, count24h, count7d] = await Promise.all([
         this.prismaService.post.count({
           where: {
-            hashtags: { some: { id: hashtagId } },
+            ...whereClause,
             created_at: { gte: oneHourAgo },
-            is_deleted: false,
           },
         }),
         this.prismaService.post.count({
           where: {
-            hashtags: { some: { id: hashtagId } },
+            ...whereClause,
             created_at: { gte: oneDayAgo },
-            is_deleted: false,
           },
         }),
         this.prismaService.post.count({
           where: {
-            hashtags: { some: { id: hashtagId } },
+            ...whereClause,
             created_at: { gte: sevenDaysAgo },
-            is_deleted: false,
           },
         }),
       ]);
@@ -100,19 +113,34 @@ export class HashtagTrendService {
     }
   }
 
-  public async getTrending(limit: number = 10) {
-    const cacheKey = `${HASHTAG_TRENDS_TOKEN_PREFIX}${limit}`;
+  public async getTrending(limit: number = 10, category: TrendCategory = TrendCategory.GENERAL) {
+    const cacheKey = `${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:${limit}`;
     const cached = await this.redisService.getJSON<any[]>(cacheKey);
     if (cached && cached.length > 0) {
-      this.logger.debug(`Returning ${cached.length} cached trending hashtags`);
+      this.logger.debug(
+        `Returning ${cached.length} cached trending hashtags for category ${category}`,
+      );
       return cached;
     }
 
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const interestSlugs = CATEGORY_TO_INTERESTS[category];
     const trends = await this.prismaService.hashtagTrend.findMany({
       where: {
         calculated_at: { gte: fifteenMinutesAgo },
         trending_score: { gt: 0 },
+        ...(interestSlugs.length > 0 && {
+          hashtag: {
+            posts: {
+              some: {
+                Interest: {
+                  slug: { in: interestSlugs },
+                },
+                is_deleted: false,
+              },
+            },
+          },
+        }),
       },
       include: {
         hashtag: true,
@@ -134,24 +162,33 @@ export class HashtagTrendService {
 
     const result = trends.map((trend) => ({
       tag: `#${trend.hashtag.tag}`,
-      totalPosts: trend.post_count_7d + trend.post_count_24h + trend.post_count_1h,
+      totalPosts: trend.post_count_7d,
     }));
 
     await this.redisService.setJSON(cacheKey, result, this.CACHE_TTL);
     return result;
   }
 
-  async recalculateTrends() {
+  async recalculateTrends(category: TrendCategory = TrendCategory.GENERAL) {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const activeHashtags = await this.prismaService.hashtag.findMany({
-      where: {
-        posts: {
-          some: {
-            created_at: { gte: sevenDaysAgo },
-            is_deleted: false,
-          },
+    const interestSlugs = CATEGORY_TO_INTERESTS[category];
+    const whereClause: any = {
+      posts: {
+        some: {
+          created_at: { gte: sevenDaysAgo },
+          is_deleted: false,
         },
       },
+    };
+
+    if (interestSlugs.length > 0) {
+      whereClause.posts.some.Interest = {
+        slug: { in: interestSlugs },
+      };
+    }
+
+    const activeHashtags = await this.prismaService.hashtag.findMany({
+      where: whereClause,
       select: { id: true },
       take: 200,
     });
@@ -171,50 +208,50 @@ export class HashtagTrendService {
     return activeHashtags.length;
   }
 
-  async reindexAllPostHashtags(): Promise<string> {
-    const posts = await this.prismaService.post.findMany({
-      where: { is_deleted: false },
-      select: { id: true, content: true },
-    });
-    let processedCount = 0;
-    let errorCount = 0;
+  // async reindexAllPostHashtags(): Promise<string> {
+  //   const posts = await this.prismaService.post.findMany({
+  //     where: { is_deleted: false },
+  //     select: { id: true, content: true },
+  //   });
+  //   let processedCount = 0;
+  //   let errorCount = 0;
 
-    for (const post of posts) {
-      try {
-        const tags = extractHashtags(post.content);
+  //   for (const post of posts) {
+  //     try {
+  //       const tags = extractHashtags(post.content);
 
-        if (tags.length === 0) {
-          // clear relations
-          await this.prismaService.post.update({
-            where: { id: post.id },
-            data: { hashtags: { set: [] } },
-          });
-        } else {
-          const hashtagIds: number[] = [];
-          for (const tag of tags) {
-            const hashtag = await this.prismaService.hashtag.upsert({
-              where: { tag },
-              update: {},
-              create: { tag },
-            });
-            hashtagIds.push(hashtag.id);
-          }
+  //       if (tags.length === 0) {
+  //         // clear relations
+  //         await this.prismaService.post.update({
+  //           where: { id: post.id },
+  //           data: { hashtags: { set: [] } },
+  //         });
+  //       } else {
+  //         const hashtagIds: number[] = [];
+  //         for (const tag of tags) {
+  //           const hashtag = await this.prismaService.hashtag.upsert({
+  //             where: { tag },
+  //             update: {},
+  //             create: { tag },
+  //           });
+  //           hashtagIds.push(hashtag.id);
+  //         }
 
-          await this.prismaService.post.update({
-            where: { id: post.id },
-            data: {
-              hashtags: {
-                set: hashtagIds.map((id) => ({ id })),
-              },
-            },
-          });
-        }
-        processedCount++;
-      } catch (error) {
-        errorCount++;
-      }
-    }
-    const message = `Reindexing complete: ${processedCount} posts processed, ${errorCount} errors`;
-    return message;
-  }
+  //         await this.prismaService.post.update({
+  //           where: { id: post.id },
+  //           data: {
+  //             hashtags: {
+  //               set: hashtagIds.map((id) => ({ id })),
+  //             },
+  //           },
+  //         });
+  //       }
+  //       processedCount++;
+  //     } catch (error) {
+  //       errorCount++;
+  //     }
+  //   }
+  //   const message = `Reindexing complete: ${processedCount} posts processed, ${errorCount} errors`;
+  //   return message;
+  // }
 }
