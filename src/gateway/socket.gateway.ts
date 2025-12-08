@@ -205,7 +205,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
         [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
 
       if (!isRecipientInConversation) {
-        this.server.to(`user_${recipientId}`).emit('newMessageNotification', message);
+        this.server.to(`user_${recipientId}`).emit('newMessageNotification', {...message, unseenCount});
 
         // Emit DM notification event
         this.eventEmitter.emit('notification.create', {
