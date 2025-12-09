@@ -2,8 +2,13 @@ import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FirebaseService } from 'src/firebase/firebase.service';
 import { Services } from 'src/utils/constants';
-import { CreateNotificationDto, NotificationPayload } from './interfaces/notification.interface';
+import {
+  CreateNotificationDto,
+  NotificationPayload,
+  NotificationPostData,
+} from './interfaces/notification.interface';
 import { NotificationType, Platform } from './enums/notification.enum';
+import { Prisma as PrismalSql } from '@prisma/client';
 
 @Injectable()
 export class NotificationService {
@@ -21,7 +26,7 @@ export class NotificationService {
    */
   async createNotification(dto: CreateNotificationDto): Promise<NotificationPayload | null> {
     try {
-      // Optional: Check for duplicates before attempting creation (early exit optimization)
+      // Check for duplicates before attempting creation (early exit optimization)
       const isDuplicate = await this.checkDuplicateNotification(dto);
       if (isDuplicate) {
         this.logger.debug(
@@ -52,7 +57,19 @@ export class NotificationService {
       // Build notification payload
       const payload = this.buildNotificationPayload(notification);
 
-      // Sync to Firestore for real-time updates
+      // Fetch post data for REPLY, QUOTE, MENTION notifications
+      if (
+        dto.type === NotificationType.REPLY ||
+        dto.type === NotificationType.QUOTE ||
+        dto.type === NotificationType.MENTION
+      ) {
+        const postData = await this.fetchPostDataForNotification(notification, dto.recipientId);
+        if (postData) {
+          payload.post = postData;
+        }
+      }
+
+      // Sync to Firestore for real-time updates (with post data included)
       await this.syncToFirestore(payload);
 
       this.logger.log(
@@ -86,16 +103,45 @@ export class NotificationService {
         .collection('notifications')
         .doc(payload.id);
 
-      await notificationRef.set({
+      // Convert payload to plain object for Firestore (including nested post object)
+      // Remove undefined values to avoid Firestore errors
+      const firestoreData = this.removeUndefinedFields({
         ...payload,
         createdAt: payload.createdAt, // Keep ISO string format
       });
+
+      await notificationRef.set(firestoreData);
 
       this.logger.debug(`Synced notification ${payload.id} to Firestore`);
     } catch (error) {
       this.logger.error('Failed to sync notification to Firestore', error);
       // Don't throw - Firestore sync failure shouldn't break the flow
     }
+  }
+
+  /**
+   * Recursively remove undefined fields from an object for Firestore compatibility
+   */
+  private removeUndefinedFields(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map((item) => this.removeUndefinedFields(item));
+    }
+
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          cleaned[key] = this.removeUndefinedFields(value);
+        }
+      }
+      return cleaned;
+    }
+
+    return obj;
   }
 
   /**
@@ -292,7 +338,107 @@ export class NotificationService {
     if (notification.conversationId) payload.conversationId = notification.conversationId;
     if (notification.messagePreview) payload.messagePreview = notification.messagePreview;
 
+    // Add post data if available (added during getNotifications)
+    if (notification.post) payload.post = notification.post;
+
     return payload;
+  }
+
+  /**
+   * Fetch post data for notification (REPLY, QUOTE, MENTION)
+   */
+  private async fetchPostDataForNotification(
+    notification: any,
+    recipientId: number,
+  ): Promise<NotificationPostData | null> {
+    let postId: number | null = null;
+
+    // Determine which post ID to fetch based on notification type
+    if (notification.type === NotificationType.REPLY && notification.replyId) {
+      postId = notification.replyId;
+    } else if (notification.type === NotificationType.QUOTE && notification.quotePostId) {
+      postId = notification.quotePostId;
+    } else if (notification.type === NotificationType.MENTION && notification.postId) {
+      postId = notification.postId;
+    }
+
+    if (!postId) return null;
+
+    try {
+      const posts = await this.prismaService.$queryRaw<any[]>(
+        PrismalSql.sql`
+          SELECT 
+            p.id,
+            p.user_id,
+            p.content,
+            p.created_at,
+            p.type,
+            p.parent_id,
+            
+            -- User/Author info
+            u.username,
+            u.is_verifed as "isVerified",
+            COALESCE(pr.name, u.username) as "authorName",
+            pr.profile_image_url as "authorProfileImage",
+            
+            -- Engagement counts
+            COUNT(DISTINCT l.user_id)::int as "likeCount",
+            COUNT(DISTINCT CASE WHEN reply.id IS NOT NULL THEN reply.id END)::int as "replyCount",
+            COUNT(DISTINCT r.user_id)::int as "repostCount",
+            
+            -- User interaction flags
+            EXISTS(SELECT 1 FROM "Like" WHERE post_id = p.id AND user_id = ${recipientId}) as "isLikedByMe",
+            EXISTS(SELECT 1 FROM follows WHERE "followerId" = ${recipientId} AND "followingId" = p.user_id) as "isFollowedByMe",
+            EXISTS(SELECT 1 FROM "Repost" WHERE post_id = p.id AND user_id = ${recipientId}) as "isRepostedByMe",
+            
+            -- Media URLs (as JSON array)
+            COALESCE(
+              (SELECT json_agg(json_build_object('url', m.media_url, 'type', m.type))
+               FROM "Media" m WHERE m.post_id = p.id),
+              '[]'::json
+            ) as "mediaUrls"
+            
+          FROM posts p
+          LEFT JOIN "User" u ON u.id = p.user_id
+          LEFT JOIN profiles pr ON pr.user_id = u.id
+          LEFT JOIN "Like" l ON l.post_id = p.id
+          LEFT JOIN "Repost" r ON r.post_id = p.id
+          LEFT JOIN posts reply ON reply.parent_id = p.id AND reply.type = 'REPLY' AND reply.is_deleted = false
+          WHERE 
+            p.is_deleted = false
+            AND p.id = ${postId}
+          GROUP BY p.id, u.id, u.username, u.is_verifed, pr.name, pr.profile_image_url
+        `,
+      );
+
+      if (posts.length === 0) return null;
+
+      const post = posts[0];
+      const isQuote = post.type === 'QUOTE' && !!post.parent_id;
+
+      return {
+        userId: post.user_id,
+        username: post.username,
+        verified: post.isVerified,
+        name: post.authorName || post.username,
+        avatar: post.authorProfileImage,
+        postId: post.id,
+        date: post.created_at,
+        likesCount: post.likeCount,
+        retweetsCount: post.repostCount,
+        commentsCount: post.replyCount,
+        isLikedByMe: post.isLikedByMe,
+        isFollowedByMe: post.isFollowedByMe,
+        isRepostedByMe: post.isRepostedByMe,
+        text: post.content || '',
+        media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+        isRepost: false,
+        isQuote,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to fetch post data for notification`, error);
+      return null;
+    }
   }
 
   /**
@@ -303,10 +449,21 @@ export class NotificationService {
     page: number = 1,
     limit: number = 20,
     unreadOnly: boolean = false,
+    include?: string,
+    exclude?: string,
   ) {
     const where: any = { recipientId: userId };
     if (unreadOnly) {
       where.isRead = false;
+    }
+
+    // Handle include/exclude filters for notification types
+    if (include) {
+      const includeTypes = include.split(',').map((type) => type.trim().toUpperCase());
+      where.type = { in: includeTypes };
+    } else if (exclude) {
+      const excludeTypes = exclude.split(',').map((type) => type.trim().toUpperCase());
+      where.type = { notIn: excludeTypes };
     }
 
     const [totalItems, notifications, unreadCount] = await Promise.all([
@@ -322,7 +479,29 @@ export class NotificationService {
       }),
     ]);
 
-    const data = notifications.map((notification) => this.buildNotificationPayload(notification));
+    // Fetch post data for REPLY, QUOTE, MENTION notifications
+    const notificationsWithPosts = await Promise.all(
+      notifications.map(async (notification) => {
+        const notificationWithPost: any = { ...notification, post: undefined };
+
+        if (
+          notification.type === NotificationType.REPLY ||
+          notification.type === NotificationType.QUOTE ||
+          notification.type === NotificationType.MENTION
+        ) {
+          const postData = await this.fetchPostDataForNotification(notification, userId);
+          if (postData) {
+            notificationWithPost.post = postData;
+          }
+        }
+
+        return notificationWithPost;
+      }),
+    );
+
+    const data = notificationsWithPosts.map((notification) =>
+      this.buildNotificationPayload(notification),
+    );
 
     return {
       data,
@@ -331,7 +510,6 @@ export class NotificationService {
         page,
         limit,
         totalPages: Math.ceil(totalItems / limit),
-        unreadCount,
       },
     };
   }
@@ -339,10 +517,19 @@ export class NotificationService {
   /**
    * Get unread notifications count for a user
    */
-  async getUnreadCount(userId: number): Promise<number> {
-    return this.prismaService.notification.count({
-      where: { recipientId: userId, isRead: false },
-    });
+  async getUnreadCount(userId: number, include?: string, exclude?: string): Promise<number> {
+    const where: any = { recipientId: userId, isRead: false };
+
+    // Handle include/exclude filters for notification types
+    if (include) {
+      const includeTypes = include.split(',').map((type) => type.trim().toUpperCase());
+      where.type = { in: includeTypes };
+    } else if (exclude) {
+      const excludeTypes = exclude.split(',').map((type) => type.trim().toUpperCase());
+      where.type = { notIn: excludeTypes };
+    }
+
+    return this.prismaService.notification.count({ where });
   }
 
   /**

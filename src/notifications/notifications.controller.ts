@@ -10,7 +10,14 @@ import {
   UseGuards,
   Inject,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiCookieAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiCookieAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { GetNotificationsDto } from './dto/get-notifications.dto';
 import { RegisterDeviceDto } from './dto/register-device.dto';
@@ -41,11 +48,25 @@ export class NotificationsController {
       query.page,
       query.limit,
       query.unreadOnly,
+      query.include,
+      query.exclude,
     );
   }
 
   @Get('unread-count')
   @ApiOperation({ summary: 'Get unread notifications count' })
+  @ApiQuery({
+    name: 'include',
+    required: false,
+    description: 'Comma-separated notification types to include (e.g., "DM,MENTION")',
+    example: 'DM,MENTION',
+  })
+  @ApiQuery({
+    name: 'exclude',
+    required: false,
+    description: 'Comma-separated notification types to exclude (e.g., "DM,MENTION")',
+    example: 'DM,MENTION',
+  })
   @ApiResponse({
     status: 200,
     description: 'Returns the count of unread notifications',
@@ -55,8 +76,12 @@ export class NotificationsController {
       },
     },
   })
-  async getUnreadCount(@CurrentUser('id') userId: number) {
-    const count = await this.notificationService.getUnreadCount(userId);
+  async getUnreadCount(
+    @CurrentUser('id') userId: number,
+    @Query('include') include?: string,
+    @Query('exclude') exclude?: string,
+  ) {
+    const count = await this.notificationService.getUnreadCount(userId, include, exclude);
     return { unreadCount: count };
   }
 

@@ -91,5 +91,6 @@ import { GatewayModule } from 'src/gateway/gateway.module';
       },
     }),
   ],
+  exports: [Services.POST],
 })
 export class PostModule {}

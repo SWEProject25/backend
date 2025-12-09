@@ -38,14 +38,6 @@ export class MessagesService {
       throw new ForbiddenException('You are not part of this conversation');
     }
 
-    // invert sender to get unseen count at receiver side
-    const unseenCount = await this.prismaService.message.count({
-      where: getUnseenMessageCountWhere(
-        createMessageDto.conversationId,
-        isUser1 ? conversation.user2Id : conversation.user1Id,
-      ),
-    });
-
     // Create the message and update conversation timestamp in a transaction
     const message = await this.prismaService.$transaction(async (prisma) => {
       await prisma.conversation.update({
@@ -53,7 +45,7 @@ export class MessagesService {
         data: {}, // Empty update triggers @updatedAt
       });
 
-      return prisma.message.create({
+      const message = await prisma.message.create({
         data: {
           text,
           senderId,
@@ -68,6 +60,16 @@ export class MessagesService {
           createdAt: true,
         },
       });
+            
+      return message;
+    });
+    
+    // invert sender to get unseen count at receiver side
+    const unseenCount = await this.prismaService.message.count({
+      where: getUnseenMessageCountWhere(
+        createMessageDto.conversationId,
+        isUser1 ? conversation.user2Id : conversation.user1Id,
+      ),
     });
 
     return { message, unseenCount };

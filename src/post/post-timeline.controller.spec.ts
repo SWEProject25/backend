@@ -14,6 +14,7 @@ describe('PostController - Timeline Endpoints', () => {
     getForYouFeed: jest.fn(),
     getFollowingForFeed: jest.fn(),
     getExploreByInterestsFeed: jest.fn(),
+    getExploreAllInterestsFeed: jest.fn(),
   };
 
   const mockUser: AuthenticatedUser = {
@@ -556,6 +557,357 @@ describe('PostController - Timeline Endpoints', () => {
     });
   });
 
+  describe('getExploreForYouFeed', () => {
+    const mockExploreAllInterestsResponse = {
+      Technology: [
+        { ...mockFeedPost, postId: 1, text: 'Tech post 1' },
+        { ...mockFeedPost, postId: 2, text: 'Tech post 2' },
+        { ...mockFeedPost, postId: 3, text: 'Tech post 3' },
+        { ...mockFeedPost, postId: 4, text: 'Tech post 4' },
+        { ...mockFeedPost, postId: 5, text: 'Tech post 5' },
+      ],
+      Sports: [
+        { ...mockFeedPost, postId: 6, text: 'Sports post 1' },
+        { ...mockFeedPost, postId: 7, text: 'Sports post 2' },
+      ],
+      Music: [
+        { ...mockFeedPost, postId: 8, text: 'Music post 1' },
+        { ...mockFeedPost, postId: 9, text: 'Music post 2' },
+        { ...mockFeedPost, postId: 10, text: 'Music post 3' },
+      ],
+    };
+
+    it('should return posts grouped by all active interests with default parameters', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(mockExploreAllInterestsResponse);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(result.status).toBe('success');
+      expect(result.message).toBe('Posts retrieved successfully');
+      expect(result.data).toEqual(mockExploreAllInterestsResponse);
+      expect(mockPostService.getExploreAllInterestsFeed).toHaveBeenCalledWith(1, {
+        sortBy: 'score',
+        postsPerInterest: 5,
+      });
+    });
+
+    it('should handle sortBy latest parameter', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(mockExploreAllInterestsResponse);
+
+      const result = await controller.getExploreForYouFeed('latest', 5, mockUser);
+
+      expect(result.status).toBe('success');
+      expect(mockPostService.getExploreAllInterestsFeed).toHaveBeenCalledWith(1, {
+        sortBy: 'latest',
+        postsPerInterest: 5,
+      });
+    });
+
+    it('should handle custom postsPerInterest parameter', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(mockExploreAllInterestsResponse);
+
+      const result = await controller.getExploreForYouFeed('score', 10, mockUser);
+
+      expect(result.status).toBe('success');
+      expect(mockPostService.getExploreAllInterestsFeed).toHaveBeenCalledWith(1, {
+        sortBy: 'score',
+        postsPerInterest: 10,
+      });
+    });
+
+    it('should default to score and 5 posts when parameters not provided', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(mockExploreAllInterestsResponse);
+
+      const result = await controller.getExploreForYouFeed(
+        undefined as any,
+        undefined as any,
+        mockUser,
+      );
+
+      expect(result.status).toBe('success');
+      expect(mockPostService.getExploreAllInterestsFeed).toHaveBeenCalledWith(1, {
+        sortBy: 'score',
+        postsPerInterest: 5,
+      });
+    });
+
+    it('should return top 5 posts per interest by default', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(mockExploreAllInterestsResponse);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(result.data.Technology).toHaveLength(5);
+      expect(result.data.Sports).toHaveLength(2);
+      expect(result.data.Music).toHaveLength(3);
+    });
+
+    it('should return posts from multiple interests', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(mockExploreAllInterestsResponse);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(Object.keys(result.data)).toContain('Technology');
+      expect(Object.keys(result.data)).toContain('Sports');
+      expect(Object.keys(result.data)).toContain('Music');
+      expect(Object.keys(result.data)).toHaveLength(3);
+    });
+
+    it('should return empty object when no posts available', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue({});
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(result.status).toBe('success');
+      expect(result.data).toEqual({});
+      expect(Object.keys(result.data)).toHaveLength(0);
+    });
+
+    it('should pass authenticated user ID to service', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(mockExploreAllInterestsResponse);
+      const differentUser = createMockUser(5, 'different_user');
+
+      await controller.getExploreForYouFeed('score', 5, differentUser);
+
+      expect(mockPostService.getExploreAllInterestsFeed).toHaveBeenCalledWith(5, {
+        sortBy: 'score',
+        postsPerInterest: 5,
+      });
+    });
+
+    it('should handle interest with less than 5 posts', async () => {
+      const sparseResponse = {
+        Technology: [
+          { ...mockFeedPost, postId: 1, text: 'Tech post 1' },
+          { ...mockFeedPost, postId: 2, text: 'Tech post 2' },
+        ],
+      };
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(sparseResponse);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(result.data.Technology).toHaveLength(2);
+    });
+
+    it('should handle interest with exactly 5 posts', async () => {
+      const exactResponse = {
+        Technology: Array.from({ length: 5 }, (_, i) => ({
+          ...mockFeedPost,
+          postId: i + 1,
+          text: `Tech post ${i + 1}`,
+        })),
+      };
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(exactResponse);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(result.data.Technology).toHaveLength(5);
+    });
+
+    it('should handle single interest', async () => {
+      const singleInterestResponse = {
+        Technology: [
+          { ...mockFeedPost, postId: 1, text: 'Tech post 1' },
+          { ...mockFeedPost, postId: 2, text: 'Tech post 2' },
+          { ...mockFeedPost, postId: 3, text: 'Tech post 3' },
+        ],
+      };
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(singleInterestResponse);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(Object.keys(result.data)).toHaveLength(1);
+      expect(result.data.Technology).toBeDefined();
+      expect(result.data.Technology).toHaveLength(3);
+    });
+
+    it('should include posts with personalization scores', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(mockExploreAllInterestsResponse);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(result.data.Technology[0]).toHaveProperty('personalizationScore');
+      expect(result.data.Technology[0]).toHaveProperty('qualityScore');
+      expect(result.data.Technology[0]).toHaveProperty('finalScore');
+    });
+
+    it('should handle reposts in explore feed', async () => {
+      const withRepost = {
+        Technology: [
+          {
+            ...mockFeedPost,
+            postId: 1,
+            isRepost: true,
+            text: '',
+            media: [],
+            originalPostData: {
+              userId: 10,
+              username: 'original_user',
+              verified: false,
+              name: 'Original User',
+              avatar: null,
+              postId: 99,
+              date: new Date('2023-11-15T10:00:00Z'),
+              likesCount: 100,
+              retweetsCount: 20,
+              commentsCount: 10,
+              isLikedByMe: false,
+              isFollowedByMe: false,
+              isRepostedByMe: false,
+              text: 'Original content',
+              media: [],
+            },
+          },
+        ],
+      };
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(withRepost);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(result.data.Technology[0].isRepost).toBe(true);
+      expect(result.data.Technology[0].originalPostData).toBeDefined();
+    });
+
+    it('should handle quote tweets in explore feed', async () => {
+      const withQuote = {
+        Technology: [
+          {
+            ...mockFeedPost,
+            postId: 1,
+            isQuote: true,
+            text: 'Great insight!',
+            originalPostData: {
+              userId: 10,
+              username: 'quoted_user',
+              verified: true,
+              name: 'Quoted User',
+              avatar: 'https://example.com/avatar.jpg',
+              postId: 98,
+              date: new Date('2023-11-15T10:00:00Z'),
+              likesCount: 150,
+              retweetsCount: 30,
+              commentsCount: 20,
+              isLikedByMe: false,
+              isFollowedByMe: true,
+              isRepostedByMe: false,
+              text: 'Quoted content',
+              media: [],
+            },
+          },
+        ],
+      };
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(withQuote);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(result.data.Technology[0].isQuote).toBe(true);
+      expect(result.data.Technology[0].text).toBe('Great insight!');
+      expect(result.data.Technology[0].originalPostData).toBeDefined();
+    });
+
+    it('should handle posts with media in explore feed', async () => {
+      const withMedia = {
+        Technology: [
+          {
+            ...mockFeedPost,
+            postId: 1,
+            media: [
+              { url: 'https://example.com/image1.jpg', type: 'IMAGE' },
+              { url: 'https://example.com/video1.mp4', type: 'VIDEO' },
+            ],
+          },
+        ],
+      };
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(withMedia);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(result.data.Technology[0].media).toHaveLength(2);
+      expect(result.data.Technology[0].media[0].type).toBe('IMAGE');
+      expect(result.data.Technology[0].media[1].type).toBe('VIDEO');
+    });
+
+    it('should handle many interests', async () => {
+      const manyInterests = {
+        Technology: [{ ...mockFeedPost, postId: 1 }],
+        Sports: [{ ...mockFeedPost, postId: 2 }],
+        Music: [{ ...mockFeedPost, postId: 3 }],
+        Travel: [{ ...mockFeedPost, postId: 4 }],
+        Food: [{ ...mockFeedPost, postId: 5 }],
+        Fashion: [{ ...mockFeedPost, postId: 6 }],
+      };
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(manyInterests);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(Object.keys(result.data)).toHaveLength(6);
+    });
+
+    it('should preserve interest names as keys', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(mockExploreAllInterestsResponse);
+
+      const result = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      expect(result.data).toHaveProperty('Technology');
+      expect(result.data).toHaveProperty('Sports');
+      expect(result.data).toHaveProperty('Music');
+    });
+
+    it('should handle service errors', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockRejectedValue(new Error('Service error'));
+
+      await expect(controller.getExploreForYouFeed('score', 5, mockUser)).rejects.toThrow(
+        'Service error',
+      );
+    });
+
+    it('should return different results for different users', async () => {
+      const user1Response = {
+        Technology: [{ ...mockFeedPost, postId: 1 }],
+      };
+      const user2Response = {
+        Sports: [{ ...mockFeedPost, postId: 2 }],
+      };
+
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValueOnce(user1Response);
+      const result1 = await controller.getExploreForYouFeed('score', 5, mockUser);
+
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValueOnce(user2Response);
+      const differentUser = createMockUser(2, 'different_user');
+      const result2 = await controller.getExploreForYouFeed('score', 5, differentUser);
+
+      expect(result1.data).toHaveProperty('Technology');
+      expect(result1.data).not.toHaveProperty('Sports');
+      expect(result2.data).toHaveProperty('Sports');
+      expect(result2.data).not.toHaveProperty('Technology');
+    });
+
+    it('should handle postsPerInterest of 1', async () => {
+      const response = {
+        Technology: [{ ...mockFeedPost, postId: 1 }],
+      };
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(response);
+
+      const result = await controller.getExploreForYouFeed('score', 1, mockUser);
+
+      expect(mockPostService.getExploreAllInterestsFeed).toHaveBeenCalledWith(1, {
+        sortBy: 'score',
+        postsPerInterest: 1,
+      });
+      expect(result.data.Technology).toHaveLength(1);
+    });
+
+    it('should handle large postsPerInterest values', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockResolvedValue(mockExploreAllInterestsResponse);
+
+      await controller.getExploreForYouFeed('score', 100, mockUser);
+
+      expect(mockPostService.getExploreAllInterestsFeed).toHaveBeenCalledWith(1, {
+        sortBy: 'score',
+        postsPerInterest: 100,
+      });
+    });
+  });
+
   describe('Timeline Endpoints - Error Handling', () => {
     it('should handle service errors in For You feed', async () => {
       mockPostService.getForYouFeed.mockRejectedValue(new Error('Service error'));
@@ -575,6 +927,16 @@ describe('PostController - Timeline Endpoints', () => {
       await expect(
         controller.getExploreByInterestsFeed(['Technology'], 1, 10, 'score', mockUser),
       ).rejects.toThrow('Service error');
+    });
+
+    it('should handle database errors in Explore For You feed', async () => {
+      mockPostService.getExploreAllInterestsFeed.mockRejectedValue(
+        new Error('Database connection error'),
+      );
+
+      await expect(controller.getExploreForYouFeed('score', 5, mockUser)).rejects.toThrow(
+        'Database connection error',
+      );
     });
   });
 
