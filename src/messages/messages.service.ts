@@ -42,7 +42,7 @@ export class MessagesService {
     const message = await this.prismaService.$transaction(async (prisma) => {
       await prisma.conversation.update({
         where: { id: conversationId },
-        data: {}, // Empty update triggers @updatedAt
+        data: { updatedAt: new Date() }, // Empty update triggers @updatedAt
       });
 
       const message = await prisma.message.create({
@@ -60,10 +60,10 @@ export class MessagesService {
           createdAt: true,
         },
       });
-            
+
       return message;
     });
-    
+
     // invert sender to get unseen count at receiver side
     const unseenCount = await this.prismaService.message.count({
       where: getUnseenMessageCountWhere(
