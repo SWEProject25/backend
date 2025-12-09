@@ -73,7 +73,7 @@ export class PostController {
     private readonly repostService: RepostService,
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
-  ) { }
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -1259,7 +1259,6 @@ export class PostController {
     };
   }
 
-
   @Get('timeline/for-you')
   @UseGuards(JwtAuthGuard)
   @ApiCookieAuth()
@@ -1416,6 +1415,55 @@ export class PostController {
     return {
       status: 'success',
       message: 'Interest-filtered posts retrieved successfully',
+      data: posts,
+    };
+  }
+
+  @Get('explore/for-you')
+  @UseGuards(JwtAuthGuard)
+  @ApiCookieAuth()
+  @ApiOperation({
+    summary: 'Get personalized "Explore For You" feed',
+    description:
+      'Returns a ranked list of personalized posts for the authenticated user in the Explore section. Requires authentication.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Personalized posts retrieved successfully',
+    type: TimelineFeedResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Unauthorized - Token missing or invalid',
+    type: ErrorResponseDto,
+  })
+  @ApiQuery({
+    name: 'sortBy',
+    required: false,
+    enum: ['score', 'latest'],
+    description: 'Sort posts by score (personalized ranking) or latest (default: score)',
+    example: 'score',
+  })
+  @ApiQuery({
+    name: 'postsPerInterest',
+    required: false,
+    type: Number,
+    description:
+      'Number of posts to retrieve per interest category to ensure diverse content (default: 5)',
+    example: 5,
+  })
+  async getExploreForYouFeed(
+    @Query('sortBy') sortBy: 'score' | 'latest' = 'score',
+    @Query('postsPerInterest') postsPerInterest: number = 5,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const posts = await this.postService.getExploreAllInterestsFeed(user.id, {
+      sortBy,
+      postsPerInterest,
+    });
+    return {
+      status: 'success',
+      message: 'Posts retrieved successfully',
       data: posts,
     };
   }
