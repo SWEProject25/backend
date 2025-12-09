@@ -72,20 +72,42 @@ export class CreatePostDto {
 
   @ApiPropertyOptional({
     type: [Number],
-    description: 'Optional array of user IDs to mention',
+    description: 'Optional array of user IDs to mention. Accepts array [1,2,3] or comma-separated string "1,2,3"',
     example: [1, 2, 3],
+  })
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+
+    if (Array.isArray(value)) {
+      return value.map((v) => Number(v));
+    }
+
+    if (typeof value === 'string') {
+      // parsing "[1,2,3]"
+      try {
+        const parsed = JSON.parse(value);
+
+        if (Array.isArray(parsed)) {
+          return parsed.map((v) => Number(v));
+        }
+        if (typeof parsed === 'string') {
+          return parsed.split(',').map((v) => Number(v.trim()));
+        }
+      } catch {
+        // fall back to comma-separated string
+      }
+      return value
+        .split(',')
+        .map((v) => v.trim())
+        .filter((v) => v !== '')
+        .map((v) => Number(v));
+    }
+
+    return undefined;
   })
   @IsOptional()
   @IsArray()
   @IsNumber({}, { each: true })
-  @Transform(({ value }) => {
-    if (!value) return undefined;
-    const parsed = JSON.parse(value);
-    if (Array.isArray(parsed)) {
-      return parsed.map((v) => Number(v));
-    }
-    return value;
-  })
   mentionsIds?: number[];
 
   userId: number;
