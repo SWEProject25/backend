@@ -75,7 +75,7 @@ export class PasswordService {
 
     const resetUrl =
       requestPasswordResetDto.type === RequestType.MOBILE
-        ? `${process.env.NODE_ENV === 'dev' ? process.env.CROSS_URL : process.env.CROSS_URL_PROD}/reset-password?token=${resetToken}&id=${user.id}`
+        ? `${process.env.NODE_ENV === 'dev' ? process.env.MOBILE_APP_OAUTH_REDIRECT : process.env.MOBILE_APP_OAUTH_REDIRECT}?token=${resetToken}&id=${user.id}`
         : `${process.env.NODE_ENV === 'dev' ? process.env.FRONTEND_URL : process.env.FRONTEND_URL_PROD}/reset-password?token=${resetToken}&id=${user.id}`;
 
     const html = this.emailService.renderTemplate('reset-password.html', {
