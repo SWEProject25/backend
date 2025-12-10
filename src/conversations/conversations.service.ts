@@ -28,6 +28,25 @@ export class ConversationsService {
       throw new ConflictException('A user cannot create a conversation with themselves');
     }
 
+    const block = await this.prismaService.block.findFirst({
+      where: {
+        OR: [
+          {
+            blockerId: user1Id,
+            blockedId: user2Id,
+          },
+          {
+            blockerId: user2Id,
+            blockedId: user1Id,
+          },
+        ],
+      },
+    });
+
+    if (block) {
+      throw new ConflictException('A user cannot create a conversation with a blocked user');
+    }
+
     // Determine if current user is user1 or user2
     const isUser1 = createConversationDto.user1Id === user1Id;
     const deletedField = isUser1 ? 'isDeletedU1' : 'isDeletedU2';
@@ -112,7 +131,7 @@ export class ConversationsService {
   async getConversationsForUser(userId: number, page: number = 1, limit: number = 20) {
     const skip = (page - 1) * limit;
 
-    const [conversations, total] = await this.prismaService.$transaction([
+    const [conversations, total, blocked, blockers] = await this.prismaService.$transaction([
       this.prismaService.conversation.findMany({
         where: {
           OR: [{ user1Id: userId }, { user2Id: userId }],
@@ -172,6 +191,18 @@ export class ConversationsService {
           OR: [{ user1Id: userId }, { user2Id: userId }],
         },
       }),
+
+      this.prismaService.block.findMany({
+        where: {
+          blockerId: userId,
+        },
+      }),
+
+      this.prismaService.block.findMany({
+        where: {
+          blockedId: userId,
+        },
+      }),
     ]);
 
     // Fetch unseen counts for all conversations
@@ -205,6 +236,9 @@ export class ConversationsService {
                 updatedAt: lastVisibleMessage.updatedAt,
               }
             : null,
+          isBlocked:
+          blocked.some((block) => block.blockedId === (isUser1 ? User2.id : User1.id)) ||
+          blockers.some((block) => block.blockerId === (isUser1 ? User2.id : User1.id)),
           user:
             userId === User1.id
               ? {
@@ -327,6 +361,21 @@ export class ConversationsService {
 
     const isUser1 = userId === conversation.User1.id;
 
+    const block = await this.prismaService.block.findFirst({
+      where: {
+        OR: [
+          {
+            blockerId: conversation.User2.id,
+            blockedId: conversation.User1.id,
+          },
+          {
+            blockerId: conversation.User1.id,
+            blockedId: conversation.User2.id,
+          },
+        ],
+      },
+    });
+
     if (!isUser1 && userId !== conversation.User2.id) {
       throw new ConflictException('You are not part of this conversation');
     }
@@ -355,6 +404,7 @@ export class ConversationsService {
             updatedAt: lastVisibleMessage.updatedAt,
           }
         : null,
+      isBlocked: !!block,
       user:
         userId === conversation.User1.id
           ? {
