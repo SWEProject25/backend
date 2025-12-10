@@ -33,26 +33,7 @@ async function main() {
       icon: '⚽',
       description: 'Follow your favorite sports and teams',
     },
-    { name: 'Music', slug: 'music', icon: '🎵', description: 'Discover new music and artists' },
-    {
-      name: 'Dance',
-      slug: 'dance',
-      icon: '💃',
-      description: 'Explore dance styles and performances',
-    },
-    {
-      name: 'Celebrity',
-      slug: 'celebrity',
-      icon: '⭐',
-      description: 'Keep up with celebrity news',
-    },
-    {
-      name: 'Relationships',
-      slug: 'relationships',
-      icon: '❤️',
-      description: 'Dating, love, and relationship advice',
-    },
-    { name: 'Movies & TV', slug: 'movies-tv', icon: '🎬', description: 'Latest in entertainment' },
+    { name: 'Movies-TV', slug: 'movies-tv', icon: '🎬', description: 'Latest in entertainment' },
     {
       name: 'Technology',
       slug: 'technology',
@@ -60,7 +41,7 @@ async function main() {
       description: 'Tech news and innovations',
     },
     {
-      name: 'Business & Finance',
+      name: 'Business-Finance',
       slug: 'business-finance',
       icon: '💼',
       description: 'Business trends and financial news',
@@ -69,7 +50,6 @@ async function main() {
     { name: 'Fashion', slug: 'fashion', icon: '👗', description: 'Style trends and fashion news' },
     { name: 'Food', slug: 'food', icon: '🍕', description: 'Recipes and culinary adventures' },
     { name: 'Travel', slug: 'travel', icon: '✈️', description: 'Travel tips and destinations' },
-    { name: 'Fitness', slug: 'fitness', icon: '💪', description: 'Health and fitness tips' },
     {
       name: 'Science',
       slug: 'science',
@@ -787,10 +767,10 @@ async function main() {
 
   const mediaWithUserId = media.map((m) => {
     const post = createdPosts.find((p) => p.id === m.post_id);
-    if (!post) throw new Error("Post not found for media item");
+    if (!post) throw new Error('Post not found for media item');
     return {
       post_id: m.post_id,
-      user_id: post.user_id, 
+      user_id: post.user_id,
       media_url: m.media_url,
       type: m.type,
     };
