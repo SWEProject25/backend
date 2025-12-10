@@ -1,12 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from '../../prisma/prisma.service';
 import { PostService } from './post.service';
-import { StorageService } from 'src/storage/storage.service';
 import { getQueueToken } from '@nestjs/bullmq';
 import { RedisQueues, Services } from 'src/utils/constants';
-import { Queue } from 'bullmq';
 import { PostType, PostVisibility } from '@prisma/client';
 import { MLService } from './ml.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { SocketService } from 'src/gateway/socket.service';
 
 describe('Post Service', () => {
   let service: PostService;
@@ -18,10 +17,29 @@ describe('Post Service', () => {
     const mockMLService = {
       rankPosts: jest.fn(),
       predictQualityScore: jest.fn(),
+      getQualityScores: jest.fn().mockResolvedValue({}),
     };
 
     const mockAiSummarizationService = {
       summarizePost: jest.fn(),
+    };
+
+    const mockHashtagTrendService = {
+      queueTrendCalculation: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const mockEventEmitter = {
+      emit: jest.fn(),
+    };
+
+    const mockRedisService = {
+      get: jest.fn(),
+      set: jest.fn(),
+      expire: jest.fn(),
+    };
+
+    const mockSocketService = {
+      emitPostStatsUpdate: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -38,19 +56,26 @@ describe('Post Service', () => {
               findFirst: jest.fn(),
               update: jest.fn(),
               delete: jest.fn(),
+              groupBy: jest.fn(),
             },
             user: {
               findUnique: jest.fn(),
+              findMany: jest.fn(),
             },
             like: {
               create: jest.fn(),
               delete: jest.fn(),
               findUnique: jest.fn(),
+              count: jest.fn(),
             },
             repost: {
               create: jest.fn(),
               delete: jest.fn(),
               findUnique: jest.fn(),
+              count: jest.fn(),
+            },
+            media: {
+              findMany: jest.fn(),
             },
           },
         },
@@ -69,6 +94,22 @@ describe('Post Service', () => {
         {
           provide: Services.AI_SUMMARIZATION,
           useValue: mockAiSummarizationService,
+        },
+        {
+          provide: Services.HASHTAG_TRENDS,
+          useValue: mockHashtagTrendService,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: mockEventEmitter,
+        },
+        {
+          provide: Services.REDIS,
+          useValue: mockRedisService,
+        },
+        {
+          provide: SocketService,
+          useValue: mockSocketService,
         },
         {
           provide: getQueueToken(RedisQueues.postQueue.name),
@@ -114,7 +155,10 @@ describe('Post Service', () => {
 
       const mockRawPost = {
         ...mockCreatedPost,
-        _count: { likes: 0, repostedBy: 0, Replies: 0 },
+        parent_id: null,
+        _count: { likes: 0, repostedBy: 0 },
+        quoteCount: 0,
+        replyCount: 0,
         User: {
           id: 1,
           username: 'testuser',
@@ -128,6 +172,7 @@ describe('Post Service', () => {
         ],
         likes: [],
         repostedBy: [],
+        mentions: [],
       };
 
       const mockTx = {
@@ -140,11 +185,16 @@ describe('Post Service', () => {
         media: {
           createMany: jest.fn().mockResolvedValue({ count: 2 }),
         },
+        mention: {
+          createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
       };
 
       storageService.uploadFiles.mockResolvedValue(mockUrls);
       prisma.$transaction.mockImplementation(async (callback) => callback(mockTx));
       prisma.post.findMany.mockResolvedValue([mockRawPost]);
+      prisma.post.groupBy.mockResolvedValue([]);
+      prisma.user.findMany.mockResolvedValue([]);
       postQueue.add.mockResolvedValue({});
 
       const result = await service.createPost(createPostDto);
@@ -179,7 +229,10 @@ describe('Post Service', () => {
 
       const mockRawPost = {
         ...mockCreatedPost,
-        _count: { likes: 0, repostedBy: 0, Replies: 0 },
+        parent_id: null,
+        _count: { likes: 0, repostedBy: 0 },
+        quoteCount: 0,
+        replyCount: 0,
         User: {
           id: 1,
           username: 'testuser',
@@ -190,6 +243,7 @@ describe('Post Service', () => {
         media: [],
         likes: [],
         repostedBy: [],
+        mentions: [],
       };
 
       const mockTx = {
@@ -202,11 +256,16 @@ describe('Post Service', () => {
         media: {
           createMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
+        mention: {
+          createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
       };
 
       storageService.uploadFiles.mockResolvedValue([]);
       prisma.$transaction.mockImplementation(async (callback) => callback(mockTx));
       prisma.post.findMany.mockResolvedValue([mockRawPost]);
+      prisma.post.groupBy.mockResolvedValue([]);
+      prisma.user.findMany.mockResolvedValue([]);
       postQueue.add.mockResolvedValue({});
 
       await service.createPost(createPostDto);
@@ -287,6 +346,53 @@ describe('Post Service', () => {
       });
       expect(result).toEqual(mockPosts);
     });
+
+    it('should get posts with type filter', async () => {
+      const filter = {
+        type: PostType.QUOTE,
+        page: 1,
+        limit: 10,
+      };
+
+      const mockPosts = [{ id: 1, content: 'Quote post', user_id: 1, type: PostType.QUOTE }];
+
+      prisma.post.findMany.mockResolvedValue(mockPosts);
+
+      const result = await service.getPostsWithFilters(filter);
+
+      expect(prisma.post.findMany).toHaveBeenCalledWith({
+        where: {
+          type: PostType.QUOTE,
+          is_deleted: false,
+        },
+        skip: 0,
+        take: 10,
+      });
+      expect(result).toEqual(mockPosts);
+    });
+
+    it('should get public posts when no filters provided', async () => {
+      const filter = {
+        page: 1,
+        limit: 10,
+      };
+
+      const mockPosts = [{ id: 1, content: 'Public post', user_id: 1, visibility: PostVisibility.EVERY_ONE }];
+
+      prisma.post.findMany.mockResolvedValue(mockPosts);
+
+      const result = await service.getPostsWithFilters(filter);
+
+      expect(prisma.post.findMany).toHaveBeenCalledWith({
+        where: {
+          visibility: PostVisibility.EVERY_ONE,
+          is_deleted: false,
+        },
+        skip: 0,
+        take: 10,
+      });
+      expect(result).toEqual(mockPosts);
+    });
   });
 
   describe('getPostById', () => {
@@ -298,19 +404,30 @@ describe('Post Service', () => {
         id: postId,
         content: 'Test post',
         user_id: 1,
-        _count: { likes: 5, repostedBy: 2, Replies: 3 },
+        type: 'POST',
+        parent_id: null,
+        created_at: new Date(),
+        is_deleted: false,
+        _count: { likes: 5, repostedBy: 2 },
+        quoteCount: 0,
+        replyCount: 3,
         User: {
           id: 1,
           username: 'testuser',
+          is_verified: false,
+          Profile: { name: 'Test User', profile_image_url: null },
+          Followers: [{ followerId: userId }],
         },
         media: [],
         likes: [{ user_id: userId }],
         repostedBy: [],
+        mentions: [],
       };
 
-      prisma.post.findFirst.mockResolvedValue(mockPost);
+      prisma.post.findMany.mockResolvedValue([mockPost]);
+      prisma.post.groupBy.mockResolvedValue([]);
 
-      const result = await service.getPostById(postId, userId);
+      const [result] = await service.getPostById(postId, userId);
 
       expect(result.isLikedByMe).toBe(true);
       expect(result.isRepostedByMe).toBe(false);
@@ -320,9 +437,80 @@ describe('Post Service', () => {
       const postId = 9231037;
       const userId = 1;
 
-      prisma.post.findFirst.mockResolvedValue(null);
+      prisma.post.findMany.mockResolvedValue([]);
 
       await expect(service.getPostById(postId, userId)).rejects.toThrow('Post not found');
+    });
+
+    it('should return enriched post for quote or reply', async () => {
+      const postId = 1;
+      const userId = 2;
+
+      const mockPost = {
+        userId: 1,
+        username: 'testuser',
+        verified: false,
+        name: 'Test User',
+        avatar: null,
+        postId: 1,
+        parentId: 2,
+        type: 'REPLY',
+        date: new Date(),
+        likesCount: 5,
+        retweetsCount: 2,
+        commentsCount: 3,
+        isLikedByMe: false,
+        isFollowedByMe: false,
+        isRepostedByMe: false,
+        isMutedByMe: false,
+        isBlockedByMe: false,
+        text: 'Reply text',
+        media: [],
+        mentions: [],
+        isRepost: false,
+        isQuote: false,
+      };
+
+      const mockEnrichedPost = [{
+        ...mockPost,
+        originalPostData: {
+          userId: 2,
+          username: 'parentuser',
+          verified: false,
+          name: 'Parent User',
+          avatar: null,
+          postId: 2,
+          parentId: null,
+          type: 'POST',
+          date: new Date(),
+          likesCount: 10,
+          retweetsCount: 5,
+          commentsCount: 3,
+          isLikedByMe: false,
+          isFollowedByMe: true,
+          isRepostedByMe: false,
+          isMutedByMe: false,
+          isBlockedByMe: false,
+          text: 'Parent post',
+          media: [],
+          mentions: [],
+          isRepost: false,
+          isQuote: false,
+        },
+      }];
+
+      jest.spyOn(service, 'findPosts').mockResolvedValue([mockPost]);
+      jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue(mockEnrichedPost);
+
+      const result = await service.getPostById(postId, userId);
+
+      expect(service.findPosts).toHaveBeenCalledWith({
+        where: { id: postId, is_deleted: false },
+        userId,
+        page: 1,
+        limit: 1,
+      });
+      expect(result).toEqual(mockEnrichedPost);
     });
   });
 
@@ -330,14 +518,13 @@ describe('Post Service', () => {
     it('should soft delete a post', async () => {
       const postId = 1;
 
-      const mockPost = { id: postId, is_deleted: false };
-      const mockUpdateResult = { count: 1 };
+      const mockPost = { id: postId, is_deleted: false, parent_id: null, type: 'POST' };
 
       const mockTx = {
         post: {
           findFirst: jest.fn().mockResolvedValue(mockPost),
           findMany: jest.fn().mockResolvedValue([]),
-          updateMany: jest.fn().mockResolvedValue(mockUpdateResult),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
         mention: {
           deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -350,12 +537,66 @@ describe('Post Service', () => {
         },
       };
 
-      prisma.$transaction.mockImplementation((c) => c(mockTx));
+      // Ensure the transaction callback receives the mocked tx and runs
+      prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
 
       const result = await service.deletePost(postId);
 
       expect(prisma.$transaction).toHaveBeenCalled();
-      expect(result).toEqual(mockUpdateResult);
+      // service returns { post, repliesAndQuotesCount }
+      expect(result).toEqual({ post: mockPost, repliesAndQuotesCount: 0 });
+    });
+
+    it('should throw NotFoundException if post to delete not found', async () => {
+      const postId = 999;
+
+      const mockTx = {
+        post: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      };
+
+      prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
+
+      await expect(service.deletePost(postId)).rejects.toThrow('Post not found');
+    });
+
+    it('should delete post with replies and quotes', async () => {
+      const postId = 1;
+
+      const mockPost = { id: postId, is_deleted: false, parent_id: null, type: 'POST' };
+      const mockRepliesAndQuotes = [
+        { id: 2 },
+        { id: 3 },
+      ];
+
+      const mockTx = {
+        post: {
+          findFirst: jest.fn().mockResolvedValue(mockPost),
+          findMany: jest.fn().mockResolvedValue(mockRepliesAndQuotes),
+          updateMany: jest.fn().mockResolvedValue({ count: 3 }),
+        },
+        mention: {
+          deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+        },
+        like: {
+          deleteMany: jest.fn().mockResolvedValue({ count: 5 }),
+        },
+        repost: {
+          deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+      };
+
+      prisma.$transaction.mockImplementation(async (cb) => cb(mockTx));
+
+      const result = await service.deletePost(postId);
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(result).toEqual({ post: mockPost, repliesAndQuotesCount: 2 });
+      expect(mockTx.post.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [1, 2, 3] } },
+        data: { is_deleted: true },
+      });
     });
   });
 
@@ -398,6 +639,465 @@ describe('Post Service', () => {
       await expect(service.summarizePost(postId)).rejects.toThrow(
         'Post has no content to summarize',
       );
+    });
+
+    it('should generate new summary when none exists', async () => {
+      const postId = 1;
+      const mockPost = {
+        id: postId,
+        content: 'This is a long post that needs summarization',
+        summary: null,
+        is_deleted: false,
+      };
+      const expectedSummary = 'Generated summary';
+
+      prisma.post.findFirst.mockResolvedValue(mockPost);
+      jest.spyOn(service['aiSummarizationService'], 'summarizePost').mockResolvedValue(expectedSummary);
+
+      const result = await service.summarizePost(postId);
+
+      expect(result).toBe(expectedSummary);
+      expect(service['aiSummarizationService'].summarizePost).toHaveBeenCalledWith(mockPost.content);
+    });
+  });
+
+  describe('findPosts', () => {
+    it('should find and transform posts with user interactions', async () => {
+      const userId = 1;
+      const options = {
+        where: { is_deleted: false },
+        userId,
+        page: 1,
+        limit: 10,
+      };
+
+      const mockRawPosts = [
+        {
+          id: 1,
+          user_id: 1,
+          content: 'Test post',
+          type: 'POST',
+          parent_id: null,
+          created_at: new Date(),
+          is_deleted: false,
+          _count: { likes: 5, repostedBy: 2 },
+          User: {
+            id: 1,
+            username: 'testuser',
+            is_verified: false,
+            Profile: { name: 'Test User', profile_image_url: null },
+            Followers: [],
+            Muters: [],
+            Blockers: [],
+          },
+          media: [{ media_url: 'https://s3/image.jpg', type: 'IMAGE' }],
+          likes: [{ user_id: userId }],
+          repostedBy: [],
+          mentions: [],
+        },
+      ];
+
+      const mockCounts = [{ replies: 3, quotes: 1 }];
+
+      prisma.post.findMany.mockResolvedValue(mockRawPosts);
+      // Mock the private getPostCounts method
+      jest.spyOn(service as any, 'getPostCounts').mockResolvedValue(mockCounts[0]);
+      jest.spyOn(service as any, 'transformPost').mockReturnValue([
+        {
+          userId: 1,
+          username: 'testuser',
+          verified: false,
+          name: 'Test User',
+          avatar: null,
+          postId: 1,
+          parentId: null,
+          type: 'POST',
+          date: new Date(),
+          likesCount: 5,
+          retweetsCount: 3,
+          commentsCount: 3,
+          isLikedByMe: true,
+          isFollowedByMe: false,
+          isRepostedByMe: false,
+          isMutedByMe: false,
+          isBlockedByMe: false,
+          text: 'Test post',
+          media: [{ url: 'https://s3/image.jpg', type: 'IMAGE' }],
+          mentions: [],
+          isRepost: false,
+          isQuote: false,
+        },
+      ]);
+
+      const result = await service.findPosts(options);
+
+      expect(prisma.post.findMany).toHaveBeenCalledWith({
+        where: { is_deleted: false },
+        include: expect.any(Object),
+        skip: 0,
+        take: 10,
+        orderBy: { created_at: 'desc' },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0].userId).toBe(1);
+    });
+
+    it('should return empty array when no posts found', async () => {
+      const userId = 1;
+      const options = {
+        where: { is_deleted: false },
+        userId,
+        page: 1,
+        limit: 10,
+      };
+
+      prisma.post.findMany.mockResolvedValue([]);
+      jest.spyOn(service as any, 'getPostCounts').mockResolvedValue({ replies: 0, quotes: 0 });
+      jest.spyOn(service as any, 'transformPost').mockReturnValue([]);
+
+      const result = await service.findPosts(options);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getUserPosts', () => {
+    it('should get user posts including reposts', async () => {
+      const userId = 1;
+      const page = 1;
+      const limit = 10;
+
+      const mockPosts = [
+        {
+          userId: 1,
+          username: 'testuser',
+          verified: false,
+          name: 'Test User',
+          avatar: null,
+          postId: 1,
+          parentId: null,
+          type: 'POST',
+          date: new Date(),
+          likesCount: 5,
+          retweetsCount: 3,
+          commentsCount: 3,
+          isLikedByMe: true,
+          isFollowedByMe: false,
+          isRepostedByMe: false,
+          isMutedByMe: false,
+          isBlockedByMe: false,
+          text: 'Test post',
+          media: [],
+          mentions: [],
+          isRepost: false,
+          isQuote: false,
+        },
+      ];
+
+      const mockReposts = [
+        {
+          userId: 1,
+          username: 'testuser',
+          verified: false,
+          name: 'Test User',
+          avatar: null,
+          isFollowedByMe: false,
+          isMutedByMe: false,
+          isBlockedByMe: false,
+          date: new Date(),
+          originalPostData: {
+            userId: 2,
+            username: 'otheruser',
+            verified: false,
+            name: 'Other User',
+            avatar: null,
+            postId: 2,
+            parentId: null,
+            type: 'POST',
+            date: new Date(),
+            likesCount: 10,
+            retweetsCount: 5,
+            commentsCount: 2,
+            isLikedByMe: false,
+            isFollowedByMe: true,
+            isRepostedByMe: false,
+            isMutedByMe: false,
+            isBlockedByMe: false,
+            text: 'Original post',
+            media: [],
+            mentions: [],
+            isRepost: false,
+            isQuote: false,
+          },
+        },
+      ];
+
+      const mockCombinedResult = [
+        {
+          ...mockPosts[0],
+          isRepost: false,
+        },
+        {
+          ...mockReposts[0],
+          isRepost: true,
+        },
+      ];
+
+      jest.spyOn(service, 'findPosts').mockResolvedValue(mockPosts);
+      jest.spyOn(service as any, 'getReposts').mockResolvedValue(mockReposts);
+      jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue(mockPosts);
+      jest.spyOn(service as any, 'getTopPaginatedPosts').mockReturnValue(mockCombinedResult);
+
+      const result = await service.getUserPosts(userId, page, limit);
+
+      expect(service.findPosts).toHaveBeenCalledWith({
+        where: {
+          user_id: userId,
+          type: { in: [PostType.POST, PostType.QUOTE] },
+          is_deleted: false,
+        },
+        userId,
+        page,
+        limit,
+      });
+      expect(result).toEqual(mockCombinedResult);
+    });
+  });
+
+  describe('getUserMedia', () => {
+    it('should get user media with pagination', async () => {
+      const userId = 1;
+      const page = 1;
+      const limit = 10;
+
+      const mockMedia = [
+        {
+          id: 1,
+          user_id: userId,
+          post_id: 1,
+          media_url: 'https://s3/image1.jpg',
+          type: 'IMAGE',
+          created_at: new Date(),
+        },
+        {
+          id: 2,
+          user_id: userId,
+          post_id: 2,
+          media_url: 'https://s3/image2.jpg',
+          type: 'IMAGE',
+          created_at: new Date(),
+        },
+      ];
+
+      prisma.media.findMany.mockResolvedValue(mockMedia);
+
+      const result = await service.getUserMedia(userId, page, limit);
+
+      expect(prisma.media.findMany).toHaveBeenCalledWith({
+        where: { user_id: userId },
+        orderBy: { created_at: 'desc' },
+        skip: 0,
+        take: 10,
+      });
+      expect(result).toEqual(mockMedia);
+    });
+
+    it('should return empty array when user has no media', async () => {
+      const userId = 1;
+      const page = 1;
+      const limit = 10;
+
+      prisma.media.findMany.mockResolvedValue([]);
+
+      const result = await service.getUserMedia(userId, page, limit);
+
+      expect(prisma.media.findMany).toHaveBeenCalledWith({
+        where: { user_id: userId },
+        orderBy: { created_at: 'desc' },
+        skip: 0,
+        take: 10,
+      });
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getUserReplies', () => {
+    it('should get user replies and enrich them', async () => {
+      const userId = 1;
+      const page = 1;
+      const limit = 10;
+
+      const mockReplies = [
+        {
+          userId: 1,
+          username: 'testuser',
+          verified: false,
+          name: 'Test User',
+          avatar: null,
+          postId: 1,
+          parentId: 2,
+          type: 'REPLY',
+          date: new Date(),
+          likesCount: 2,
+          retweetsCount: 1,
+          commentsCount: 0,
+          isLikedByMe: false,
+          isFollowedByMe: false,
+          isRepostedByMe: false,
+          isMutedByMe: false,
+          isBlockedByMe: false,
+          text: 'Reply text',
+          media: [],
+          mentions: [],
+          isRepost: false,
+          isQuote: false,
+        },
+      ];
+
+      const mockEnrichedReplies = [
+        {
+          ...mockReplies[0],
+          originalPostData: {
+            userId: 2,
+            username: 'parentuser',
+            verified: false,
+            name: 'Parent User',
+            avatar: null,
+            postId: 2,
+            parentId: null,
+            type: 'POST',
+            date: new Date(),
+            likesCount: 10,
+            retweetsCount: 5,
+            commentsCount: 3,
+            isLikedByMe: false,
+            isFollowedByMe: true,
+            isRepostedByMe: false,
+            isMutedByMe: false,
+            isBlockedByMe: false,
+            text: 'Parent post',
+            media: [],
+            mentions: [],
+            isRepost: false,
+            isQuote: false,
+          },
+        },
+      ];
+
+      jest.spyOn(service, 'findPosts').mockResolvedValue(mockReplies);
+      jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue(mockEnrichedReplies);
+
+      const result = await service.getUserReplies(userId, page, limit);
+
+      expect(service.findPosts).toHaveBeenCalledWith({
+        where: {
+          type: PostType.REPLY,
+          user_id: userId,
+          is_deleted: false,
+        },
+        userId,
+        page,
+        limit,
+      });
+      expect(result).toEqual(mockEnrichedReplies);
+    });
+
+    it('should return empty array when user has no replies', async () => {
+      const userId = 1;
+      const page = 1;
+      const limit = 10;
+
+      jest.spyOn(service, 'findPosts').mockResolvedValue([]);
+      jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue([]);
+
+      const result = await service.getUserReplies(userId, page, limit);
+
+      expect(service.findPosts).toHaveBeenCalledWith({
+        where: {
+          type: PostType.REPLY,
+          user_id: userId,
+          is_deleted: false,
+        },
+        userId,
+        page,
+        limit,
+      });
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getRepliesOfPost', () => {
+    it('should get replies for a specific post', async () => {
+      const postId = 1;
+      const page = 1;
+      const limit = 10;
+      const userId = 2;
+
+      const mockReplies = [
+        {
+          userId: 2,
+          username: 'replyuser',
+          verified: false,
+          name: 'Reply User',
+          avatar: null,
+          postId: 3,
+          parentId: postId,
+          type: 'REPLY',
+          date: new Date(),
+          likesCount: 1,
+          retweetsCount: 0,
+          commentsCount: 0,
+          isLikedByMe: false,
+          isFollowedByMe: false,
+          isRepostedByMe: false,
+          isMutedByMe: false,
+          isBlockedByMe: false,
+          text: 'This is a reply',
+          media: [],
+          mentions: [],
+          isRepost: false,
+          isQuote: false,
+        },
+      ];
+
+      jest.spyOn(service, 'findPosts').mockResolvedValue(mockReplies);
+
+      const result = await service.getRepliesOfPost(postId, page, limit, userId);
+
+      expect(service.findPosts).toHaveBeenCalledWith({
+        where: {
+          type: PostType.REPLY,
+          parent_id: postId,
+          is_deleted: false,
+        },
+        userId,
+        page,
+        limit,
+      });
+      expect(result).toEqual(mockReplies);
+    });
+
+    it('should return empty array when post has no replies', async () => {
+      const postId = 1;
+      const page = 1;
+      const limit = 10;
+      const userId = 2;
+
+      jest.spyOn(service, 'findPosts').mockResolvedValue([]);
+
+      const result = await service.getRepliesOfPost(postId, page, limit, userId);
+
+      expect(service.findPosts).toHaveBeenCalledWith({
+        where: {
+          type: PostType.REPLY,
+          parent_id: postId,
+          is_deleted: false,
+        },
+        userId,
+        page,
+        limit,
+      });
+      expect(result).toEqual([]);
     });
   });
 });
