@@ -44,6 +44,7 @@ export const RedisQueues = {
     name: 'post-queue',
     processes: {
       summarizePostContent: 'summarize-post-content',
+      interestPostContent: 'interest-post-content',
     },
   },
   hashTagQueue: {

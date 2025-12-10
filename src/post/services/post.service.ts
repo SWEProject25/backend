@@ -202,7 +202,7 @@ export class PostService {
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
     private readonly socketService: SocketService,
-  ) {}
+  ) { }
 
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
@@ -399,11 +399,11 @@ export class PostService {
         hashtagIds: hashtagRecords.map((r) => r.id),
         parentPostAuthorId: postData.parentId
           ? (
-              await tx.post.findUnique({
-                where: { id: postData.parentId },
-                select: { user_id: true },
-              })
-            )?.user_id
+            await tx.post.findUnique({
+              where: { id: postData.parentId },
+              select: { user_id: true },
+            })
+          )?.user_id
           : undefined,
       };
     });
@@ -499,6 +499,7 @@ export class PostService {
 
       if (post.content) {
         await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
+        await this.addToInterestQueue({ postContent: post.content, postId: post.id });
       }
 
       const [fullPost] = await this.findPosts({
@@ -518,6 +519,10 @@ export class PostService {
 
   private async addToSummarizationQueue(job: SummarizeJob) {
     await this.postQueue.add(RedisQueues.postQueue.processes.summarizePostContent, job);
+  }
+
+  private async addToInterestQueue(job: SummarizeJob) {
+    await this.postQueue.add(RedisQueues.postQueue.processes.interestPostContent, job);
   }
 
   async summarizePost(postId: number) {
@@ -545,16 +550,16 @@ export class PostService {
 
     const where = hasFilters
       ? {
-          ...(userId && { user_id: userId }),
-          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-          ...(type && { type }),
-          is_deleted: false,
-        }
+        ...(userId && { user_id: userId }),
+        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+        ...(type && { type }),
+        is_deleted: false,
+      }
       : {
-          // TODO: improve this fallback
-          visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
-          is_deleted: false,
-        };
+        // TODO: improve this fallback
+        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
+        is_deleted: false,
+      };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -754,12 +759,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     // Build originalPostData
     let originalPostData: any = null;
@@ -2000,12 +2005,12 @@ SELECT * FROM candidate_posts;
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     return {
       // User Information (reposter for simple reposts, author otherwise)
