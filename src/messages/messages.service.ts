@@ -38,6 +38,20 @@ export class MessagesService {
       throw new ForbiddenException('You are not part of this conversation');
     }
 
+    // Check if either user has blocked the other
+    const block = await this.prismaService.block.findFirst({
+      where: {
+        OR: [
+          { blockerId: conversation.user1Id, blockedId: conversation.user2Id },
+          { blockerId: conversation.user2Id, blockedId: conversation.user1Id },
+        ],
+      },
+    });
+
+    if (block) {
+      throw new ForbiddenException('Cannot send message to a blocked user');
+    }
+
     // Create the message and update conversation timestamp in a transaction
     const message = await this.prismaService.$transaction(async (prisma) => {
       await prisma.conversation.update({
@@ -127,6 +141,21 @@ export class MessagesService {
     if (!isUser1 && currentUserId !== conversation.user2Id) {
       throw new ForbiddenException('You are not part of this conversation');
     }
+
+    // Check if either user has blocked the other
+    const block = await this.prismaService.block.findFirst({
+      where: {
+        OR: [
+          { blockerId: conversation.user1Id, blockedId: conversation.user2Id },
+          { blockerId: conversation.user2Id, blockedId: conversation.user1Id },
+        ],
+      },
+    });
+
+    if (block) {
+      throw new ForbiddenException('Cannot access messages from a blocked user');
+    }
+
     const deletedField = isUser1 ? 'isDeletedU1' : 'isDeletedU2';
 
     // Build the where clause with cursor-based pagination
@@ -201,6 +230,21 @@ export class MessagesService {
       if (!isUser1 && currentUserId !== conversation.user2Id) {
         throw new ForbiddenException('You are not part of this conversation');
       }
+
+      // Check if either user has blocked the other
+      const block = await prisma.block.findFirst({
+        where: {
+          OR: [
+            { blockerId: conversation.user1Id, blockedId: conversation.user2Id },
+            { blockerId: conversation.user2Id, blockedId: conversation.user1Id },
+          ],
+        },
+      });
+
+      if (block) {
+        throw new ForbiddenException('Cannot access messages from a blocked user');
+      }
+
       const deletedField = isUser1 ? 'isDeletedU1' : 'isDeletedU2';
       return prisma.message.findMany({
         where: {
@@ -234,9 +278,14 @@ export class MessagesService {
   async update(updateMessageDto: UpdateMessageDto, senderId: number) {
     const { id, text } = updateMessageDto;
 
-    // Check if message exists
+    // Check if message exists and get conversation
     const message = await this.prismaService.message.findUnique({
       where: { id },
+      include: {
+        Conversation: {
+          select: { user1Id: true, user2Id: true },
+        },
+      },
     });
 
     if (!message) {
@@ -245,6 +294,20 @@ export class MessagesService {
 
     if (message.senderId !== senderId) {
       throw new UnauthorizedException('You are not the owner of this message');
+    }
+
+    // Check if either user has blocked the other
+    const block = await this.prismaService.block.findFirst({
+      where: {
+        OR: [
+          { blockerId: message.Conversation.user1Id, blockedId: message.Conversation.user2Id },
+          { blockerId: message.Conversation.user2Id, blockedId: message.Conversation.user1Id },
+        ],
+      },
+    });
+
+    if (block) {
+      throw new ForbiddenException('Cannot update message in a blocked conversation');
     }
 
     // Update and return the message
