@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RemoveMessageDto } from './dto/remove-message.dto';
 import { Services } from 'src/utils/constants';
 import { getUnseenMessageCountWhere } from 'src/conversations/helpers/unseen-message.helper';
+import { getBlockCheckWhere } from 'src/conversations/helpers/block-check.helper';
 
 @Injectable()
 export class MessagesService {
@@ -40,12 +41,8 @@ export class MessagesService {
 
     // Check if either user has blocked the other
     const block = await this.prismaService.block.findFirst({
-      where: {
-        OR: [
-          { blockerId: conversation.user1Id, blockedId: conversation.user2Id },
-          { blockerId: conversation.user2Id, blockedId: conversation.user1Id },
-        ],
-      },
+      where: getBlockCheckWhere(conversation.user1Id, conversation.user2Id),
+      select: { blockerId: true },
     });
 
     if (block) {
@@ -144,12 +141,8 @@ export class MessagesService {
 
     // Check if either user has blocked the other
     const block = await this.prismaService.block.findFirst({
-      where: {
-        OR: [
-          { blockerId: conversation.user1Id, blockedId: conversation.user2Id },
-          { blockerId: conversation.user2Id, blockedId: conversation.user1Id },
-        ],
-      },
+      where: getBlockCheckWhere(conversation.user1Id, conversation.user2Id),
+      select: { blockerId: true },
     });
 
     if (block) {
@@ -233,12 +226,8 @@ export class MessagesService {
 
       // Check if either user has blocked the other
       const block = await prisma.block.findFirst({
-        where: {
-          OR: [
-            { blockerId: conversation.user1Id, blockedId: conversation.user2Id },
-            { blockerId: conversation.user2Id, blockedId: conversation.user1Id },
-          ],
-        },
+        where: getBlockCheckWhere(conversation.user1Id, conversation.user2Id),
+        select: { blockerId: true },
       });
 
       if (block) {
@@ -298,12 +287,8 @@ export class MessagesService {
 
     // Check if either user has blocked the other
     const block = await this.prismaService.block.findFirst({
-      where: {
-        OR: [
-          { blockerId: message.Conversation.user1Id, blockedId: message.Conversation.user2Id },
-          { blockerId: message.Conversation.user2Id, blockedId: message.Conversation.user1Id },
-        ],
-      },
+      where: getBlockCheckWhere(message.Conversation.user1Id, message.Conversation.user2Id),
+      select: { blockerId: true },
     });
 
     if (block) {

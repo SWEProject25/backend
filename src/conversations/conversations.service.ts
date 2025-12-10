@@ -3,6 +3,7 @@ import { CreateConversationDto } from './dto/create-conversation.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
 import { getUnseenMessageCountWhere } from './helpers/unseen-message.helper';
+import { getBlockCheckWhere } from './helpers/block-check.helper';
 
 @Injectable()
 export class ConversationsService {
@@ -29,18 +30,8 @@ export class ConversationsService {
     }
 
     const block = await this.prismaService.block.findFirst({
-      where: {
-        OR: [
-          {
-            blockerId: user1Id,
-            blockedId: user2Id,
-          },
-          {
-            blockerId: user2Id,
-            blockedId: user1Id,
-          },
-        ],
-      },
+      where: getBlockCheckWhere(user1Id, user2Id),
+      select: { blockerId: true },
     });
 
     if (block) {
@@ -196,12 +187,14 @@ export class ConversationsService {
         where: {
           blockerId: userId,
         },
+        select: { blockedId: true },
       }),
 
       this.prismaService.block.findMany({
         where: {
           blockedId: userId,
         },
+        select: { blockerId: true },
       }),
     ]);
 
@@ -362,18 +355,8 @@ export class ConversationsService {
     const isUser1 = userId === conversation.User1.id;
 
     const block = await this.prismaService.block.findFirst({
-      where: {
-        OR: [
-          {
-            blockerId: conversation.User2.id,
-            blockedId: conversation.User1.id,
-          },
-          {
-            blockerId: conversation.User1.id,
-            blockedId: conversation.User2.id,
-          },
-        ],
-      },
+      where: getBlockCheckWhere(conversation.User1.id, conversation.User2.id),
+      select: { blockerId: true },
     });
 
     if (!isUser1 && userId !== conversation.User2.id) {
