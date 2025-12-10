@@ -93,6 +93,8 @@ model Interest {
   users       UserInterest[]
   posts       Post[]
 
+  @@index([is_active])
+
   @@map("interests")
 }
 model UserInterest {
@@ -103,6 +105,8 @@ model UserInterest {
   interest    Interest @relation(fields: [interest_id], references: [id], onDelete: Cascade)
 
   @@id([user_id, interest_id])
+  @@index([user_id])
+  @@index([interest_id])
   @@map("user_interests")
 }
 
@@ -128,7 +132,13 @@ model Post {
   hashtags    Hashtag[]      @relation("PostHashtags")
   Notifications Notification[]
 
+  @@index([is_deleted, type, created_at])
+  @@index([interest_id, is_deleted, type, created_at])
+  @@index([user_id, is_deleted, type, created_at])
+  @@index([parent_id, is_deleted])
+  @@index([created_at(sort: Desc)])
   @@map("posts")
+
 }
 
 model Follow {
@@ -139,6 +149,9 @@ model Follow {
   Following   User     @relation("Following", fields: [followingId], references: [id])
 
   @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+
   @@map("follows")
 }
 
@@ -150,6 +163,8 @@ model Block {
   Blocked   User     @relation("Blocked", fields: [blockedId], references: [id])
 
   @@id([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
   @@map("blocks")
 }
 
@@ -161,6 +176,9 @@ model Mute {
   Muted     User     @relation("Muted", fields: [mutedId], references: [id])
 
   @@id([muterId, mutedId])
+  @@index([muterId])
+  @@index([mutedId])
+
   @@map("mutes")
 }
 
@@ -185,6 +203,8 @@ model Repost {
   user       User     @relation(fields: [user_id], references: [id])
 
   @@id([post_id, user_id])
+  @@index([user_id, created_at])
+  @@index([created_at])
 }
 
 model Hashtag {
@@ -218,6 +238,8 @@ model Like {
   user       User     @relation(fields: [user_id], references: [id])
 
   @@id([post_id, user_id])
+  @@index([user_id])
+  @@index([post_id])
 }
 
 model Mention {
@@ -228,6 +250,9 @@ model Mention {
 
   post Post @relation(fields: [post_id], references: [id])
   user User @relation(fields: [user_id], references: [id])
+
+  @@index([post_id])
+  @@index([user_id])
 }
 
 model Conversation {
@@ -274,6 +299,8 @@ model Media {
 
   post Post @relation(fields: [post_id], references: [id], onDelete: Cascade)
   User User @relation(fields: [user_id], references: [id])
+
+  @@index([post_id])
 }
 
 enum MediaType {

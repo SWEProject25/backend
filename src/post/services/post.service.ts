@@ -93,6 +93,7 @@ export interface FeedPostResponse {
     // Tweet Content
     text: string;
     media: Array<{ url: string; type: MediaType }>;
+    mentions?: Mention[];
   };
 
   // Scores data
@@ -164,6 +165,7 @@ export interface PostWithAllData extends Post {
       avatar: string | null;
     };
     media: Array<{ url: string; type: MediaType }>;
+    mentions?: Mention[];
   };
   mentions?: Mention[];
 }
@@ -1564,12 +1566,21 @@ candidate_posts AS (
     EXISTS(SELECT 1 FROM user_follows uf WHERE uf.following_id = ap."user_id") as "isFollowedByMe",
     EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isRepostedByMe",
     
-    -- Media URLs (as JSON array)
+       -- Media URLs (as JSON array)
     COALESCE(
       (SELECT json_agg(json_build_object('url', m."media_url", 'type', m."type"))
        FROM "Media" m WHERE m."post_id" = ap."id"),
       '[]'::json
     ) as "mediaUrls",
+    
+    -- Mentions (as JSON array)
+    COALESCE(
+      (SELECT json_agg(json_build_object('user', json_build_object('id', mu."id", 'username', mu."username")))
+       FROM "Mention" men
+       INNER JOIN "User" mu ON mu."id" = men."user_id"
+       WHERE men."post_id" = ap."id"),
+      '[]'::json
+    ) as "mentions",
     
     -- Original post for quotes only
     CASE 
@@ -1591,9 +1602,16 @@ candidate_posts AS (
             'name', COALESCE(opr."name", ou."username"),
             'avatar', opr."profile_image_url"
           ),
-          'media', COALESCE(
+            'media', COALESCE(
             (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type"))
              FROM "Media" om WHERE om."post_id" = op."id"),
+            '[]'::json
+          ),
+          'mentions', COALESCE(
+            (SELECT json_agg(json_build_object('user', json_build_object('id', omu."id", 'username', omu."username")))
+             FROM "Mention" omen
+             INNER JOIN "User" omu ON omu."id" = omen."user_id"
+             WHERE omen."post_id" = op."id"),
             '[]'::json
           )
         )
@@ -1763,7 +1781,7 @@ SELECT * FROM candidate_posts;
       FROM "blocks"
       WHERE "blockerId" = ${userId}
     ),
-    -- Get original posts and quotes from followed users (filter by type and mutes)
+       -- Get original posts and quotes from followed users AND the user themselves
     original_posts AS (
       SELECT 
         p."id",
@@ -1778,13 +1796,16 @@ SELECT * FROM candidate_posts;
         p."created_at" as "effectiveDate",
         NULL::jsonb as "repostedBy"
       FROM "posts" p
-      INNER JOIN following f ON p."user_id" = f.id
       WHERE p."is_deleted" = FALSE
         AND p."type" IN ('POST', 'QUOTE')
+        AND (
+          p."user_id" = ${userId}
+          OR EXISTS (SELECT 1 FROM following f WHERE f.id = p."user_id")
+        )
         AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
         AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
     ),
-    -- Get reposts from followed users (only reposts of POST or QUOTE types, exclude muted users)
+       -- Get reposts from followed users AND the user themselves
     repost_items AS (
       SELECT 
         p."id",
@@ -1805,12 +1826,15 @@ SELECT * FROM candidate_posts;
           'avatar', rpr."profile_image_url"
         )::jsonb as "repostedBy"
       FROM "Repost" r
-      INNER JOIN following f ON r."user_id" = f.id
       INNER JOIN "posts" p ON r."post_id" = p."id"
       INNER JOIN "User" ru ON r."user_id" = ru."id"
       LEFT JOIN "profiles" rpr ON rpr."user_id" = ru."id"
       WHERE p."is_deleted" = FALSE
         AND p."type" IN ('POST', 'QUOTE')
+        AND (
+          r."user_id" = ${userId}
+          OR EXISTS (SELECT 1 FROM following f WHERE f.id = r."user_id")
+        )
         AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
         AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
         AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = r."user_id")
@@ -1868,12 +1892,21 @@ SELECT * FROM candidate_posts;
         TRUE as "isFollowedByMe",
         EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isRepostedByMe",
         
-        -- Media URLs (as JSON array)
+              -- Media URLs (as JSON array)
         COALESCE(
           (SELECT json_agg(json_build_object('url', med."media_url", 'type', med."type"))
            FROM "Media" med WHERE med."post_id" = ap."id"),
           '[]'::json
         ) as "mediaUrls",
+        
+        -- Mentions (as JSON array)
+        COALESCE(
+          (SELECT json_agg(json_build_object('user', json_build_object('id', mu."id", 'username', mu."username")))
+           FROM "Mention" men
+           INNER JOIN "User" mu ON mu."id" = men."user_id"
+           WHERE men."post_id" = ap."id"),
+          '[]'::json
+        ) as "mentions",
         
         -- Original post for quotes only
         CASE 
@@ -1895,9 +1928,16 @@ SELECT * FROM candidate_posts;
                 'name', COALESCE(opr."name", ou."username"),
                 'avatar', opr."profile_image_url"
               ),
-              'media', COALESCE(
+                'media', COALESCE(
                 (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type"))
                  FROM "Media" om WHERE om."post_id" = op."id"),
+                '[]'::json
+              ),
+              'mentions', COALESCE(
+                (SELECT json_agg(json_build_object('user', json_build_object('id', omu."id", 'username', omu."username")))
+                 FROM "Mention" omen
+                 INNER JOIN "User" omu ON omu."id" = omen."user_id"
+                 WHERE omen."post_id" = op."id"),
                 '[]'::json
               )
             )
@@ -2014,9 +2054,10 @@ SELECT * FROM candidate_posts;
               isRepostedByMe: post.isRepostedByMe || false,
               text: post.content || '',
               media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+              mentions: Array.isArray(post.mentions) ? post.mentions : [],
               ...(isQuote && post.originalPost
                 ? {
-                    // Override with quoted post data for quotes
+                    // Override with original post data for quotes
                     userId: post.originalPost.author.userId,
                     username: post.originalPost.author.username,
                     verified: post.originalPost.author.isVerified,
@@ -2032,6 +2073,7 @@ SELECT * FROM candidate_posts;
                     isRepostedByMe: post.originalPost.isRepostedByMe,
                     text: post.originalPost.content || '',
                     media: post.originalPost.media || [],
+                    mentions: post.originalPost.mentions || [],
                   }
                 : {}),
             }
@@ -2041,6 +2083,7 @@ SELECT * FROM candidate_posts;
       personalizationScore: post.personalizationScore,
       qualityScore: post.qualityScore,
       finalScore: post.finalScore,
+      mentions: Array.isArray(post.mentions) ? post.mentions : [],
     };
   }
 
@@ -2286,6 +2329,15 @@ SELECT * FROM candidate_posts;
         '[]'::json
       ) as "mediaUrls",
       
+      -- Mentions (as JSON array)
+      COALESCE(
+        (SELECT json_agg(json_build_object('user', json_build_object('id', mu."id", 'username', mu."username")))
+         FROM "Mention" men
+         INNER JOIN "User" mu ON mu."id" = men."user_id"
+         WHERE men."post_id" = ap."id"),
+        '[]'::json
+      ) as "mentions",
+      
       -- Original post for quotes only
       CASE 
         WHEN ap."parent_id" IS NOT NULL AND ap."type" = 'QUOTE' THEN
@@ -2306,9 +2358,16 @@ SELECT * FROM candidate_posts;
               'name', COALESCE(opr."name", ou."username"),
               'avatar', opr."profile_image_url"
             ),
-            'media', COALESCE(
+                     'media', COALESCE(
               (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type"))
                FROM "Media" om WHERE om."post_id" = op."id"),
+              '[]'::json
+            ),
+            'mentions', COALESCE(
+              (SELECT json_agg(json_build_object('user', json_build_object('id', omu."id", 'username', omu."username")))
+               FROM "Mention" omen
+               INNER JOIN "User" omu ON omu."id" = omen."user_id"
+               WHERE omen."post_id" = op."id"),
               '[]'::json
             )
           )
@@ -2655,12 +2714,21 @@ SELECT * FROM candidate_posts;
       EXISTS(SELECT 1 FROM user_follows uf WHERE uf.following_id = ap."user_id") as "isFollowedByMe",
       EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isRepostedByMe",
       
-      -- Media URLs (as JSON array)
+            -- Media URLs (as JSON array)
       COALESCE(
         (SELECT json_agg(json_build_object('url', m."media_url", 'type', m."type"))
          FROM "Media" m WHERE m."post_id" = ap."id"),
         '[]'::json
       ) as "mediaUrls",
+      
+      -- Mentions (as JSON array)
+      COALESCE(
+        (SELECT json_agg(json_build_object('user', json_build_object('id', mu."id", 'username', mu."username")))
+         FROM "Mention" men
+         INNER JOIN "User" mu ON mu."id" = men."user_id"
+         WHERE men."post_id" = ap."id"),
+        '[]'::json
+      ) as "mentions",
       
       -- Original post for quotes only
       CASE 
@@ -2685,6 +2753,13 @@ SELECT * FROM candidate_posts;
             'media', COALESCE(
               (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type"))
                FROM "Media" om WHERE om."post_id" = op."id"),
+              '[]'::json
+            ),
+            'mentions', COALESCE(
+              (SELECT json_agg(json_build_object('user', json_build_object('id', omu."id", 'username', omu."username")))
+               FROM "Mention" omen
+               INNER JOIN "User" omu ON omu."id" = omen."user_id"
+               WHERE omen."post_id" = op."id"),
               '[]'::json
             )
           )
@@ -2803,6 +2878,7 @@ SELECT * FROM candidate_posts;
     "isFollowedByMe",
     "isRepostedByMe",
     "mediaUrls",
+    "mentions",    
     "originalPost",
     "personalizationScore"
   FROM ranked_posts
