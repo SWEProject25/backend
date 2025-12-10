@@ -8,7 +8,7 @@ import {
   OnGatewayDisconnect,
   OnGatewayInit,
 } from '@nestjs/websockets';
-import { forwardRef, Inject, UnauthorizedException, UseFilters } from '@nestjs/common';
+import { forwardRef, Inject, UnauthorizedException, UseFilters, ForbiddenException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { Services } from 'src/utils/constants';
 import { Server, Socket } from 'socket.io';
@@ -227,6 +227,12 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
       };
     } catch (error) {
       console.error(`Error creating message: ${error.message}`);
+      if (error instanceof ForbiddenException) {
+        return {
+          status: 'error',
+          message: error.message,
+        };
+      }
       throw error;
     }
   }
@@ -274,6 +280,12 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
       };
     } catch (error) {
       console.error(`Error updating message: ${error.message}`);
+      if (error instanceof ForbiddenException) {
+        return {
+          status: 'error',
+          message: error.message,
+        };
+      }
       throw error;
     }
   }
