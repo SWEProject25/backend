@@ -82,6 +82,7 @@ export interface TransformedPost {
   isBlockedByMe: boolean;
   text: string | null;
   media: { url: string; type: string }[];
+  mentions: { userId: number; username: string }[];
   isRepost: boolean;
   isQuote: boolean;
   originalPostData?: TransformedPost;
