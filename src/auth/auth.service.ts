@@ -53,10 +53,10 @@ export class AuthService {
     const isVerified = await this.redisService.get(
       `${ISVERIFIED_CACHE_PREFIX}${createUserDto.email}`,
     );
-    // if (!isVerified) {
-    //   throw new BadRequestException('Account is not verified, please verify the email first');
-    // }
-    const user = this.userService.create(createUserDto, true);
+    if (!isVerified) {
+      throw new BadRequestException('Account is not verified, please verify the email first');
+    }
+    const user = this.userService.create(createUserDto, isVerified === 'true');
 
     await this.redisService.del(`${ISVERIFIED_CACHE_PREFIX}${createUserDto.email}`);
     return user;
