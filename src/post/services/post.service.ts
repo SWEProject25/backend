@@ -615,7 +615,10 @@ export class PostService {
           p.is_deleted = false
           ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
           ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
-          AND similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+          AND (
+            p.content ILIKE ${'%' + searchQuery + '%'}
+            OR similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+          )
           ${beforeDateFilter}
           ${blockMuteFilter}
       `,
@@ -727,7 +730,10 @@ export class PostService {
           p.is_deleted = false
           ${userId ? PrismalSql.sql`AND p.user_id = ${userId}` : PrismalSql.empty}
           ${type ? PrismalSql.sql`AND p.type = ${type}::"PostType"` : PrismalSql.empty}
-          AND similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+          AND (
+            p.content ILIKE ${'%' + searchQuery + '%'}
+            OR similarity(p.content, ${searchQuery}) > ${similarityThreshold}
+          )
           ${beforeDateFilter}
           ${blockMuteFilter}
         GROUP BY p.id, u.id, u.username, u.is_verifed, pr.name, pr.profile_image_url
