@@ -9,6 +9,7 @@ describe('MessagesController', () => {
 
   const mockMessagesService = {
     getConversationMessages: jest.fn(),
+    getConversationLostMessages: jest.fn(),
     remove: jest.fn(),
     getUnseenMessagesCount: jest.fn(),
   };
@@ -95,6 +96,57 @@ describe('MessagesController', () => {
         ...mockResult,
       });
       expect(messagesService.getConversationMessages).toHaveBeenCalledWith(1, 1, 15, 10);
+    });
+  });
+
+  describe('getLostMessages', () => {
+    it('should return lost messages successfully', async () => {
+      const mockResult = {
+        data: [
+          {
+            id: 11,
+            conversationId: 1,
+            text: 'New message',
+            senderId: 2,
+            isSeen: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+        metadata: {
+          totalItems: 1,
+          firstMessageId: 11,
+        },
+      };
+
+      mockMessagesService.getConversationLostMessages.mockResolvedValue(mockResult);
+
+      const result = await controller.getLostMessages(mockUser as any, 1, 10);
+
+      expect(result).toEqual({
+        status: 'success',
+        ...mockResult,
+      });
+      expect(messagesService.getConversationLostMessages).toHaveBeenCalledWith(1, 1, 10);
+    });
+
+    it('should return empty array when no lost messages', async () => {
+      const mockResult = {
+        data: [],
+        metadata: {
+          totalItems: 0,
+          firstMessageId: null,
+        },
+      };
+
+      mockMessagesService.getConversationLostMessages.mockResolvedValue(mockResult);
+
+      const result = await controller.getLostMessages(mockUser as any, 1, 100);
+
+      expect(result).toEqual({
+        status: 'success',
+        ...mockResult,
+      });
     });
   });
 
