@@ -22,7 +22,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { SocketService } from 'src/gateway/socket.service';
 
 import { MLService } from './ml.service';
-import { Mention, RawPost, RepostedPost, TransformedPost } from '../interfaces/post.interface';
+import { RawPost, RepostedPost, TransformedPost } from '../interfaces/post.interface';
 import { HashtagTrendService } from './hashtag-trends.service';
 import { extractHashtags } from 'src/utils/extractHashtags';
 
@@ -93,14 +93,14 @@ export interface FeedPostResponse {
     // Tweet Content
     text: string;
     media: Array<{ url: string; type: MediaType }>;
-    mentions?: Mention[];
+    mentions?: Array<{ userId: number; username: string }>;
   };
 
   // Scores data
   personalizationScore: number;
   qualityScore?: number;
   finalScore?: number;
-  mentions?: Mention[];
+  mentions?: Array<{ userId: number; username: string }>;
 }
 
 export interface PostWithAllData extends Post {
@@ -165,9 +165,9 @@ export interface PostWithAllData extends Post {
       avatar: string | null;
     };
     media: Array<{ url: string; type: MediaType }>;
-    mentions?: Mention[];
+    mentions?: Array<{ userId: number; username: string }>;
   };
-  mentions?: Mention[];
+  mentions?: Array<{ userId: number; username: string }>;
 }
 
 // Minimal interface for ML service input
@@ -1575,7 +1575,7 @@ candidate_posts AS (
     
     -- Mentions (as JSON array)
     COALESCE(
-      (SELECT json_agg(json_build_object('user', json_build_object('id', mu."id", 'username', mu."username")))
+      (SELECT json_agg(json_build_object('userId', mu."id"::text, 'username', mu."username"))
        FROM "Mention" men
        INNER JOIN "User" mu ON mu."id" = men."user_id"
        WHERE men."post_id" = ap."id"),
@@ -1608,7 +1608,7 @@ candidate_posts AS (
             '[]'::json
           ),
           'mentions', COALESCE(
-            (SELECT json_agg(json_build_object('user', json_build_object('id', omu."id", 'username', omu."username")))
+            (SELECT json_agg(json_build_object('userId', omu."id"::text, 'userName', omu."username"))
              FROM "Mention" omen
              INNER JOIN "User" omu ON omu."id" = omen."user_id"
              WHERE omen."post_id" = op."id"),
@@ -1901,7 +1901,7 @@ SELECT * FROM candidate_posts;
         
         -- Mentions (as JSON array)
         COALESCE(
-          (SELECT json_agg(json_build_object('user', json_build_object('id', mu."id", 'username', mu."username")))
+          (SELECT json_agg(json_build_object('userId', mu."id"::text, 'username', mu."username"))
            FROM "Mention" men
            INNER JOIN "User" mu ON mu."id" = men."user_id"
            WHERE men."post_id" = ap."id"),
@@ -1934,7 +1934,7 @@ SELECT * FROM candidate_posts;
                 '[]'::json
               ),
               'mentions', COALESCE(
-                (SELECT json_agg(json_build_object('user', json_build_object('id', omu."id", 'username', omu."username")))
+                (SELECT json_agg(json_build_object('userId', omu."id"::text, 'username', omu."username"))
                  FROM "Mention" omen
                  INNER JOIN "User" omu ON omu."id" = omen."user_id"
                  WHERE omen."post_id" = op."id"),
@@ -2331,7 +2331,7 @@ SELECT * FROM candidate_posts;
       
       -- Mentions (as JSON array)
       COALESCE(
-        (SELECT json_agg(json_build_object('user', json_build_object('id', mu."id", 'username', mu."username")))
+        (SELECT json_agg(json_build_object('userId', mu."id"::text, 'username', mu."username"))
          FROM "Mention" men
          INNER JOIN "User" mu ON mu."id" = men."user_id"
          WHERE men."post_id" = ap."id"),
@@ -2364,7 +2364,7 @@ SELECT * FROM candidate_posts;
               '[]'::json
             ),
             'mentions', COALESCE(
-              (SELECT json_agg(json_build_object('user', json_build_object('id', omu."id", 'username', omu."username")))
+              (SELECT json_agg(json_build_object('userId', omu."id"::text, 'username', omu."username"))
                FROM "Mention" omen
                INNER JOIN "User" omu ON omu."id" = omen."user_id"
                WHERE omen."post_id" = op."id"),
@@ -2723,7 +2723,7 @@ SELECT * FROM candidate_posts;
       
       -- Mentions (as JSON array)
       COALESCE(
-        (SELECT json_agg(json_build_object('user', json_build_object('id', mu."id", 'username', mu."username")))
+        (SELECT json_agg(json_build_object('userId', mu."id"::text, 'username', mu."username"))
          FROM "Mention" men
          INNER JOIN "User" mu ON mu."id" = men."user_id"
          WHERE men."post_id" = ap."id"),
@@ -2756,7 +2756,7 @@ SELECT * FROM candidate_posts;
               '[]'::json
             ),
             'mentions', COALESCE(
-              (SELECT json_agg(json_build_object('user', json_build_object('id', omu."id", 'username', omu."username")))
+              (SELECT json_agg(json_build_object('userId', omu."id"::text, 'username', omu."username"))
                FROM "Mention" omen
                INNER JOIN "User" omu ON omu."id" = omen."user_id"
                WHERE omen."post_id" = op."id"),
