@@ -367,7 +367,7 @@ export class PostService {
           content: postData.content,
           type: postData.type,
           parent_id: postData.parentId,
-          visibility: postData.visibility,
+          visibility: PostVisibility.EVERY_ONE,
           user_id: postData.userId,
           hashtags: {
             connect: hashtagRecords.map((record) => ({ id: record.id })),
@@ -556,8 +556,6 @@ export class PostService {
         is_deleted: false,
       }
       : {
-        // TODO: improve this fallback
-        visibility: PostVisibility.EVERY_ONE, // fallback: only public posts
         is_deleted: false,
       };
 
