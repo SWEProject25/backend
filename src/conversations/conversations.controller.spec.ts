@@ -11,6 +11,8 @@ describe('ConversationsController', () => {
     create: jest.fn(),
     getConversationsForUser: jest.fn(),
     getUnseenConversationsCount: jest.fn(),
+    getConversationById: jest.fn(),
+    getConversationUnseenMessagesCount: jest.fn(),
   };
 
   const mockUser = {
@@ -222,6 +224,118 @@ describe('ConversationsController', () => {
         status: 'success',
         unseenCount: 0,
       });
+    });
+  });
+
+  describe('getConversationUnseenMessagesCount', () => {
+    it('should return unseen messages count for a conversation', async () => {
+      mockConversationsService.getConversationUnseenMessagesCount.mockResolvedValue(5);
+
+      const result = await controller.getConversationUnseenMessagesCount(mockUser as any, 1);
+
+      expect(result).toEqual({
+        status: 'success',
+        unseenCount: 5,
+      });
+      expect(conversationsService.getConversationUnseenMessagesCount).toHaveBeenCalledWith(1, 1);
+    });
+
+    it('should return 0 if no unseen messages in conversation', async () => {
+      mockConversationsService.getConversationUnseenMessagesCount.mockResolvedValue(0);
+
+      const result = await controller.getConversationUnseenMessagesCount(mockUser as any, 1);
+
+      expect(result).toEqual({
+        status: 'success',
+        unseenCount: 0,
+      });
+    });
+  });
+
+  describe('getConversationById', () => {
+    it('should return conversation details', async () => {
+      const mockResult = {
+        data: {
+          id: 1,
+          updatedAt: new Date(),
+          createdAt: new Date(),
+          unseenCount: 3,
+          lastMessage: {
+            id: 1,
+            text: 'Hello',
+            senderId: 2,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          isBlocked: false,
+          user: {
+            id: 2,
+            username: 'user2',
+            profile_image_url: null,
+            displayName: 'User Two',
+          },
+        },
+      };
+
+      mockConversationsService.getConversationById.mockResolvedValue(mockResult);
+
+      const result = await controller.getConversationById(mockUser as any, 1);
+
+      expect(result).toEqual({
+        status: 'success',
+        ...mockResult,
+      });
+      expect(conversationsService.getConversationById).toHaveBeenCalledWith(1, 1);
+    });
+
+    it('should return conversation with no messages', async () => {
+      const mockResult = {
+        data: {
+          id: 1,
+          updatedAt: new Date(),
+          createdAt: new Date(),
+          unseenCount: 0,
+          lastMessage: null,
+          isBlocked: false,
+          user: {
+            id: 2,
+            username: 'user2',
+            profile_image_url: null,
+            displayName: null,
+          },
+        },
+      };
+
+      mockConversationsService.getConversationById.mockResolvedValue(mockResult);
+
+      const result = await controller.getConversationById(mockUser as any, 1);
+
+      expect(result.data.lastMessage).toBeNull();
+    });
+
+    it('should return blocked conversation', async () => {
+      const mockResult = {
+        data: {
+          id: 1,
+          updatedAt: new Date(),
+          createdAt: new Date(),
+          unseenCount: 0,
+          lastMessage: null,
+          isBlocked: true,
+          user: {
+            id: 2,
+            username: 'blocked_user',
+            profile_image_url: null,
+            displayName: null,
+          },
+        },
+      };
+
+      mockConversationsService.getConversationById.mockResolvedValue(mockResult);
+
+      const result = await controller.getConversationById(mockUser as any, 1);
+
+      expect(result.data.isBlocked).toBe(true);
     });
   });
 });
