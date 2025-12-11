@@ -416,7 +416,7 @@ export class NotificationService {
       const post = posts[0];
       const isQuote = post.type === 'QUOTE' && !!post.parent_id;
 
-      return {
+      const postData: NotificationPostData = {
         userId: post.user_id,
         username: post.username,
         verified: post.isVerified,
@@ -435,8 +435,101 @@ export class NotificationService {
         isRepost: false,
         isQuote,
       };
+
+      // For quote notifications, fetch the original post being quoted
+      if (isQuote && post.parent_id) {
+        const originalPostData = await this.fetchOriginalPostData(post.parent_id, recipientId);
+        if (originalPostData) {
+          postData.originalPostData = originalPostData;
+        }
+      }
+
+      return postData;
     } catch (error) {
       this.logger.error(`Failed to fetch post data for notification`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch original post data for quotes (same format as for-you feed)
+   */
+  private async fetchOriginalPostData(
+    parentPostId: number,
+    recipientId: number,
+  ): Promise<NotificationPostData | null> {
+    try {
+      const posts = await this.prismaService.$queryRaw<any[]>(
+        PrismalSql.sql`
+          SELECT 
+            p.id,
+            p.user_id,
+            p.content,
+            p.created_at,
+            p.type,
+            p.parent_id,
+            
+            -- User/Author info
+            u.username,
+            u.is_verifed as "isVerified",
+            COALESCE(pr.name, u.username) as "authorName",
+            pr.profile_image_url as "authorProfileImage",
+            
+            -- Engagement counts
+            COUNT(DISTINCT l.user_id)::int as "likeCount",
+            COUNT(DISTINCT CASE WHEN reply.id IS NOT NULL THEN reply.id END)::int as "replyCount",
+            COUNT(DISTINCT r.user_id)::int as "repostCount",
+            
+            -- User interaction flags
+            EXISTS(SELECT 1 FROM "Like" WHERE post_id = p.id AND user_id = ${recipientId}) as "isLikedByMe",
+            EXISTS(SELECT 1 FROM follows WHERE "followerId" = ${recipientId} AND "followingId" = p.user_id) as "isFollowedByMe",
+            EXISTS(SELECT 1 FROM "Repost" WHERE post_id = p.id AND user_id = ${recipientId}) as "isRepostedByMe",
+            
+            -- Media URLs (as JSON array)
+            COALESCE(
+              (SELECT json_agg(json_build_object('url', m.media_url, 'type', m.type))
+               FROM "Media" m WHERE m.post_id = p.id),
+              '[]'::json
+            ) as "mediaUrls"
+            
+          FROM posts p
+          LEFT JOIN "User" u ON u.id = p.user_id
+          LEFT JOIN profiles pr ON pr.user_id = u.id
+          LEFT JOIN "Like" l ON l.post_id = p.id
+          LEFT JOIN "Repost" r ON r.post_id = p.id
+          LEFT JOIN posts reply ON reply.parent_id = p.id AND reply.type = 'REPLY' AND reply.is_deleted = false
+          WHERE 
+            p.is_deleted = false
+            AND p.id = ${parentPostId}
+          GROUP BY p.id, u.id, u.username, u.is_verifed, pr.name, pr.profile_image_url
+        `,
+      );
+
+      if (posts.length === 0) return null;
+
+      const post = posts[0];
+
+      return {
+        userId: post.user_id,
+        username: post.username,
+        verified: post.isVerified,
+        name: post.authorName || post.username,
+        avatar: post.authorProfileImage,
+        postId: post.id,
+        date: post.created_at,
+        likesCount: post.likeCount,
+        retweetsCount: post.repostCount,
+        commentsCount: post.replyCount,
+        isLikedByMe: post.isLikedByMe,
+        isFollowedByMe: post.isFollowedByMe,
+        isRepostedByMe: post.isRepostedByMe,
+        text: post.content || '',
+        media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+        isRepost: false,
+        isQuote: false,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to fetch original post data`, error);
       return null;
     }
   }
