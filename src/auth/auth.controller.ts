@@ -994,4 +994,91 @@ export class AuthController {
       message: 'Correct Password',
     };
   }
+
+  @Get('reset-mobile-password')
+  @Public()
+  async redirectToMobileApp(
+    @Query('token') token: string,
+    @Query('id') id: string,
+    @Res() res: Response,
+  ) {
+    if (!token || !id) {
+      return res.status(400).send('Invalid reset link');
+    }
+
+    const deepLink = `${process.env.MOBILE_APP_OAUTH_REDIRECT}?token=${token}&id=${id}`;
+    console.log(deepLink);
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Opening Hankers App...</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f8fa;
+          }
+          .container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 400px;
+          }
+          .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #1da1f2;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          h2 {
+            color: #0f1419;
+            margin-bottom: 10px;
+            font-size: 24px;
+          }
+          p {
+            color: #536471;
+            font-size: 14px;
+            line-height: 1.5;
+          }
+          .note {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #657786;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="spinner"></div>
+          <h2>Opening Hankers App...</h2>
+          <p>Redirecting you to the mobile app to reset your password.</p>
+          <p class="note">If nothing happens, please make sure you have the Hankers app installed.</p>
+        </div>
+        
+        <script>
+          // Redirect to mobile app
+          window.location.href = "${deepLink}";
+        </script>
+      </body>
+      </html>
+    `;
+
+    return res.send(html);
+  }
 }

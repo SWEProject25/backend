@@ -263,7 +263,7 @@ export class EmailService {
     try {
       let template = readFileSync(templatePath, 'utf-8');
       for (const key of Object.keys(variables)) {
-        template = template.replace(`{{${key}}}`, variables[key]);
+        template = template.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), variables[key]);
       }
 
       return template;
