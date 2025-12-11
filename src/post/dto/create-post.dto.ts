@@ -48,17 +48,6 @@ export class CreatePostDto {
   @IsParentIdAllowed()
   parentId?: number;
 
-  @IsEnum(PostVisibility, {
-    message: `Visibility must be one of: ${Object.values(PostVisibility).join(', ')}`,
-  })
-  @IsNotEmpty({ message: 'Visibility is required' })
-  @ApiProperty({
-    description: 'The visibility level of the post (EVERY_ONE, FOLLOWERS, MENTIONED, or VERIFIED)',
-    enum: PostVisibility,
-    example: PostVisibility.EVERY_ONE,
-  })
-  visibility: PostVisibility;
-
   // assigned in the controller
   @ApiPropertyOptional({
     description: 'Media files (images/videos) to attach to the post',
