@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 export * from './update-profile.dto';
 export * from './profile-response.dto';
 export * from './get-profile-response.dto';
