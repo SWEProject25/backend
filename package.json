@@ -129,7 +129,14 @@
     ],
     "coveragePathIgnorePatterns": [
       "\\.module\\.ts$",
-      "\\.spec\\.ts$"
+      "\\.spec\\.ts$",
+      "main\\.ts$",
+      "\\.entity\\.ts$",
+      "\\.interface\\.ts$",
+      "\\.enum\\.ts$",
+      "\\.config\\.ts$",
+      "\\.d\\.ts$",
+      "constants\\.ts$"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
