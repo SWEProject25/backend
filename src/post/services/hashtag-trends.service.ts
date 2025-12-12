@@ -162,7 +162,8 @@ export class HashtagTrendService {
 
     const trends = await this.prismaService.hashtagTrend.findMany({
       where: {
-        category: category,
+        // TODO: => fix for personalized
+        category: category === TrendCategory.PERSONALIZED ? TrendCategory.GENERAL : category,
         calculated_at: { gte: lastHour },
         trending_score: { gt: 0 },
       },
@@ -175,7 +176,7 @@ export class HashtagTrendService {
       take: limit,
       distinct: ['hashtag_id'],
     });
-
+    console.log(trends);
     if (trends.length === 0) {
       this.recalculateTrends(category, userId).catch((err) =>
         this.logger.error(`Background recalculation failed for ${category}:`, err),
@@ -200,7 +201,7 @@ export class HashtagTrendService {
     if (category === TrendCategory.PERSONALIZED && userId) {
       userInterests = await this.usersService.getUserInterests(userId);
       interestSlugs = userInterests.map((userInterests) => userInterests.slug);
-      console.log(userInterests, interestSlugs);
+      console.log(userInterests, interestSlugs, 'from recalc');
     }
     const whereClause: any = {
       posts: {
