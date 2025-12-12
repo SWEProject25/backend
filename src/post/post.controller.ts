@@ -969,7 +969,7 @@ export class PostController {
     @Query('limit') limit: number = 10,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const posts = await this.postService.getUserPosts(user.id, +page, +limit);
+    const posts = await this.postService.getUserPosts(user.id, user.id, +page, +limit);
 
     return {
       status: 'success',
@@ -1064,8 +1064,9 @@ export class PostController {
     @Param('userId') userId: number,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    const posts = await this.postService.getUserPosts(userId, +page, +limit);
+    const posts = await this.postService.getUserPosts(userId, user.id, +page, +limit);
 
     return {
       status: 'success',
