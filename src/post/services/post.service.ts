@@ -439,7 +439,10 @@ export class PostService {
     try {
       const { content, media, userId } = createPostDto;
       await this.checkUsersExistence(createPostDto.mentionsIds ?? []);
-      await this.checkPostExists(createPostDto.parentId!);
+
+      if (createPostDto.parentId) {
+        await this.checkPostExists(createPostDto.parentId);
+      }
       
       urls = await this.storageService.uploadFiles(media);
       const hashtags = extractHashtags(content);

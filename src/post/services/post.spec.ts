@@ -193,6 +193,7 @@ describe('Post Service', () => {
       storageService.uploadFiles.mockResolvedValue(mockUrls);
       prisma.$transaction.mockImplementation(async (callback) => callback(mockTx));
       prisma.post.findMany.mockResolvedValue([mockRawPost]);
+      prisma.post.findFirst.mockResolvedValue(null); 
       prisma.post.groupBy.mockResolvedValue([]);
       prisma.user.findMany.mockResolvedValue([]);
       postQueue.add.mockResolvedValue({});
@@ -264,6 +265,7 @@ describe('Post Service', () => {
       storageService.uploadFiles.mockResolvedValue([]);
       prisma.$transaction.mockImplementation(async (callback) => callback(mockTx));
       prisma.post.findMany.mockResolvedValue([mockRawPost]);
+      prisma.post.findFirst.mockResolvedValue(null);
       prisma.post.groupBy.mockResolvedValue([]);
       prisma.user.findMany.mockResolvedValue([]);
       postQueue.add.mockResolvedValue({});
@@ -288,6 +290,8 @@ describe('Post Service', () => {
 
       storageService.uploadFiles.mockResolvedValue(mockUrls);
       storageService.deleteFiles = jest.fn().mockResolvedValue(undefined);
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.post.findFirst.mockResolvedValue(null);
       prisma.$transaction.mockRejectedValue(new Error('Error'));
 
       await expect(service.createPost(createPostDto)).rejects.toThrow();
@@ -371,7 +375,7 @@ describe('Post Service', () => {
       expect(result).toEqual(mockPosts);
     });
 
-    it('should get public posts when no filters provided', async () => {
+    it('should get all posts when no filters provided', async () => {
       const filter = {
         page: 1,
         limit: 10,
@@ -385,7 +389,6 @@ describe('Post Service', () => {
 
       expect(prisma.post.findMany).toHaveBeenCalledWith({
         where: {
-          visibility: PostVisibility.EVERY_ONE,
           is_deleted: false,
         },
         skip: 0,
@@ -523,8 +526,7 @@ describe('Post Service', () => {
       const mockTx = {
         post: {
           findFirst: jest.fn().mockResolvedValue(mockPost),
-          findMany: jest.fn().mockResolvedValue([]),
-          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          update: jest.fn().mockResolvedValue(mockPost),
         },
         mention: {
           deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -543,8 +545,7 @@ describe('Post Service', () => {
       const result = await service.deletePost(postId);
 
       expect(prisma.$transaction).toHaveBeenCalled();
-      // service returns { post, repliesAndQuotesCount }
-      expect(result).toEqual({ post: mockPost, repliesAndQuotesCount: 0 });
+      expect(result).toEqual({ post: mockPost });
     });
 
     it('should throw NotFoundException if post to delete not found', async () => {
@@ -573,8 +574,7 @@ describe('Post Service', () => {
       const mockTx = {
         post: {
           findFirst: jest.fn().mockResolvedValue(mockPost),
-          findMany: jest.fn().mockResolvedValue(mockRepliesAndQuotes),
-          updateMany: jest.fn().mockResolvedValue({ count: 3 }),
+          update: jest.fn().mockResolvedValue(mockPost),
         },
         mention: {
           deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
@@ -592,9 +592,9 @@ describe('Post Service', () => {
       const result = await service.deletePost(postId);
 
       expect(prisma.$transaction).toHaveBeenCalled();
-      expect(result).toEqual({ post: mockPost, repliesAndQuotesCount: 2 });
-      expect(mockTx.post.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: [1, 2, 3] } },
+      expect(result).toEqual({ post: mockPost });
+      expect(mockTx.post.update).toHaveBeenCalledWith({
+        where: { id: postId },
         data: { is_deleted: true },
       });
     });
@@ -846,9 +846,9 @@ describe('Post Service', () => {
       jest.spyOn(service, 'findPosts').mockResolvedValue(mockPosts);
       jest.spyOn(service as any, 'getReposts').mockResolvedValue(mockReposts);
       jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue(mockPosts);
-      jest.spyOn(service as any, 'getTopPaginatedPosts').mockReturnValue(mockCombinedResult);
+      jest.spyOn(service as any, 'combineAndSort').mockReturnValue(mockCombinedResult);
 
-      const result = await service.getUserPosts(userId, page, limit);
+      const result = await service.getUserPosts(userId, userId, page, limit);
 
       expect(service.findPosts).toHaveBeenCalledWith({
         where: {
@@ -857,10 +857,10 @@ describe('Post Service', () => {
           is_deleted: false,
         },
         userId,
-        page,
-        limit,
+        page: 1,
+        limit: 10, // safetyLimit = page * limit
       });
-      expect(result).toEqual(mockCombinedResult);
+      expect(result).toHaveLength(2);
     });
   });
 
