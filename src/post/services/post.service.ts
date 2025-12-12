@@ -1079,7 +1079,7 @@ export class PostService {
     };
   }
 
-  private async getReposts(userId: number, page: number, limit: number): Promise<RepostedPost[]> {
+  private async getReposts(userId: number,currentUserId: number, page: number, limit: number): Promise<RepostedPost[]> {
     const reposts = await this.prismaService.repost.findMany({
       where: {
         user_id: userId,
@@ -1100,15 +1100,15 @@ export class PostService {
               },
             },
             Followers: {
-              where: { followerId: userId },
+              where: { followerId: currentUserId },
               select: { followerId: true },
             },
             Muters: {
-              where: { muterId: userId },
+              where: { muterId: currentUserId },
               select: { muterId: true },
             },
             Blockers: {
-              where: { blockerId: userId },
+              where: { blockerId: currentUserId },
               select: { blockerId: true },
             },
           },
@@ -1128,12 +1128,12 @@ export class PostService {
         id: { in: originalPostIds },
         is_deleted: false,
       },
-      userId,
+      userId: currentUserId,
       page,
       limit: originalPostIds.length,
     });
 
-    const enrichedOriginalParentData = await this.enrichIfQuoteOrReply(originalPostData, userId);
+    const enrichedOriginalParentData = await this.enrichIfQuoteOrReply(originalPostData, currentUserId);
 
     const postMap = new Map<number, any>();
     enrichedOriginalParentData.forEach((p) => postMap.set(p.postId, p));
@@ -1153,7 +1153,7 @@ export class PostService {
     }));
   }
 
-  async getUserPosts(userId: number, page: number, limit: number) {
+  async getUserPosts(userId: number,currentUserId: number, page: number, limit: number) {
     // includes reposts, posts, and quotes
     const safetyLimit = page * limit;
     const offset = (page - 1) * limit;
@@ -1165,13 +1165,13 @@ export class PostService {
           type: { in: [PostType.POST, PostType.QUOTE] },
           is_deleted: false,
         },
-        userId,
+        userId: currentUserId,
         page: 1,
         limit: safetyLimit,
       }),
-      this.getReposts(userId, 1, safetyLimit),
+      this.getReposts(userId, currentUserId, 1, safetyLimit),
     ]);
-    const enrichIfQuoteOrReply = await this.enrichIfQuoteOrReply(posts, userId);
+    const enrichIfQuoteOrReply = await this.enrichIfQuoteOrReply(posts, currentUserId);
 
     const combined = this.combineAndSort(enrichIfQuoteOrReply, reposts);
     return combined.slice(offset, offset + limit);
