@@ -21,6 +21,14 @@ describe('ProfileService', () => {
     },
     follow: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+    },
+    block: {
+      findUnique: jest.fn(),
+    },
+    mute: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
     },
   };
 
@@ -35,6 +43,7 @@ describe('ProfileService', () => {
     email: true,
     role: true,
     created_at: true,
+    is_verified: true,
     _count: {
       select: {
         Followers: true,
@@ -62,6 +71,7 @@ describe('ProfileService', () => {
       email: 'john@example.com',
       role: 'USER',
       created_at: new Date(),
+      is_verified: false,
       _count: {
         Followers: 10,
         Following: 5,
@@ -120,10 +130,15 @@ describe('ProfileService', () => {
         followerId: 2,
         followingId: 1,
       });
+      mockPrismaService.block.findUnique.mockResolvedValue(null);
+      mockPrismaService.mute.findUnique.mockResolvedValue(null);
 
       const result = await service.getProfileByUserId(1, 2);
 
       expect(result).toHaveProperty('is_followed_by_me', true);
+      expect(result).toHaveProperty('is_been_blocked', false);
+      expect(result).toHaveProperty('is_blocked_by_me', false);
+      expect(result).toHaveProperty('is_muted_by_me', false);
       expect(mockPrismaService.follow.findUnique).toHaveBeenCalledWith({
         where: {
           followerId_followingId: {
@@ -137,6 +152,8 @@ describe('ProfileService', () => {
     it('should return is_followed_by_me as false when not following', async () => {
       mockPrismaService.profile.findUnique.mockResolvedValue(mockProfile);
       mockPrismaService.follow.findUnique.mockResolvedValue(null);
+      mockPrismaService.block.findUnique.mockResolvedValue(null);
+      mockPrismaService.mute.findUnique.mockResolvedValue(null);
 
       const result = await service.getProfileByUserId(1, 2);
 
@@ -170,6 +187,49 @@ describe('ProfileService', () => {
         }),
       );
     });
+
+    it('should return verified status correctly', async () => {
+      const verifiedProfile = {
+        ...mockProfile,
+        User: {
+          ...mockProfile.User,
+          is_verified: true,
+        },
+      };
+      mockPrismaService.profile.findUnique.mockResolvedValue(verifiedProfile);
+
+      const result = await service.getProfileByUserId(1);
+
+      expect(result).toHaveProperty('verified', true);
+    });
+
+    it('should identify complex relationship statuses', async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue(mockProfile);
+
+      // Order of calls:
+      // 1. isFollowedByMe (me -> them)
+      // 2. isFollowingMe (them -> me)
+      mockPrismaService.follow.findUnique
+        .mockResolvedValueOnce({ followerId: 2, followingId: 1 })
+        .mockResolvedValueOnce({ followerId: 1, followingId: 2 });
+
+      // 3. isBeenBlocked (them -> me)
+      // 4. isBlockedByMe (me -> them)
+      mockPrismaService.block.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ blockerId: 2, blockedId: 1 });
+
+      // 5. isMutedByMe (me -> them)
+      mockPrismaService.mute.findUnique.mockResolvedValue({ muterId: 2, mutedId: 1 });
+
+      const result = await service.getProfileByUserId(1, 2);
+
+      expect(result.is_followed_by_me).toBe(true);
+      expect(result.is_following_me).toBe(true);
+      expect(result.is_been_blocked).toBe(false);
+      expect(result.is_blocked_by_me).toBe(true);
+      expect(result.is_muted_by_me).toBe(true);
+    });
   });
 
   describe('getProfileByUsername', () => {
@@ -201,10 +261,34 @@ describe('ProfileService', () => {
         followerId: 2,
         followingId: 1,
       });
+      mockPrismaService.block.findUnique.mockResolvedValue(null);
+      mockPrismaService.mute.findUnique.mockResolvedValue(null);
 
       const result = await service.getProfileByUsername('john_doe', 2);
 
-      expect(result).toHaveProperty('is_followed_by_me', true);
+      expect(result).toHaveProperty('is_muted_by_me', false);
+    });
+
+    it('should identify complex relationship statuses for username', async () => {
+      mockPrismaService.profile.findFirst.mockResolvedValue(mockProfile);
+
+      mockPrismaService.follow.findUnique
+        .mockResolvedValueOnce({ followerId: 2, followingId: 1 })
+        .mockResolvedValueOnce({ followerId: 1, followingId: 2 });
+
+      mockPrismaService.block.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ blockerId: 2, blockedId: 1 });
+
+      mockPrismaService.mute.findUnique.mockResolvedValue({ muterId: 2, mutedId: 1 });
+
+      const result = await service.getProfileByUsername('john_doe', 2);
+
+      expect(result.is_followed_by_me).toBe(true);
+      expect(result.is_following_me).toBe(true);
+      expect(result.is_been_blocked).toBe(false);
+      expect(result.is_blocked_by_me).toBe(true);
+      expect(result.is_muted_by_me).toBe(true);
     });
 
     it('should throw NotFoundException when username not found', async () => {
@@ -414,6 +498,54 @@ describe('ProfileService', () => {
       expect(result.profiles).toHaveLength(0);
       expect(result.total).toBe(0);
       expect(result.totalPages).toBe(0);
+    });
+
+    it('should map follow/mute status correctly for search results', async () => {
+      mockPrismaService.profile.count.mockResolvedValue(1);
+      mockPrismaService.profile.findMany.mockResolvedValue([mockProfile]);
+
+      // Mock batch lookups
+      // 1. followRelations (is_followed_by_me)
+      mockPrismaService.follow.findMany
+        .mockResolvedValueOnce([{ followingId: 1 }])
+        // 2. followingMeRelations (is_following_me)
+        .mockResolvedValueOnce([{ followerId: 1 }]);
+
+      // 3. muteRelations (is_muted_by_me)
+      mockPrismaService.mute.findMany.mockResolvedValue([{ mutedId: 1 }]);
+
+      const result = await service.searchProfiles('test', 1, 10, 2);
+
+      expect(result.profiles[0].is_followed_by_me).toBe(true);
+      expect(result.profiles[0].is_following_me).toBe(true);
+      expect(result.profiles[0].is_muted_by_me).toBe(true);
+    });
+
+    it('should handle search with authenticated user but no relationships', async () => {
+      mockPrismaService.profile.count.mockResolvedValue(1);
+      mockPrismaService.profile.findMany.mockResolvedValue([mockProfile]);
+
+      mockPrismaService.follow.findMany.mockResolvedValue([]);
+      mockPrismaService.mute.findMany.mockResolvedValue([]);
+
+      const result = await service.searchProfiles('test', 1, 10, 2);
+
+      expect(result.profiles[0].is_followed_by_me).toBe(false);
+      expect(result.profiles[0].is_following_me).toBe(false);
+      expect(result.profiles[0].is_muted_by_me).toBe(false);
+    });
+
+    it('should map verified status correctly in search results', async () => {
+      const verifiedProfile = {
+        ...mockProfile,
+        User: { ...mockProfile.User, is_verified: true },
+      };
+      mockPrismaService.profile.count.mockResolvedValue(1);
+      mockPrismaService.profile.findMany.mockResolvedValue([verifiedProfile]);
+
+      const result = await service.searchProfiles('test');
+
+      expect(result.profiles[0].verified).toBe(true);
     });
   });
 

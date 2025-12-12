@@ -43,10 +43,10 @@ export class ProfileService {
   private formatProfileResponseWithFollowStatus(
     profile: any,
     isFollowedByMe: boolean,
-    isBeenBlocked: boolean = false,
-    isBlockedByMe: boolean = false,
-    isMutedByMe: boolean = false,
-    isFollowingMe: boolean = false,
+    isBeenBlocked: boolean,
+    isBlockedByMe: boolean,
+    isMutedByMe: boolean,
+    isFollowingMe: boolean,
   ) {
     const { User, ...profileData } = profile;
     const { _count, ...userData } = User;
