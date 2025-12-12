@@ -25,6 +25,7 @@ export interface NotificationPostData {
   media: Array<{ url: string; type: string }>;
   isRepost: boolean;
   isQuote: boolean;
+  originalPostData?: NotificationPostData;
 }
 
 export interface NotificationPayload {
