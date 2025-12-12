@@ -13,9 +13,11 @@ export class RepostService {
     private readonly eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => Services.POST))
     private readonly postService: PostService,
-  ) {}
+  ) { }
+
 
   async toggleRepost(postId: number, userId: number) {
+    await this.postService.checkPostExists(postId);
     return this.prismaService.$transaction(async (tx) => {
       const repost = await tx.repost.findUnique({
         where: { post_id_user_id: { post_id: postId, user_id: userId } },
@@ -60,7 +62,7 @@ export class RepostService {
   }
 
   async getReposters(postId: number, page: number, limit: number) {
-    return this.prismaService.repost.findMany({
+    const reposters = await this.prismaService.repost.findMany({
       where: {
         post_id: postId,
       },
@@ -69,13 +71,27 @@ export class RepostService {
           select: {
             id: true,
             username: true,
-            email: true,
             is_verified: true,
+            Profile: {
+              select: {
+                name: true,
+                profile_image_url: true
+              }
+            }
           },
         },
       },
       skip: (page - 1) * limit,
       take: limit,
     });
+
+    return reposters.map(reposter => ({
+      id: reposter.user.id,
+      username: reposter.user.username,
+      verified: reposter.user.is_verified,
+      name: reposter.user.Profile?.name,
+      profileImageUrl: reposter.user.Profile?.profile_image_url
+    }))
   }
+
 }

@@ -327,7 +327,7 @@ export class PostService {
     const parentPostIds = filteredPosts.map((p) => p.parentId!);
 
     const parentPosts = await this.findPosts({
-      where: { id: { in: parentPostIds } },
+      where: { id: { in: parentPostIds }, is_deleted: false },
       userId: userId,
       page: 1,
       limit: parentPostIds.length,
@@ -338,7 +338,7 @@ export class PostService {
 
     return post.map((p) => {
       if ((p.type === PostType.QUOTE || p.type === PostType.REPLY) && p.parentId) {
-        p.originalPostData = parentPostsMap.get(p.parentId);
+        p.originalPostData = parentPostsMap.get(p.parentId) || {isDeleted: true};
       }
       return p;
     });
@@ -425,16 +425,25 @@ export class PostService {
     }
   }
 
+  async checkPostExists(postId: number) {
+    const post = await this.prismaService.post.findFirst({
+      where: { id: postId, is_deleted: false },
+    });
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+  }
+
   async createPost(createPostDto: CreatePostDto) {
     let urls: string[] = [];
     try {
       const { content, media, userId } = createPostDto;
-      urls = await this.storageService.uploadFiles(media);
-
       await this.checkUsersExistence(createPostDto.mentionsIds ?? []);
-
+      await this.checkPostExists(createPostDto.parentId!);
+      
+      urls = await this.storageService.uploadFiles(media);
       const hashtags = extractHashtags(content);
-
+      
       const mediaWithType = this.getMediaWithType(urls, media);
 
       const { post, hashtagIds, parentPostAuthorId } = await this.createPostTransaction(
@@ -1083,8 +1092,10 @@ export class PostService {
       limit: originalPostIds.length,
     });
 
+    const enrichedOriginalParentData = await this.enrichIfQuoteOrReply(originalPostData, userId);
+
     const postMap = new Map<number, any>();
-    originalPostData.forEach((p) => postMap.set(p.postId, p));
+    enrichedOriginalParentData.forEach((p) => postMap.set(p.postId, p));
 
     // 5. Embed original post data into reposts
     return reposts.map((r) => ({
@@ -1101,33 +1112,11 @@ export class PostService {
     }));
   }
 
-  private getTopPaginatedPosts(
-    posts: TransformedPost[],
-    reposts: RepostedPost[],
-    page: number,
-    limit: number,
-  ) {
-    const combined = [
-      ...posts.map((p) => ({
-        ...p,
-        isRepost: false,
-      })),
-      ...reposts.map((r) => ({
-        ...r,
-        isRepost: true,
-      })),
-    ];
-
-    combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-    const start = (page - 1) * limit;
-    const end = start + limit;
-    const paginated = combined.slice(start, end);
-    return paginated;
-  }
-
   async getUserPosts(userId: number, page: number, limit: number) {
     // includes reposts, posts, and quotes
+    const safetyLimit = page * limit;
+    const offset = (page - 1) * limit;
+
     const [posts, reposts] = await Promise.all([
       this.findPosts({
         where: {
@@ -1136,14 +1125,23 @@ export class PostService {
           is_deleted: false,
         },
         userId,
-        page,
-        limit,
+        page: 1,
+        limit: safetyLimit,
       }),
-      this.getReposts(userId, page, limit),
+      this.getReposts(userId, 1, safetyLimit),
     ]);
     const enrichIfQuoteOrReply = await this.enrichIfQuoteOrReply(posts, userId);
-    // TODO: Remove in memory sorting and pagination
-    return this.getTopPaginatedPosts(enrichIfQuoteOrReply, reposts, page, limit);
+
+    const combined = this.combineAndSort(enrichIfQuoteOrReply, reposts);
+    return combined.slice(offset, offset + limit);
+  }
+  private combineAndSort(posts: TransformedPost[], reposts: RepostedPost[]) {
+    const combined = [
+      ...posts.map((p) => ({ ...p, isRepost: false })),
+      ...reposts.map((r) => ({ ...r, isRepost: true })),
+    ];
+
+    return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
   private transformPost(posts: RawPost[]): TransformedPost[] {
@@ -1230,29 +1228,22 @@ export class PostService {
         throw new NotFoundException('Post not found');
       }
 
-      const repliesAndQuotes = await tx.post.findMany({
-        where: { parent_id: postId, is_deleted: false },
-        select: { id: true },
-      });
-
-      const postIds = [postId, ...repliesAndQuotes.map((r) => r.id)];
-
       await tx.mention.deleteMany({
-        where: { post_id: { in: postIds } },
+        where: { post_id: postId },
       });
       await tx.like.deleteMany({
-        where: { post_id: { in: postIds } },
+        where: { post_id: postId },
       });
       await tx.repost.deleteMany({
-        where: { post_id: { in: postIds } },
+        where: { post_id: postId },
       });
 
-      await tx.post.updateMany({
-        where: { id: { in: postIds } },
+      await tx.post.update({
+        where: { id: postId },
         data: { is_deleted: true },
       });
 
-      return { post, repliesAndQuotesCount: repliesAndQuotes.length };
+      return { post };
     });
 
     // Update parent post stats cache if this was a reply or quote
@@ -2057,44 +2048,44 @@ SELECT * FROM candidate_posts;
       originalPostData:
         isSimpleRepost || isQuote
           ? {
-              userId: post.user_id,
-              username: post.username,
-              verified: post.isVerified,
-              name: post.authorName || post.username,
-              avatar: post.authorProfileImage,
-              postId: post.id,
-              date: post.created_at,
-              likesCount: post.likeCount,
-              retweetsCount: post.repostCount,
-              commentsCount: post.replyCount,
-              isLikedByMe: post.isLikedByMe,
-              isFollowedByMe: post.isFollowedByMe,
-              isRepostedByMe: post.isRepostedByMe || false,
-              text: post.content || '',
-              media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-              mentions: Array.isArray(post.mentions) ? post.mentions : [],
-              ...(isQuote && post.originalPost
-                ? {
-                    // Override with original post data for quotes
-                    userId: post.originalPost.author.userId,
-                    username: post.originalPost.author.username,
-                    verified: post.originalPost.author.isVerified,
-                    name: post.originalPost.author.name,
-                    avatar: post.originalPost.author.avatar,
-                    postId: post.originalPost.postId,
-                    date: post.originalPost.createdAt,
-                    likesCount: post.originalPost.likeCount,
-                    retweetsCount: post.originalPost.repostCount,
-                    commentsCount: post.originalPost.replyCount,
-                    isLikedByMe: post.originalPost.isLikedByMe,
-                    isFollowedByMe: post.originalPost.isFollowedByMe,
-                    isRepostedByMe: post.originalPost.isRepostedByMe,
-                    text: post.originalPost.content || '',
-                    media: post.originalPost.media || [],
-                    mentions: post.originalPost.mentions || [],
-                  }
-                : {}),
-            }
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+            postId: post.id,
+            date: post.created_at,
+            likesCount: post.likeCount,
+            retweetsCount: post.repostCount,
+            commentsCount: post.replyCount,
+            isLikedByMe: post.isLikedByMe,
+            isFollowedByMe: post.isFollowedByMe,
+            isRepostedByMe: post.isRepostedByMe || false,
+            text: post.content || '',
+            media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+            mentions: Array.isArray(post.mentions) ? post.mentions : [],
+            ...(isQuote && post.originalPost
+              ? {
+                // Override with original post data for quotes
+                userId: post.originalPost.author.userId,
+                username: post.originalPost.author.username,
+                verified: post.originalPost.author.isVerified,
+                name: post.originalPost.author.name,
+                avatar: post.originalPost.author.avatar,
+                postId: post.originalPost.postId,
+                date: post.originalPost.createdAt,
+                likesCount: post.originalPost.likeCount,
+                retweetsCount: post.originalPost.repostCount,
+                commentsCount: post.originalPost.replyCount,
+                isLikedByMe: post.originalPost.isLikedByMe,
+                isFollowedByMe: post.originalPost.isFollowedByMe,
+                isRepostedByMe: post.originalPost.isRepostedByMe,
+                text: post.originalPost.content || '',
+                media: post.originalPost.media || [],
+                mentions: post.originalPost.mentions || [],
+              }
+              : {}),
+          }
           : undefined,
 
       // Scores data

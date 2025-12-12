@@ -715,12 +715,10 @@ export class PostController {
   ) {
     const reposters = await this.repostService.getReposters(+postId, +page, +limit);
 
-    const users = reposters.map((repost) => repost.user);
-
     return {
       status: 'success',
       message: 'Reposters retrieved successfully',
-      data: users,
+      data: reposters,
     };
   }
 
@@ -819,44 +817,6 @@ export class PostController {
     return {
       status: 'success',
       message: 'Post deleted successfully',
-    };
-  }
-
-  @Post(':postId/mention/:userId')
-  @UseGuards(JwtAuthGuard)
-  @ApiCookieAuth()
-  @ApiOperation({
-    summary: 'Mention a user in a post',
-    description: 'Mentions a user in the context of a specific post',
-  })
-  @ApiParam({
-    name: 'postId',
-    type: Number,
-    description: 'The ID of the post to mention the user in',
-    example: 1,
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'User mentioned successfully',
-    type: ApiResponseDto<Mention>,
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Bad request - Invalid post ID or user ID',
-    type: ErrorResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Unauthorized - Token missing or invalid',
-    type: ErrorResponseDto,
-  })
-  async mentionInPost(@Param('postId') postId: number, @Param('userId') userId: number) {
-    const result = await this.mentionService.mentionUser(userId, postId);
-
-    return {
-      status: 'success',
-      message: 'User mentioned successfully',
-      data: result,
     };
   }
 
