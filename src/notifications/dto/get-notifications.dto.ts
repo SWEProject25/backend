@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class GetNotificationsDto {
@@ -36,4 +36,24 @@ export class GetNotificationsDto {
   @Type(() => Boolean)
   @IsBoolean()
   unreadOnly?: boolean;
+
+  @ApiProperty({
+    description:
+      'Comma-separated notification types to include (e.g., "DM,MENTION"). If specified, only these types will be returned.',
+    example: 'DM,MENTION',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  include?: string;
+
+  @ApiProperty({
+    description:
+      'Comma-separated notification types to exclude (e.g., "DM,MENTION"). If specified, these types will be excluded from results.',
+    example: 'DM,MENTION',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  exclude?: string;
 }

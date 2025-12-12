@@ -14,11 +14,32 @@ interface User {
   is_verified: boolean;
   Profile: UserProfile | null;
   Followers?: { followerId: number }[];
+  Muters?: { muterId: number }[];
+  Blockers?: { blockerId: number }[];
+}
+
+export interface RepostedPost {
+  userId: number;
+  username: string;
+  verified: boolean;
+  name: string;
+  avatar: string | null;
+  isFollowedByMe: boolean;
+  isMutedByMe: boolean;
+  isBlockedByMe: boolean;
+  date: Date;
+  originalPostData: TransformedPost;
 }
 
 interface Count {
   likes: number;
   repostedBy: number;
+}
+export interface Mention {
+  user: {
+    id: number,
+    username: string
+  }
 }
 
 export interface RawPost {
@@ -38,7 +59,7 @@ export interface RawPost {
   media: Media[];
   likes: { user_id: number }[];
   repostedBy: { user_id: number }[];
-  mentions: { user_id: number }[];
+  mentions: Mention[]
 }
 
 export interface TransformedPost {
@@ -57,10 +78,12 @@ export interface TransformedPost {
   isLikedByMe: boolean;
   isFollowedByMe: boolean;
   isRepostedByMe: boolean;
+  isMutedByMe: boolean;
+  isBlockedByMe: boolean;
   text: string | null;
   media: { url: string; type: string }[];
+  mentions: { userId: number; username: string }[];
   isRepost: boolean;
   isQuote: boolean;
-  createdAt: Date;
   originalPostData?: TransformedPost;
 }

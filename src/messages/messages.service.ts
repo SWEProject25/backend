@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RemoveMessageDto } from './dto/remove-message.dto';
 import { Services } from 'src/utils/constants';
 import { getUnseenMessageCountWhere } from 'src/conversations/helpers/unseen-message.helper';
+import { getBlockCheckWhere } from 'src/conversations/helpers/block-check.helper';
 
 @Injectable()
 export class MessagesService {
@@ -38,23 +39,24 @@ export class MessagesService {
       throw new ForbiddenException('You are not part of this conversation');
     }
 
-    // invert sender to get unseen count at receiver side
-    const unseenCount = await this.prismaService.message.count({
-      where: getUnseenMessageCountWhere(
-        createMessageDto.conversationId,
-        isUser1 ? conversation.user2Id : conversation.user1Id,
-        !isUser1,
-      ),
+    // Check if either user has blocked the other
+    const block = await this.prismaService.block.findFirst({
+      where: getBlockCheckWhere(conversation.user1Id, conversation.user2Id),
+      select: { blockerId: true },
     });
+
+    if (block) {
+      throw new ForbiddenException('Cannot send message to a blocked user');
+    }
 
     // Create the message and update conversation timestamp in a transaction
     const message = await this.prismaService.$transaction(async (prisma) => {
       await prisma.conversation.update({
         where: { id: conversationId },
-        data: {}, // Empty update triggers @updatedAt
+        data: { updatedAt: new Date() }, // Empty update triggers @updatedAt
       });
 
-      return prisma.message.create({
+      const message = await prisma.message.create({
         data: {
           text,
           senderId,
@@ -69,6 +71,16 @@ export class MessagesService {
           createdAt: true,
         },
       });
+
+      return message;
+    });
+
+    // invert sender to get unseen count at receiver side
+    const unseenCount = await this.prismaService.message.count({
+      where: getUnseenMessageCountWhere(
+        createMessageDto.conversationId,
+        isUser1 ? conversation.user2Id : conversation.user1Id,
+      ),
     });
 
     return { message, unseenCount };
@@ -126,6 +138,17 @@ export class MessagesService {
     if (!isUser1 && currentUserId !== conversation.user2Id) {
       throw new ForbiddenException('You are not part of this conversation');
     }
+
+    // Check if either user has blocked the other
+    const block = await this.prismaService.block.findFirst({
+      where: getBlockCheckWhere(conversation.user1Id, conversation.user2Id),
+      select: { blockerId: true },
+    });
+
+    if (block) {
+      throw new ForbiddenException('Cannot access messages from a blocked user');
+    }
+
     const deletedField = isUser1 ? 'isDeletedU1' : 'isDeletedU2';
 
     // Build the where clause with cursor-based pagination
@@ -200,6 +223,17 @@ export class MessagesService {
       if (!isUser1 && currentUserId !== conversation.user2Id) {
         throw new ForbiddenException('You are not part of this conversation');
       }
+
+      // Check if either user has blocked the other
+      const block = await prisma.block.findFirst({
+        where: getBlockCheckWhere(conversation.user1Id, conversation.user2Id),
+        select: { blockerId: true },
+      });
+
+      if (block) {
+        throw new ForbiddenException('Cannot access messages from a blocked user');
+      }
+
       const deletedField = isUser1 ? 'isDeletedU1' : 'isDeletedU2';
       return prisma.message.findMany({
         where: {
@@ -233,9 +267,14 @@ export class MessagesService {
   async update(updateMessageDto: UpdateMessageDto, senderId: number) {
     const { id, text } = updateMessageDto;
 
-    // Check if message exists
+    // Check if message exists and get conversation
     const message = await this.prismaService.message.findUnique({
       where: { id },
+      include: {
+        Conversation: {
+          select: { user1Id: true, user2Id: true },
+        },
+      },
     });
 
     if (!message) {
@@ -244,6 +283,16 @@ export class MessagesService {
 
     if (message.senderId !== senderId) {
       throw new UnauthorizedException('You are not the owner of this message');
+    }
+
+    // Check if either user has blocked the other
+    const block = await this.prismaService.block.findFirst({
+      where: getBlockCheckWhere(message.Conversation.user1Id, message.Conversation.user2Id),
+      select: { blockerId: true },
+    });
+
+    if (block) {
+      throw new ForbiddenException('Cannot update message in a blocked conversation');
     }
 
     // Update and return the message

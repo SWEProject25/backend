@@ -3,6 +3,7 @@ import { CreateConversationDto } from './dto/create-conversation.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
 import { getUnseenMessageCountWhere } from './helpers/unseen-message.helper';
+import { getBlockCheckWhere } from './helpers/block-check.helper';
 
 @Injectable()
 export class ConversationsService {
@@ -26,6 +27,15 @@ export class ConversationsService {
 
     if (user1Id === user2Id) {
       throw new ConflictException('A user cannot create a conversation with themselves');
+    }
+
+    const block = await this.prismaService.block.findFirst({
+      where: getBlockCheckWhere(user1Id, user2Id),
+      select: { blockerId: true },
+    });
+
+    if (block) {
+      throw new ConflictException('A user cannot create a conversation with a blocked user');
     }
 
     // Determine if current user is user1 or user2
@@ -112,7 +122,7 @@ export class ConversationsService {
   async getConversationsForUser(userId: number, page: number = 1, limit: number = 20) {
     const skip = (page - 1) * limit;
 
-    const [conversations, total] = await this.prismaService.$transaction([
+    const [conversations, total, blocked, blockers] = await this.prismaService.$transaction([
       this.prismaService.conversation.findMany({
         where: {
           OR: [{ user1Id: userId }, { user2Id: userId }],
@@ -172,13 +182,27 @@ export class ConversationsService {
           OR: [{ user1Id: userId }, { user2Id: userId }],
         },
       }),
+
+      this.prismaService.block.findMany({
+        where: {
+          blockerId: userId,
+        },
+        select: { blockedId: true },
+      }),
+
+      this.prismaService.block.findMany({
+        where: {
+          blockedId: userId,
+        },
+        select: { blockerId: true },
+      }),
     ]);
 
     // Fetch unseen counts for all conversations
     const unseenCounts = await Promise.all(
       conversations.map((conv) =>
         this.prismaService.message.count({
-          where: getUnseenMessageCountWhere(conv.id, userId, userId === conv.User1.id),
+          where: getUnseenMessageCountWhere(conv.id, userId),
         }),
       ),
     );
@@ -205,6 +229,9 @@ export class ConversationsService {
                 updatedAt: lastVisibleMessage.updatedAt,
               }
             : null,
+          isBlocked:
+          blocked.some((block) => block.blockedId === (isUser1 ? User2.id : User1.id)) ||
+          blockers.some((block) => block.blockerId === (isUser1 ? User2.id : User1.id)),
           user:
             userId === User1.id
               ? {
@@ -327,6 +354,11 @@ export class ConversationsService {
 
     const isUser1 = userId === conversation.User1.id;
 
+    const block = await this.prismaService.block.findFirst({
+      where: getBlockCheckWhere(conversation.User1.id, conversation.User2.id),
+      select: { blockerId: true },
+    });
+
     if (!isUser1 && userId !== conversation.User2.id) {
       throw new ConflictException('You are not part of this conversation');
     }
@@ -338,7 +370,7 @@ export class ConversationsService {
 
     // Fetch exact unseen count from database
     const unseenCount = await this.prismaService.message.count({
-      where: getUnseenMessageCountWhere(conversationId, userId, isUser1),
+      where: getUnseenMessageCountWhere(conversationId, userId),
     });
 
     const transformedConversation = {
@@ -355,6 +387,7 @@ export class ConversationsService {
             updatedAt: lastVisibleMessage.updatedAt,
           }
         : null,
+      isBlocked: !!block,
       user:
         userId === conversation.User1.id
           ? {
@@ -402,7 +435,7 @@ export class ConversationsService {
     }
 
     return this.prismaService.message.count({
-      where: getUnseenMessageCountWhere(conversationId, userId, isUser1),
+      where: getUnseenMessageCountWhere(conversationId, userId),
     });
   }
 }

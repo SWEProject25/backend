@@ -8,7 +8,7 @@ import {
   OnGatewayDisconnect,
   OnGatewayInit,
 } from '@nestjs/websockets';
-import { Inject, UnauthorizedException, UseFilters } from '@nestjs/common';
+import { forwardRef, Inject, UnauthorizedException, UseFilters, ForbiddenException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { Services } from 'src/utils/constants';
 import { Server, Socket } from 'socket.io';
@@ -22,6 +22,7 @@ import { MarkSeenDto } from 'src/messages/dto/mark-seen.dto';
 import { WebSocketExceptionFilter } from 'src/messages/exceptions/ws-exception.filter';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NotificationType } from 'src/notifications/enums/notification.enum';
+import { PostService } from 'src/post/services/post.service';
 
 @WebSocketGateway(8000, {
   cors: {
@@ -36,6 +37,8 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     @Inject(redisConfig.KEY)
     private readonly redisConfiguration: ConfigType<typeof redisConfig>,
     private readonly eventEmitter: EventEmitter2,
+    @Inject(forwardRef(() => Services.POST))
+    private readonly postService: PostService,
   ) {}
 
   @WebSocketServer()
@@ -205,7 +208,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
         [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
 
       if (!isRecipientInConversation) {
-        this.server.to(`user_${recipientId}`).emit('newMessageNotification', message);
+        this.server.to(`user_${recipientId}`).emit('newMessageNotification', {...message, unseenCount});
 
         // Emit DM notification event
         this.eventEmitter.emit('notification.create', {
@@ -224,6 +227,12 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
       };
     } catch (error) {
       console.error(`Error creating message: ${error.message}`);
+      if (error instanceof ForbiddenException) {
+        return {
+          status: 'error',
+          message: error.message,
+        };
+      }
       throw error;
     }
   }
@@ -271,6 +280,12 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
       };
     } catch (error) {
       console.error(`Error updating message: ${error.message}`);
+      if (error instanceof ForbiddenException) {
+        return {
+          status: 'error',
+          message: error.message,
+        };
+      }
       throw error;
     }
   }
@@ -448,6 +463,12 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
       const parsedPostId = Number(postId);
       socket.join(`post_${parsedPostId}`);
+
+      // Fetch and emit current post stats to the joining user
+      const stats = await this.postService.getPostStats(parsedPostId);
+      socket.emit('likeUpdate', { postId: parsedPostId, count: stats.likesCount });
+      socket.emit('repostUpdate', { postId: parsedPostId, count: stats.retweetsCount });
+      socket.emit('commentUpdate', { postId: parsedPostId, count: stats.commentsCount });
 
       return {
         status: 'success',

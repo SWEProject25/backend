@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { RedisQueues, Services } from 'src/utils/constants';
 import { AiSummarizationService } from './summarization.service';
 import { Job } from 'bullmq';
-import { SummarizeJob } from 'src/common/interfaces/summarizeJob.interface';
+import { InterestJob, SummarizeJob } from 'src/common/interfaces/summarizeJob.interface';
 import { Inject } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -20,8 +20,11 @@ export class QueueConsumerService extends WorkerHost {
   async process(job: Job<SummarizeJob>): Promise<void> {
     switch (job.name) {
       case RedisQueues.postQueue.processes.summarizePostContent:
-        this.handleSummarizePostContent(job);
-
+        await this.handleSummarizePostContent(job);
+        break;
+      case RedisQueues.postQueue.processes.interestPostContent:
+        await this.handleInterestPostContent(job);
+        break;
       default:
         throw new Error(`No handler for job name: ${job.name}`);
     }
@@ -34,6 +37,29 @@ export class QueueConsumerService extends WorkerHost {
     await this.prismaService.post.update({
       where: { id: postId },
       data: { summary },
+    });
+  }
+
+  private async handleInterestPostContent(job: Job<InterestJob>) {
+    const { postContent, postId } = job.data;
+    const interest = await this.aiSummarizationService.extractInterest(postContent);
+
+    if (!interest) {
+      return;
+    }
+
+    const interestId = await this.prismaService.interest.findFirst({
+      where: { name: interest },
+      select: { id: true },
+    });
+
+    if (!interestId) {
+      return;
+    }
+
+    await this.prismaService.post.update({
+      where: { id: postId },
+      data: { interest_id: { set: interestId.id } },
     });
   }
 }

@@ -96,6 +96,7 @@ import { GatewayModule } from 'src/gateway/gateway.module';
       provide: Services.HASHTAG_TRENDS,
       useClass: HashtagTrendService,
     },
+    Services.POST,
   ],
 })
 export class PostModule {}
