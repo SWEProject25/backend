@@ -13,18 +13,12 @@ import {
   Logger,
   BadRequestException,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
-  ApiBearerAuth,
-  ApiCookieAuth,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiQuery, ApiCookieAuth } from '@nestjs/swagger';
 import { HashtagTrendService } from './services/hashtag-trends.service';
 import { Services } from 'src/utils/constants';
-import { Public } from 'src/auth/decorators/public.decorator';
 import { TrendCategory, isValidTrendCategory } from './enums/trend-category.enum';
+import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('hashtags')
 export class HashtagController {
@@ -36,7 +30,6 @@ export class HashtagController {
   ) {}
 
   @Get('trending')
-  @Public()
   @ApiOperation({
     summary: 'Get trending hashtags',
     description:
@@ -85,6 +78,7 @@ export class HashtagController {
   async getTrending(
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('category', new DefaultValuePipe(TrendCategory.GENERAL)) category: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     if (limit < 1 || limit > 50) {
       throw new BadRequestException('Limit must be between 1 and 50');
@@ -95,8 +89,11 @@ export class HashtagController {
         `Invalid category. Must be one of: ${Object.values(TrendCategory).join(', ')}`,
       );
     }
-
-    const trending = await this.hashtagTrendService.getTrending(limit, category as TrendCategory);
+    const trending = await this.hashtagTrendService.getTrending(
+      limit,
+      category as TrendCategory,
+      user.id,
+    );
 
     return {
       status: 'success',

@@ -5,6 +5,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { RedisQueues, Services } from 'src/utils/constants';
 import { TrendCategory, CATEGORY_TO_INTERESTS } from '../enums/trend-category.enum';
+import { UsersService } from 'src/users/users.service';
 
 const HASHTAG_TRENDS_TOKEN_PREFIX = 'hashtags:trending:';
 
@@ -20,6 +21,8 @@ export class HashtagTrendService {
     private readonly redisService: RedisService,
     @InjectQueue(RedisQueues.hashTagQueue.name)
     private readonly trendingQueue: Queue,
+    @Inject(Services.USERS)
+    private readonly usersService: UsersService,
   ) {}
 
   public async queueTrendCalculation(hashtagIds: number[]) {
@@ -46,6 +49,7 @@ export class HashtagTrendService {
   public async calculateTrend(
     hashtagId: number,
     category: TrendCategory = TrendCategory.GENERAL,
+    userId: number | null,
   ): Promise<number> {
     try {
       const now = new Date();
@@ -53,7 +57,15 @@ export class HashtagTrendService {
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      const interestSlugs = CATEGORY_TO_INTERESTS[category];
+      let interestSlugs = CATEGORY_TO_INTERESTS[category];
+      if (category === TrendCategory.PERSONALIZED && !userId) {
+        return 0;
+      }
+      if (userId) {
+        const userInterests = await this.usersService.getUserInterests(userId);
+        interestSlugs = userInterests.map((userInterests) => userInterests.slug);
+      }
+
       const whereClause: any = {
         hashtags: { some: { id: hashtagId } },
         is_deleted: false,
@@ -133,10 +145,15 @@ export class HashtagTrendService {
     }
   }
 
-
-  public async getTrending(limit: number = 10, category: TrendCategory = TrendCategory.GENERAL) {
+  public async getTrending(
+    limit: number = 10,
+    category: TrendCategory = TrendCategory.GENERAL,
+    userId: number,
+  ) {
+    console.log(category);
     const cacheKey = `${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:${limit}`;
     const cached = await this.redisService.getJSON<any[]>(cacheKey);
+    console.log(cached);
     if (cached && cached.length > 0) {
       return cached;
     }
@@ -160,7 +177,7 @@ export class HashtagTrendService {
     });
 
     if (trends.length === 0) {
-      this.recalculateTrends(category).catch((err) =>
+      this.recalculateTrends(category, userId).catch((err) =>
         this.logger.error(`Background recalculation failed for ${category}:`, err),
       );
       return [];
@@ -175,9 +192,16 @@ export class HashtagTrendService {
     return result;
   }
 
-  async recalculateTrends(category: TrendCategory = TrendCategory.GENERAL) {
+  async recalculateTrends(category: TrendCategory = TrendCategory.GENERAL, userId?: number) {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const interestSlugs = CATEGORY_TO_INTERESTS[category];
+    let interestSlugs = CATEGORY_TO_INTERESTS[category];
+    console.log(interestSlugs);
+    let userInterests;
+    if (category === TrendCategory.PERSONALIZED && userId) {
+      userInterests = await this.usersService.getUserInterests(userId);
+      interestSlugs = userInterests.map((userInterests) => userInterests.slug);
+      console.log(userInterests, interestSlugs);
+    }
     const whereClause: any = {
       posts: {
         some: {

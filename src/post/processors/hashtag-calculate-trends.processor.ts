@@ -16,13 +16,15 @@ export class HashtagCalculateTrendsProcessor extends WorkerHost {
     super();
   }
 
-  public async process(job: Job<{ hashtagIds: number[]; category?: TrendCategory }>): Promise<any> {
+  public async process(
+    job: Job<{ hashtagIds: number[]; category?: TrendCategory; userId: number | null }>,
+  ): Promise<any> {
     this.logger.log(
       `Processing job ${job.id} of type ${job.name} (attempt ${job.attemptsMade + 1}/${job.opts.attempts})`,
     );
 
     try {
-      const { hashtagIds, category } = job.data;
+      const { hashtagIds, category, userId } = job.data;
 
       if (!hashtagIds || hashtagIds.length === 0) {
         this.logger.warn('No hashtag IDs provided, skipping job');
@@ -38,7 +40,10 @@ export class HashtagCalculateTrendsProcessor extends WorkerHost {
       for (const hashtagId of hashtagIds) {
         for (const cat of categories) {
           try {
-            await this.hashtagTrendService.calculateTrend(hashtagId, cat);
+            if (cat === TrendCategory.PERSONALIZED && !userId) {
+              continue;
+            }
+            await this.hashtagTrendService.calculateTrend(hashtagId, cat, userId);
             processed++;
           } catch (error) {
             this.logger.error(
