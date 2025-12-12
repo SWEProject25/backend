@@ -8,10 +8,6 @@ export class AiSummarizationService {
   private readonly groq: Groq;
 
   constructor() {
-    if (!configs.groqApiKey) {
-      throw new Error('GROQ_API_KEY is not defined');
-    }
-
     this.groq = new Groq({
       apiKey: configs.groqApiKey,
     });

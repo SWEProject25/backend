@@ -517,8 +517,9 @@ export class PostService {
         page: 1,
         limit: 1,
       });
-
-      return fullPost;
+      const [enrichedPost] = await this.enrichIfQuoteOrReply([fullPost], userId);
+      
+      return enrichedPost;
     } catch (error) {
       // deleting uploaded files in case of any error
       await this.storageService.deleteFiles(urls);
