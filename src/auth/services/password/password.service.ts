@@ -77,15 +77,15 @@ export class PasswordService {
         ? `${process.env.NODE_ENV === 'dev' ? process.env.BACKEND_URL_DEV : process.env.BACKEND_URL_PROD}/api/${process.env.APP_VERSION}/auth/reset-mobile-password?token=${resetToken}&id=${user.id}`
         : `${process.env.NODE_ENV === 'dev' ? process.env.FRONTEND_URL : process.env.FRONTEND_URL_PROD}/reset-password?token=${resetToken}&id=${user.id}`;
 
-    const html = this.emailService.renderTemplate('reset-password.html', {
-      verificationCode: resetUrl,
-      username: user.username,
-    });
-    await this.emailService.sendEmail({
-      subject: 'Password Reset Request',
-      recipients: [email],
-      html,
-    });
+    await this.emailService.queueTemplateEmail(
+      [email],
+      'Password Reset Request',
+      'reset-password.html',
+      {
+        verificationCode: resetUrl,
+        username: user.username,
+      },
+    );
   }
 
   public async verifyResetToken(userId: number, token: string): Promise<boolean> {

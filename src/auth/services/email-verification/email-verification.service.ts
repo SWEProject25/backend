@@ -49,14 +49,14 @@ export class EmailVerificationService {
 
     const otp = await this.otpService.generateAndRateLimit(email);
 
-    const html = this.emailService.renderTemplate('email-verification.html', {
-      verificationCode: otp,
-    });
-    await this.emailService.sendEmail({
-      subject: 'Account Verification',
-      recipients: [email],
-      html,
-    });
+    await this.emailService.queueTemplateEmail(
+      [email],
+      'Account Verification',
+      'email-verification.html',
+      {
+        verificationCode: otp,
+      },
+    );
   }
 
   async resendVerificationEmail(email: string): Promise<void> {

@@ -32,6 +32,7 @@ export enum Services {
   ML_SERVICE = 'ML_SERVICE',
   NOTIFICATION = 'NOTIFICATION_SERVICE',
   FIREBASE = 'FIREBASE_SERVICE',
+  EMAIL_JOB_QUEUE = 'EMAIL_PROCESSOR',
 }
 
 export enum RequestType {
@@ -56,6 +57,12 @@ export const RedisQueues = {
     name: 'recalculate-bulk-trends',
     processes: {
       recalculateTrends: 'recalculate-trends',
+    },
+  },
+  emailQueue: {
+    name: 'email-queue',
+    processes: {
+      sendEmail: 'send-email',
     },
   },
 };

@@ -9,8 +9,6 @@ import jwtConfig from './config/jwt.config';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { ConfigModule } from '@nestjs/config';
-import mailerConfig from 'src/common/config/mailer.config';
-import { EmailService } from 'src/email/email.service';
 import { PasswordService } from './services/password/password.service';
 import { EmailVerificationService } from './services/email-verification/email-verification.service';
 import { JwtTokenService } from './services/jwt-token/jwt-token.service';
@@ -22,6 +20,7 @@ import { GithubStrategy } from './strategies/github.strategy';
 import githubOauthConfig from './config/github-oauth.config';
 import { RedisModule } from 'src/redis/redis.module';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   controllers: [AuthController],
@@ -29,10 +28,6 @@ import { PrismaModule } from 'src/prisma/prisma.module';
     {
       provide: Services.AUTH,
       useClass: AuthService,
-    },
-    {
-      provide: Services.EMAIL,
-      useClass: EmailService,
     },
     {
       provide: Services.PASSWORD,
@@ -60,9 +55,9 @@ import { PrismaModule } from 'src/prisma/prisma.module';
     PassportModule,
     RedisModule,
     PrismaModule,
+    EmailModule,
     ConfigModule.forFeature(jwtConfig),
     JwtModule.registerAsync(jwtConfig.asProvider()),
-    ConfigModule.forFeature(mailerConfig),
     ConfigModule.forFeature(googleOauthConfig),
     ConfigModule.forFeature(githubOauthConfig),
   ],
