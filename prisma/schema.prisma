@@ -94,7 +94,6 @@ model Interest {
   posts       Post[]
 
   @@index([is_active])
-
   @@map("interests")
 }
 
@@ -139,7 +138,6 @@ model Post {
   @@index([parent_id, is_deleted])
   @@index([created_at(sort: Desc)])
   @@map("posts")
-
 }
 
 model Follow {
@@ -152,7 +150,6 @@ model Follow {
   @@id([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
-
   @@map("follows")
 }
 
@@ -179,7 +176,6 @@ model Mute {
   @@id([muterId, mutedId])
   @@index([muterId])
   @@index([mutedId])
-
   @@map("mutes")
 }
 
