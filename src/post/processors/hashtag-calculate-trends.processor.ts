@@ -3,6 +3,7 @@ import { RedisQueues, Services } from 'src/utils/constants';
 import { HashtagTrendService } from '../services/hashtag-trends.service';
 import { Job } from 'bullmq';
 import { Inject, Logger } from '@nestjs/common';
+import { TrendCategory, ALL_TREND_CATEGORIES } from '../enums/trend-category.enum';
 
 @Processor(RedisQueues.hashTagQueue.name)
 export class HashtagCalculateTrendsProcessor extends WorkerHost {
@@ -15,42 +16,33 @@ export class HashtagCalculateTrendsProcessor extends WorkerHost {
     super();
   }
 
-  public async process(job: Job<{ hashtagIds: number[] }>): Promise<any> {
+  public async process(job: Job<{ hashtagIds: number[]; category?: TrendCategory }>): Promise<any> {
     this.logger.log(
       `Processing job ${job.id} of type ${job.name} (attempt ${job.attemptsMade + 1}/${job.opts.attempts})`,
     );
 
     try {
-      const { hashtagIds } = job.data;
+      const { hashtagIds, category } = job.data;
 
       if (!hashtagIds || hashtagIds.length === 0) {
         this.logger.warn('No hashtag IDs provided, skipping job');
         return { processed: 0, skipped: true };
       }
+      const categories = category ? [category] : ALL_TREND_CATEGORIES;
 
       this.logger.log(`Calculating trends for ${hashtagIds.length} hashtags`);
 
-      let processed = 0;
-      let failed = 0;
-
-      for (const hashtagId of hashtagIds) {
-        try {
-          await this.hashtagTrendService.calculateTrend(hashtagId);
-          processed++;
-        } catch (error) {
-          this.logger.error(`Failed to calculate trend for hashtag ${hashtagId}:`, error.message);
-          failed++;
-        }
-      }
+      const { processed, failed } = await this.hashtagTrendService.calculateTrendsBatch(
+        hashtagIds,
+        categories,
+      );
 
       const result = {
         processed,
         failed,
-        total: hashtagIds.length,
+        total: hashtagIds.length * categories.length,
         timestamp: new Date().toISOString(),
       };
-
-      this.logger.log(`Completed: ${processed}/${hashtagIds.length} hashtags (${failed} failed)`);
 
       return result;
     } catch (error) {

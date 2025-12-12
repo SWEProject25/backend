@@ -66,3 +66,9 @@ export const RedisQueues = {
     },
   },
 };
+
+export const CronJobs = {
+  trendsJob: {
+    name: 'calculate-hashtag-trends',
+  },
+};

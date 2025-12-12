@@ -3,6 +3,7 @@ import { Inject, Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { RedisQueues, Services } from 'src/utils/constants';
 import { HashtagTrendService } from '../services/hashtag-trends.service';
+import { TrendCategory, ALL_TREND_CATEGORIES } from '../enums/trend-category.enum';
 
 @Processor(RedisQueues.bulkHashTagQueue.name)
 export class HashtagBulkRecalculateProcessor extends WorkerHost {
@@ -15,72 +16,53 @@ export class HashtagBulkRecalculateProcessor extends WorkerHost {
     super();
   }
 
-  public async process(job: Job<{ hashtagIds: number[] }>): Promise<any> {
+  public async process(job: Job<{ hashtagIds: number[]; category?: TrendCategory }>): Promise<any> {
     this.logger.log(
       `Processing bulk recalculation job ${job.id} (attempt ${job.attemptsMade + 1}/${job.opts.attempts})`,
     );
 
     try {
-      const { hashtagIds } = job.data;
+      const { hashtagIds, category } = job.data;
 
       if (!hashtagIds || hashtagIds.length === 0) {
         this.logger.warn('No hashtag IDs provided, skipping bulk recalculation');
         return { processed: 0, skipped: true };
       }
 
+      // If no category specified, calculate for all categories
+      const categories = category ? [category] : ALL_TREND_CATEGORIES;
+
       this.logger.log(`Starting bulk calculation for ${hashtagIds.length} hashtags`);
 
-      const batchSize = 20;
-      let processed = 0;
-      let failed = 0;
+      const batchSize = 50;
+      let totalProcessed = 0;
+      let totalFailed = 0;
 
-      // Process in batches to avoid overwhelming the database
       for (let i = 0; i < hashtagIds.length; i += batchSize) {
         const batch = hashtagIds.slice(i, i + batchSize);
 
-        this.logger.debug(
-          `Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(hashtagIds.length / batchSize)} (${batch.length} hashtags)`,
+        const { processed, failed } = await this.hashtagTrendService.calculateTrendsBatch(
+          batch,
+          categories,
         );
 
-        // Process batch in parallel
-        const results = await Promise.allSettled(
-          batch.map((hashtagId) => this.hashtagTrendService.calculateTrend(hashtagId)),
-        );
-
-        // Count successes and failures
-        results.forEach((result, index) => {
-          if (result.status === 'fulfilled') {
-            processed++;
-          } else {
-            failed++;
-            this.logger.error(
-              `Failed to calculate trend for hashtag ${batch[index]}:`,
-              result.reason?.message,
-            );
-          }
-        });
+        totalProcessed += processed;
+        totalFailed += failed;
 
         // Update job progress
         const progress = ((i + batch.length) / hashtagIds.length) * 100;
         await job.updateProgress(Math.min(progress, 100));
-
-        // Small delay between batches to prevent overload
-        if (i + batchSize < hashtagIds.length) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
       }
 
       const result = {
-        processed,
-        failed,
-        total: hashtagIds.length,
+        processed: totalProcessed,
+        failed: totalFailed,
+        total: hashtagIds.length * categories.length,
         batchSize,
+        hashtagsProcessed: hashtagIds.length,
+        categories: categories.length,
         timestamp: new Date().toISOString(),
       };
-
-      this.logger.log(
-        `Bulk calculation completed: ${processed}/${hashtagIds.length} hashtags (${failed} failed)`,
-      );
 
       return result;
     } catch (error) {

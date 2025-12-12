@@ -54,7 +54,7 @@ export class HashtagController {
     required: false,
     enum: TrendCategory,
     description:
-      'Category to filter trends by. "general" returns all trends, "news" returns hashtags from news posts, "sports" from sports posts, "entertainment" from entertainment-related posts (music, movies, gaming, etc.)',
+      'Category to filter trends by. Options: "general" (all trends), "news" (news posts), "sports" (sports posts), "entertainment" (music, movies, gaming, etc.), "personalized" (based on user interests)',
     example: TrendCategory.GENERAL,
   })
   @ApiResponse({
@@ -121,7 +121,7 @@ export class HashtagController {
     required: false,
     enum: TrendCategory,
     description:
-      'Category to recalculate trends for. Defaults to "general" which processes all hashtags.',
+      'Category to recalculate trends for. Options: general, news, sports, entertainment, personalized. Defaults to "general" which processes all hashtags.',
     example: TrendCategory.GENERAL,
   })
   @ApiResponse({
