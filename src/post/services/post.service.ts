@@ -94,6 +94,26 @@ export interface FeedPostResponse {
     text: string;
     media: Array<{ url: string; type: MediaType }>;
     mentions?: Array<{ userId: number; username: string }>;
+
+    // Nested original post data (for reposted quotes - third level only)
+    originalPostData?: {
+      userId: number;
+      username: string;
+      verified: boolean;
+      name: string;
+      avatar: string | null;
+      postId: number;
+      date: Date;
+      likesCount: number;
+      retweetsCount: number;
+      commentsCount: number;
+      isLikedByMe: boolean;
+      isFollowedByMe: boolean;
+      isRepostedByMe: boolean;
+      text: string;
+      media: Array<{ url: string; type: MediaType }>;
+      mentions?: Array<{ userId: number; username: string }>;
+    };
   };
 
   // Scores data
@@ -166,6 +186,26 @@ export interface PostWithAllData extends Post {
     };
     media: Array<{ url: string; type: MediaType }>;
     mentions?: Array<{ userId: number; username: string }>;
+    originalPost?: {
+      postId: number;
+      content: string;
+      createdAt: Date;
+      likeCount: number;
+      repostCount: number;
+      replyCount: number;
+      isLikedByMe: boolean;
+      isFollowedByMe: boolean;
+      isRepostedByMe: boolean;
+      author: {
+        userId: number;
+        username: string;
+        isVerified: boolean;
+        name: string;
+        avatar: string | null;
+      };
+      media: Array<{ url: string; type: MediaType }>;
+      mentions?: Array<{ userId: number; username: string }>;
+    };
   };
   mentions?: Array<{ userId: number; username: string }>;
 }
@@ -338,7 +378,7 @@ export class PostService {
 
     return post.map((p) => {
       if ((p.type === PostType.QUOTE || p.type === PostType.REPLY) && p.parentId) {
-        p.originalPostData = parentPostsMap.get(p.parentId) || {isDeleted: true};
+        p.originalPostData = parentPostsMap.get(p.parentId) || { isDeleted: true };
       }
       return p;
     });
@@ -440,10 +480,10 @@ export class PostService {
       const { content, media, userId } = createPostDto;
       await this.checkUsersExistence(createPostDto.mentionsIds ?? []);
       await this.checkPostExists(createPostDto.parentId!);
-      
+
       urls = await this.storageService.uploadFiles(media);
       const hashtags = extractHashtags(content);
-      
+
       const mediaWithType = this.getMediaWithType(urls, media);
 
       const { post, hashtagIds, parentPostAuthorId } = await this.createPostTransaction(
@@ -1592,7 +1632,7 @@ candidate_posts AS (
       '[]'::json
     ) as "mentions",
     
-    -- Original post for quotes only
+-- Original post for quotes only (with nested originalPost for quotes within quotes)
     CASE 
       WHEN ap."parent_id" IS NOT NULL AND ap."type" = 'QUOTE' THEN
         (SELECT json_build_object(
@@ -1623,7 +1663,45 @@ candidate_posts AS (
              INNER JOIN "User" omu ON omu."id" = omen."user_id"
              WHERE omen."post_id" = op."id"),
             '[]'::json
-          )
+          ),
+          'originalPost', CASE 
+            WHEN op."parent_id" IS NOT NULL AND op."type" = 'QUOTE' THEN
+              (SELECT json_build_object(
+                'postId', oop."id",
+                'content', oop."content",
+                'createdAt', oop."created_at",
+                'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = oop."id"), 0),
+                'repostCount', COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE "post_id" = oop."id"), 0),
+                'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = oop."id" AND "is_deleted" = false), 0),
+                'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = oop."user_id"),
+                'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                'author', json_build_object(
+                  'userId', oou."id",
+                  'username', oou."username",
+                  'isVerified', oou."is_verifed",
+                  'name', COALESCE(oopr."name", oou."username"),
+                  'avatar', oopr."profile_image_url"
+                ),
+                'media', COALESCE(
+                  (SELECT json_agg(json_build_object('url', oom."media_url", 'type', oom."type"))
+                   FROM "Media" oom WHERE oom."post_id" = oop."id"),
+                  '[]'::json
+                ),
+                'mentions', COALESCE(
+                  (SELECT json_agg(json_build_object('userId', oomu."id"::text, 'username', oomu."username"))
+                   FROM "Mention" oomen
+                   INNER JOIN "User" oomu ON oomu."id" = oomen."user_id"
+                   WHERE oomen."post_id" = oop."id"),
+                  '[]'::json
+                )
+              )
+              FROM "posts" oop
+              LEFT JOIN "User" oou ON oou."id" = oop."user_id"
+              LEFT JOIN "profiles" oopr ON oopr."user_id" = oou."id"
+              WHERE oop."id" = op."parent_id" AND oop."is_deleted" = false)
+            ELSE NULL
+          END
         )
         FROM "posts" op
         LEFT JOIN "User" ou ON ou."id" = op."user_id"
@@ -1918,7 +1996,7 @@ SELECT * FROM candidate_posts;
           '[]'::json
         ) as "mentions",
         
-        -- Original post for quotes only
+        -- Original post for quotes only (with nested originalPost for quotes within quotes)
         CASE 
           WHEN ap."parent_id" IS NOT NULL AND ap."type" = 'QUOTE' THEN
             (SELECT json_build_object(
@@ -1949,7 +2027,45 @@ SELECT * FROM candidate_posts;
                  INNER JOIN "User" omu ON omu."id" = omen."user_id"
                  WHERE omen."post_id" = op."id"),
                 '[]'::json
-              )
+              ),
+              'originalPost', CASE 
+                WHEN op."parent_id" IS NOT NULL AND op."type" = 'QUOTE' THEN
+                  (SELECT json_build_object(
+                    'postId', oop."id",
+                    'content', oop."content",
+                    'createdAt', oop."created_at",
+                    'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = oop."id"), 0),
+                    'repostCount', COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE "post_id" = oop."id"), 0),
+                    'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = oop."id" AND "is_deleted" = false), 0),
+                    'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                    'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = oop."user_id"),
+                    'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                    'author', json_build_object(
+                      'userId', oou."id",
+                      'username', oou."username",
+                      'isVerified', oou."is_verifed",
+                      'name', COALESCE(oopr."name", oou."username"),
+                      'avatar', oopr."profile_image_url"
+                    ),
+                    'media', COALESCE(
+                      (SELECT json_agg(json_build_object('url', oom."media_url", 'type', oom."type"))
+                       FROM "Media" oom WHERE oom."post_id" = oop."id"),
+                      '[]'::json
+                    ),
+                    'mentions', COALESCE(
+                      (SELECT json_agg(json_build_object('userId', oomu."id"::text, 'username', oomu."username"))
+                       FROM "Mention" oomen
+                       INNER JOIN "User" oomu ON oomu."id" = oomen."user_id"
+                       WHERE oomen."post_id" = oop."id"),
+                      '[]'::json
+                    )
+                  )
+                  FROM "posts" oop
+                  LEFT JOIN "User" oou ON oou."id" = oop."user_id"
+                  LEFT JOIN "profiles" oopr ON oopr."user_id" = oou."id"
+                  WHERE oop."id" = op."parent_id" AND oop."is_deleted" = false)
+                ELSE NULL
+              END
             )
             FROM "posts" op
             LEFT JOIN "User" ou ON ou."id" = op."user_id"
@@ -2002,12 +2118,16 @@ SELECT * FROM candidate_posts;
   }
 
   private transformToFeedResponse(post: PostWithAllData): FeedPostResponse {
-    const isQuote = post.type === PostType.QUOTE && !!post.parent_id;
-    const isSimpleRepost = post.isRepost && !isQuote;
+    // Check if this is a repost (simple repost or repost of a quote)
+    const isRepost = post.isRepost === true;
+    // Check if the ACTUAL post (not repost) is a quote
+    const isQuote = !isRepost && post.type === PostType.QUOTE && !!post.parent_id;
+    // Check if we're reposting a quote tweet
+    const isRepostOfQuote = isRepost && post.type === PostType.QUOTE && !!post.parent_id;
 
-    // For simple reposts, use reposter's info at top level
+    // For reposts, use reposter's info at top level
     const topLevelUser =
-      isSimpleRepost && post.repostedBy
+      isRepost && post.repostedBy
         ? post.repostedBy
         : {
             userId: post.user_id,
@@ -2018,7 +2138,7 @@ SELECT * FROM candidate_posts;
           };
 
     return {
-      // User Information (reposter for simple reposts, author otherwise)
+      // User Information (reposter for reposts, author otherwise)
       userId: topLevelUser.userId,
       username: topLevelUser.username,
       verified: topLevelUser.verified,
@@ -2027,7 +2147,7 @@ SELECT * FROM candidate_posts;
 
       // Tweet Metadata (always present)
       postId: post.id,
-      date: isSimpleRepost && post.effectiveDate ? post.effectiveDate : post.created_at,
+      date: isRepost && post.effectiveDate ? post.effectiveDate : post.created_at,
       likesCount: post.likeCount,
       retweetsCount: post.repostCount,
       commentsCount: post.replyCount,
@@ -2037,56 +2157,97 @@ SELECT * FROM candidate_posts;
       isFollowedByMe: post.isFollowedByMe,
       isRepostedByMe: post.isRepostedByMe || false,
 
-      // Tweet Content (empty for simple reposts, has content for quotes)
-      text: isSimpleRepost ? '' : post.content || '',
-      media: isSimpleRepost ? [] : Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+      // Tweet Content (empty for reposts, has content for quotes)
+      text: isRepost ? '' : post.content || '',
+      media: isRepost ? [] : Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
 
       // Flags
-      isRepost: isSimpleRepost,
+      isRepost: isRepost,
       isQuote: isQuote,
 
-      // Original post data (for both repost and quote)
+      // Original post data (for reposts and quotes)
       originalPostData:
-        isSimpleRepost || isQuote
-          ? {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-            postId: post.id,
-            date: post.created_at,
-            likesCount: post.likeCount,
-            retweetsCount: post.repostCount,
-            commentsCount: post.replyCount,
-            isLikedByMe: post.isLikedByMe,
-            isFollowedByMe: post.isFollowedByMe,
-            isRepostedByMe: post.isRepostedByMe || false,
-            text: post.content || '',
-            media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-            mentions: Array.isArray(post.mentions) ? post.mentions : [],
-            ...(isQuote && post.originalPost
-              ? {
-                // Override with original post data for quotes
-                userId: post.originalPost.author.userId,
-                username: post.originalPost.author.username,
-                verified: post.originalPost.author.isVerified,
-                name: post.originalPost.author.name,
-                avatar: post.originalPost.author.avatar,
-                postId: post.originalPost.postId,
-                date: post.originalPost.createdAt,
-                likesCount: post.originalPost.likeCount,
-                retweetsCount: post.originalPost.repostCount,
-                commentsCount: post.originalPost.replyCount,
-                isLikedByMe: post.originalPost.isLikedByMe,
-                isFollowedByMe: post.originalPost.isFollowedByMe,
-                isRepostedByMe: post.originalPost.isRepostedByMe,
-                text: post.originalPost.content || '',
-                media: post.originalPost.media || [],
-                mentions: post.originalPost.mentions || [],
+        isRepost || isQuote
+          ? isRepostOfQuote
+            ? // Reposting a quote tweet: show the quote with its nested original
+              {
+                userId: post.user_id,
+                username: post.username,
+                verified: post.isVerified,
+                name: post.authorName || post.username,
+                avatar: post.authorProfileImage,
+                postId: post.id,
+                date: post.created_at,
+                likesCount: post.likeCount,
+                retweetsCount: post.repostCount,
+                commentsCount: post.replyCount,
+                isLikedByMe: post.isLikedByMe,
+                isFollowedByMe: post.isFollowedByMe,
+                isRepostedByMe: post.isRepostedByMe || false,
+                text: post.content || '',
+                media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+                mentions: Array.isArray(post.mentions) ? post.mentions : [],
+                // The post being quoted by this quote tweet
+                originalPostData: post.originalPost
+                  ? {
+                      userId: post.originalPost.author.userId,
+                      username: post.originalPost.author.username,
+                      verified: post.originalPost.author.isVerified,
+                      name: post.originalPost.author.name,
+                      avatar: post.originalPost.author.avatar,
+                      postId: post.originalPost.postId,
+                      date: post.originalPost.createdAt,
+                      likesCount: post.originalPost.likeCount,
+                      retweetsCount: post.originalPost.repostCount,
+                      commentsCount: post.originalPost.replyCount,
+                      isLikedByMe: post.originalPost.isLikedByMe || false,
+                      isFollowedByMe: post.originalPost.isFollowedByMe || false,
+                      isRepostedByMe: post.originalPost.isRepostedByMe || false,
+                      text: post.originalPost.content || '',
+                      media: post.originalPost.media || [],
+                      mentions: post.originalPost.mentions || [],
+                    }
+                  : undefined,
               }
-              : {}),
-          }
+            : isQuote && post.originalPost
+              ? // Direct quote tweet: show the original (no further nesting)
+                {
+                  userId: post.originalPost.author.userId,
+                  username: post.originalPost.author.username,
+                  verified: post.originalPost.author.isVerified,
+                  name: post.originalPost.author.name,
+                  avatar: post.originalPost.author.avatar,
+                  postId: post.originalPost.postId,
+                  date: post.originalPost.createdAt,
+                  likesCount: post.originalPost.likeCount,
+                  retweetsCount: post.originalPost.repostCount,
+                  commentsCount: post.originalPost.replyCount,
+                  isLikedByMe: post.originalPost.isLikedByMe || false,
+                  isFollowedByMe: post.originalPost.isFollowedByMe || false,
+                  isRepostedByMe: post.originalPost.isRepostedByMe || false,
+                  text: post.originalPost.content || '',
+                  media: post.originalPost.media || [],
+                  mentions: post.originalPost.mentions || [],
+                }
+              : // Simple repost: show the original post
+                {
+                  userId: post.user_id,
+                  username: post.username,
+                  verified: post.isVerified,
+                  name: post.authorName || post.username,
+                  avatar: post.authorProfileImage,
+                  postId: post.id,
+                  date: post.created_at,
+                  likesCount: post.likeCount,
+                  retweetsCount: post.repostCount,
+                  commentsCount: post.replyCount,
+                  isLikedByMe: post.isLikedByMe,
+                  isFollowedByMe: post.isFollowedByMe,
+                  isRepostedByMe: post.isRepostedByMe || false,
+                  text: post.content || '',
+                  media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+                  mentions: Array.isArray(post.mentions) ? post.mentions : [],
+                }
           : undefined,
 
       // Scores data
@@ -2348,7 +2509,7 @@ SELECT * FROM candidate_posts;
         '[]'::json
       ) as "mentions",
       
-      -- Original post for quotes only
+      -- Original post for quotes only (with nested originalPost for quotes within quotes)
       CASE 
         WHEN ap."parent_id" IS NOT NULL AND ap."type" = 'QUOTE' THEN
           (SELECT json_build_object(
@@ -2379,7 +2540,45 @@ SELECT * FROM candidate_posts;
                INNER JOIN "User" omu ON omu."id" = omen."user_id"
                WHERE omen."post_id" = op."id"),
               '[]'::json
-            )
+            ),
+            'originalPost', CASE 
+              WHEN op."parent_id" IS NOT NULL AND op."type" = 'QUOTE' THEN
+                (SELECT json_build_object(
+                  'postId', oop."id",
+                  'content', oop."content",
+                  'createdAt', oop."created_at",
+                  'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = oop."id"), 0),
+                  'repostCount', COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE "post_id" = oop."id"), 0),
+                  'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = oop."id" AND "is_deleted" = false), 0),
+                  'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                  'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = oop."user_id"),
+                  'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                  'author', json_build_object(
+                    'userId', oou."id",
+                    'username', oou."username",
+                    'isVerified', oou."is_verifed",
+                    'name', COALESCE(oopr."name", oou."username"),
+                    'avatar', oopr."profile_image_url"
+                  ),
+                  'media', COALESCE(
+                    (SELECT json_agg(json_build_object('url', oom."media_url", 'type', oom."type"))
+                     FROM "Media" oom WHERE oom."post_id" = oop."id"),
+                    '[]'::json
+                  ),
+                  'mentions', COALESCE(
+                    (SELECT json_agg(json_build_object('userId', oomu."id"::text, 'username', oomu."username"))
+                     FROM "Mention" oomen
+                     INNER JOIN "User" oomu ON oomu."id" = oomen."user_id"
+                     WHERE oomen."post_id" = oop."id"),
+                    '[]'::json
+                  )
+                )
+                FROM "posts" oop
+                LEFT JOIN "User" oou ON oou."id" = oop."user_id"
+                LEFT JOIN "profiles" oopr ON oopr."user_id" = oou."id"
+                WHERE oop."id" = op."parent_id" AND oop."is_deleted" = false)
+              ELSE NULL
+            END
           )
           FROM "posts" op
           LEFT JOIN "User" ou ON ou."id" = op."user_id"
@@ -2740,7 +2939,7 @@ SELECT * FROM candidate_posts;
         '[]'::json
       ) as "mentions",
       
-      -- Original post for quotes only
+      -- Original post for quotes only (with nested originalPost for quotes within quotes)
       CASE 
         WHEN ap."parent_id" IS NOT NULL AND ap."type" = 'QUOTE' THEN
           (SELECT json_build_object(
@@ -2771,7 +2970,45 @@ SELECT * FROM candidate_posts;
                INNER JOIN "User" omu ON omu."id" = omen."user_id"
                WHERE omen."post_id" = op."id"),
               '[]'::json
-            )
+            ),
+            'originalPost', CASE 
+              WHEN op."parent_id" IS NOT NULL AND op."type" = 'QUOTE' THEN
+                (SELECT json_build_object(
+                  'postId', oop."id",
+                  'content', oop."content",
+                  'createdAt', oop."created_at",
+                  'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = oop."id"), 0),
+                  'repostCount', COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE "post_id" = oop."id"), 0),
+                  'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = oop."id" AND "is_deleted" = false), 0),
+                  'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                  'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = oop."user_id"),
+                  'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                  'author', json_build_object(
+                    'userId', oou."id",
+                    'username', oou."username",
+                    'isVerified', oou."is_verifed",
+                    'name', COALESCE(oopr."name", oou."username"),
+                    'avatar', oopr."profile_image_url"
+                  ),
+                  'media', COALESCE(
+                    (SELECT json_agg(json_build_object('url', oom."media_url", 'type', oom."type"))
+                     FROM "Media" oom WHERE oom."post_id" = oop."id"),
+                    '[]'::json
+                  ),
+                  'mentions', COALESCE(
+                    (SELECT json_agg(json_build_object('userId', oomu."id"::text, 'username', oomu."username"))
+                     FROM "Mention" oomen
+                     INNER JOIN "User" oomu ON oomu."id" = oomen."user_id"
+                     WHERE oomen."post_id" = oop."id"),
+                    '[]'::json
+                  )
+                )
+                FROM "posts" oop
+                LEFT JOIN "User" oou ON oou."id" = oop."user_id"
+                LEFT JOIN "profiles" oopr ON oopr."user_id" = oou."id"
+                WHERE oop."id" = op."parent_id" AND oop."is_deleted" = false)
+              ELSE NULL
+            END
           )
           FROM "posts" op
           LEFT JOIN "User" ou ON ou."id" = op."user_id"
