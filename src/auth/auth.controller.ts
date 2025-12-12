@@ -285,7 +285,7 @@ export class AuthController {
     await this.emailVerificationService.sendVerificationEmail(emailVerificationDto.email);
     return {
       status: 'success',
-      message: 'Check your email for verification code',
+      message: 'You will recieve verification code soon, Please check your email',
     };
   }
 
@@ -321,7 +321,7 @@ export class AuthController {
     await this.emailVerificationService.resendVerificationEmail(emailVerificationDto.email);
     return {
       status: 'success',
-      message: 'Check your email for verification code',
+      message: 'You will recieve verification code soon, Please check your email',
     };
   }
 

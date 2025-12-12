@@ -4,9 +4,8 @@ import { Queue } from 'bullmq';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { RedisQueues, Services } from 'src/utils/constants';
-import { PostService } from './post.service';
-import { extractHashtags } from 'src/utils/extractHashtags';
 import { TrendCategory, CATEGORY_TO_INTERESTS } from '../enums/trend-category.enum';
+import { UsersService } from 'src/users/users.service';
 
 const HASHTAG_TRENDS_TOKEN_PREFIX = 'hashtags:trending:';
 
@@ -22,6 +21,8 @@ export class HashtagTrendService {
     private readonly redisService: RedisService,
     @InjectQueue(RedisQueues.hashTagQueue.name)
     private readonly trendingQueue: Queue,
+    @Inject(Services.USERS)
+    private readonly usersService: UsersService,
   ) {}
 
   public async queueTrendCalculation(hashtagIds: number[]) {
@@ -48,6 +49,7 @@ export class HashtagTrendService {
   public async calculateTrend(
     hashtagId: number,
     category: TrendCategory = TrendCategory.GENERAL,
+    userId: number | null,
   ): Promise<number> {
     try {
       const now = new Date();
@@ -55,92 +57,114 @@ export class HashtagTrendService {
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-      const interestSlugs = CATEGORY_TO_INTERESTS[category];
+      let interestSlugs = CATEGORY_TO_INTERESTS[category];
+      if (category === TrendCategory.PERSONALIZED && !userId) {
+        return 0;
+      }
+      if (userId) {
+        const userInterests = await this.usersService.getUserInterests(userId);
+        interestSlugs = userInterests.map((userInterests) => userInterests.slug);
+      }
+
       const whereClause: any = {
         hashtags: { some: { id: hashtagId } },
         is_deleted: false,
       };
 
-      if (interestSlugs.length > 0) {
-        whereClause.Interest = {
-          slug: { in: interestSlugs },
-        };
-      }
-
-      const [count1h, count24h, count7d] = await Promise.all([
-        this.prismaService.post.count({
-          where: {
-            ...whereClause,
-            created_at: { gte: oneHourAgo },
+      const [posts1h, posts24h, posts7d] = await Promise.all([
+        this.prismaService.post.findMany({
+          where: { ...whereClause, created_at: { gte: oneHourAgo } },
+          select: {
+            id: true,
+            Interest: { select: { slug: true } },
           },
         }),
-        this.prismaService.post.count({
-          where: {
-            ...whereClause,
-            created_at: { gte: oneDayAgo },
+        this.prismaService.post.findMany({
+          where: { ...whereClause, created_at: { gte: oneDayAgo } },
+          select: {
+            id: true,
+            Interest: { select: { slug: true } },
           },
         }),
-        this.prismaService.post.count({
-          where: {
-            ...whereClause,
-            created_at: { gte: sevenDaysAgo },
+        this.prismaService.post.findMany({
+          where: { ...whereClause, created_at: { gte: sevenDaysAgo } },
+          select: {
+            id: true,
+            Interest: { select: { slug: true } },
           },
         }),
       ]);
+      const filterByCategory = (posts: any[]) => {
+        if (category === TrendCategory.GENERAL || interestSlugs.length === 0) {
+          return posts.length;
+        }
+        return posts.filter(
+          (post) => post.Interest?.slug && interestSlugs.includes(post.Interest.slug),
+        ).length;
+      };
+
+      const count1h = filterByCategory(posts1h);
+      const count24h = filterByCategory(posts24h);
+      const count7d = filterByCategory(posts7d);
+
       const score = count1h * 10 + count24h * 2 + count7d * 0.5;
 
-      await this.prismaService.hashtagTrend.create({
-        data: {
-          hashtag_id: hashtagId,
+      await this.prismaService.hashtagTrend.upsert({
+        where: {
+          hashtag_id_category: {
+            hashtag_id: hashtagId,
+            category: category,
+          },
+        },
+        update: {
           post_count_1h: count1h,
           post_count_24h: count24h,
           post_count_7d: count7d,
           trending_score: score,
+          calculated_at: now,
+        },
+        create: {
+          hashtag_id: hashtagId,
+          category: category,
+          post_count_1h: count1h,
+          post_count_24h: count24h,
+          post_count_7d: count7d,
+          trending_score: score,
+          calculated_at: now,
         },
       });
 
-      // Invalidate all trending caches when new trend is calculated
-      await this.redisService.delPattern(`${HASHTAG_TRENDS_TOKEN_PREFIX}*`);
-
       this.logger.debug(
-        `Calculated trend for hashtag ${hashtagId}: score=${score} (1h: ${count1h}, 24h: ${count24h}, 7d: ${count7d})`,
+        `Calculated trend for hashtag ${hashtagId} [${category}]: score=${score} (1h: ${count1h}, 24h: ${count24h}, 7d: ${count7d})`,
       );
 
       return score;
     } catch (error) {
-      this.logger.error(`Error calculating trend for hashtag ${hashtagId}:`, error);
+      this.logger.error(`Error calculating trend for hashtag ${hashtagId} [${category}]:`, error);
       throw error;
     }
   }
 
-  public async getTrending(limit: number = 10, category: TrendCategory = TrendCategory.GENERAL) {
+  public async getTrending(
+    limit: number = 10,
+    category: TrendCategory = TrendCategory.GENERAL,
+    userId: number,
+  ) {
+    console.log(category);
     const cacheKey = `${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:${limit}`;
     const cached = await this.redisService.getJSON<any[]>(cacheKey);
+    console.log(cached);
     if (cached && cached.length > 0) {
-      this.logger.debug(
-        `Returning ${cached.length} cached trending hashtags for category ${category}`,
-      );
       return cached;
     }
 
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-    const interestSlugs = CATEGORY_TO_INTERESTS[category];
+    const lastHour = new Date(Date.now() - 60 * 60 * 1000);
+
     const trends = await this.prismaService.hashtagTrend.findMany({
       where: {
-        calculated_at: { gte: fifteenMinutesAgo },
+        category: category,
+        calculated_at: { gte: lastHour },
         trending_score: { gt: 0 },
-        ...(interestSlugs.length > 0 && {
-          hashtag: {
-            posts: {
-              some: {
-                Interest: {
-                  slug: { in: interestSlugs },
-                },
-                is_deleted: false,
-              },
-            },
-          },
-        }),
       },
       include: {
         hashtag: true,
@@ -153,9 +177,8 @@ export class HashtagTrendService {
     });
 
     if (trends.length === 0) {
-      // background recalculate job
-      this.recalculateTrends().catch((err) =>
-        this.logger.error('Background recalculation failed:', err),
+      this.recalculateTrends(category, userId).catch((err) =>
+        this.logger.error(`Background recalculation failed for ${category}:`, err),
       );
       return [];
     }
@@ -169,9 +192,16 @@ export class HashtagTrendService {
     return result;
   }
 
-  async recalculateTrends(category: TrendCategory = TrendCategory.GENERAL) {
+  async recalculateTrends(category: TrendCategory = TrendCategory.GENERAL, userId?: number) {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const interestSlugs = CATEGORY_TO_INTERESTS[category];
+    let interestSlugs = CATEGORY_TO_INTERESTS[category];
+    console.log(interestSlugs);
+    let userInterests;
+    if (category === TrendCategory.PERSONALIZED && userId) {
+      userInterests = await this.usersService.getUserInterests(userId);
+      interestSlugs = userInterests.map((userInterests) => userInterests.slug);
+      console.log(userInterests, interestSlugs);
+    }
     const whereClause: any = {
       posts: {
         some: {
@@ -196,62 +226,21 @@ export class HashtagTrendService {
     if (activeHashtags.length > 0) {
       await this.trendingQueue.add(
         RedisQueues.bulkHashTagQueue.processes.recalculateTrends,
-        { hashtagIds: activeHashtags.map((h) => h.id) },
+        {
+          hashtagIds: activeHashtags.map((h) => h.id),
+          category: category,
+        },
         {
           removeOnComplete: true,
           removeOnFail: false,
           attempts: 2,
         },
       );
+
+      // Invalidate cache for this category
+      await this.redisService.delPattern(`${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:*`);
     }
 
     return activeHashtags.length;
   }
-
-  // async reindexAllPostHashtags(): Promise<string> {
-  //   const posts = await this.prismaService.post.findMany({
-  //     where: { is_deleted: false },
-  //     select: { id: true, content: true },
-  //   });
-  //   let processedCount = 0;
-  //   let errorCount = 0;
-
-  //   for (const post of posts) {
-  //     try {
-  //       const tags = extractHashtags(post.content);
-
-  //       if (tags.length === 0) {
-  //         // clear relations
-  //         await this.prismaService.post.update({
-  //           where: { id: post.id },
-  //           data: { hashtags: { set: [] } },
-  //         });
-  //       } else {
-  //         const hashtagIds: number[] = [];
-  //         for (const tag of tags) {
-  //           const hashtag = await this.prismaService.hashtag.upsert({
-  //             where: { tag },
-  //             update: {},
-  //             create: { tag },
-  //           });
-  //           hashtagIds.push(hashtag.id);
-  //         }
-
-  //         await this.prismaService.post.update({
-  //           where: { id: post.id },
-  //           data: {
-  //             hashtags: {
-  //               set: hashtagIds.map((id) => ({ id })),
-  //             },
-  //           },
-  //         });
-  //       }
-  //       processedCount++;
-  //     } catch (error) {
-  //       errorCount++;
-  //     }
-  //   }
-  //   const message = `Reindexing complete: ${processedCount} posts processed, ${errorCount} errors`;
-  //   return message;
-  // }
 }

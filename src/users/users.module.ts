@@ -14,5 +14,11 @@ import { RedisModule } from 'src/redis/redis.module';
     },
   ],
   imports: [PrismaModule, RedisModule],
+  exports: [
+    {
+      provide: Services.USERS,
+      useClass: UsersService,
+    },
+  ],
 })
 export class UsersModule {}
