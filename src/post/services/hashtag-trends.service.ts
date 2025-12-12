@@ -88,28 +88,189 @@ export class HashtagTrendService {
         }),
       ]);
       const score = count1h * 10 + count24h * 2 + count7d * 0.5;
-
-      await this.prismaService.hashtagTrend.create({
-        data: {
-          hashtag_id: hashtagId,
+      await this.prismaService.hashtagTrend.upsert({
+        where: {
+          hashtag_id_category: {
+            hashtag_id: hashtagId,
+            category: category,
+          },
+        },
+        update: {
           post_count_1h: count1h,
           post_count_24h: count24h,
           post_count_7d: count7d,
           trending_score: score,
+          calculated_at: now,
+        },
+        create: {
+          hashtag_id: hashtagId,
+          category: category,
+          post_count_1h: count1h,
+          post_count_24h: count24h,
+          post_count_7d: count7d,
+          trending_score: score,
+          calculated_at: now,
         },
       });
 
-      // Invalidate all trending caches when new trend is calculated
-      await this.redisService.delPattern(`${HASHTAG_TRENDS_TOKEN_PREFIX}*`);
-
       this.logger.debug(
-        `Calculated trend for hashtag ${hashtagId}: score=${score} (1h: ${count1h}, 24h: ${count24h}, 7d: ${count7d})`,
+        `Calculated trend for hashtag ${hashtagId} [${category}]: score=${score} (1h: ${count1h}, 24h: ${count24h}, 7d: ${count7d})`,
       );
 
       return score;
     } catch (error) {
-      this.logger.error(`Error calculating trend for hashtag ${hashtagId}:`, error);
+      this.logger.error(`Error calculating trend for hashtag ${hashtagId} [${category}]:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Optimized batch calculation for multiple hashtags and categories
+   * Reduces complexity from O(N*M) individual queries to O(1) aggregated query
+   */
+  public async calculateTrendsBatch(
+    hashtagIds: number[],
+    categories: TrendCategory[],
+  ): Promise<{ processed: number; failed: number }> {
+    if (hashtagIds.length === 0 || categories.length === 0) {
+      return { processed: 0, failed: 0 };
+    }
+
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    let processed = 0;
+    let failed = 0;
+
+    try {
+      // Group hashtags and fetch all post data in a single query per time period
+      const baseWhere = {
+        hashtags: { some: { id: { in: hashtagIds } } },
+        is_deleted: false,
+      };
+
+      // Fetch all posts once grouped by hashtag and time periods
+      const [posts1h, posts24h, posts7d] = await Promise.all([
+        this.prismaService.post.findMany({
+          where: { ...baseWhere, created_at: { gte: oneHourAgo } },
+          select: {
+            id: true,
+            hashtags: { select: { id: true } },
+            Interest: { select: { slug: true } },
+          },
+        }),
+        this.prismaService.post.findMany({
+          where: { ...baseWhere, created_at: { gte: oneDayAgo } },
+          select: {
+            id: true,
+            hashtags: { select: { id: true } },
+            Interest: { select: { slug: true } },
+          },
+        }),
+        this.prismaService.post.findMany({
+          where: { ...baseWhere, created_at: { gte: sevenDaysAgo } },
+          select: {
+            id: true,
+            hashtags: { select: { id: true } },
+            Interest: { select: { slug: true } },
+          },
+        }),
+      ]);
+
+      // Build aggregated counts for each hashtag-category combination
+      const trendsMap = new Map<string, { count1h: number; count24h: number; count7d: number }>();
+
+      const processPostsForPeriod = (posts: any[], periodKey: '1h' | '24h' | '7d') => {
+        posts.forEach((post) => {
+          const interestSlug = post.Interest?.slug;
+          post.hashtags.forEach((hashtag: { id: number }) => {
+            categories.forEach((category) => {
+              const interestSlugs = CATEGORY_TO_INTERESTS[category];
+
+              // Check if post matches category
+              const matchesCategory =
+                category === TrendCategory.GENERAL ||
+                (interestSlugs.length > 0 && interestSlug && interestSlugs.includes(interestSlug));
+
+              if (matchesCategory) {
+                const key = `${hashtag.id}:${category}`;
+                if (!trendsMap.has(key)) {
+                  trendsMap.set(key, { count1h: 0, count24h: 0, count7d: 0 });
+                }
+                const counts = trendsMap.get(key)!;
+                if (periodKey === '1h') counts.count1h++;
+                if (periodKey === '24h') counts.count24h++;
+                if (periodKey === '7d') counts.count7d++;
+              }
+            });
+          });
+        });
+      };
+
+      processPostsForPeriod(posts1h, '1h');
+      processPostsForPeriod(posts24h, '24h');
+      processPostsForPeriod(posts7d, '7d');
+
+      // Delete old trends for all hashtags and categories in batch
+      await this.prismaService.hashtagTrend.deleteMany({
+        where: {
+          hashtag_id: { in: hashtagIds },
+          category: { in: categories },
+        },
+      });
+
+      // Prepare bulk insert data
+      const trendsToCreate = Array.from(trendsMap.entries()).map(([key, counts]) => {
+        const [hashtagId, category] = key.split(':');
+        const score = counts.count1h * 10 + counts.count24h * 2 + counts.count7d * 0.5;
+
+        return {
+          hashtag_id: parseInt(hashtagId),
+          category: category,
+          post_count_1h: counts.count1h,
+          post_count_24h: counts.count24h,
+          post_count_7d: counts.count7d,
+          trending_score: score,
+        };
+      });
+
+      // Add zero-score entries for hashtags with no posts
+      hashtagIds.forEach((hashtagId) => {
+        categories.forEach((category) => {
+          const key = `${hashtagId}:${category}`;
+          if (!trendsMap.has(key)) {
+            trendsToCreate.push({
+              hashtag_id: hashtagId,
+              category: category,
+              post_count_1h: 0,
+              post_count_24h: 0,
+              post_count_7d: 0,
+              trending_score: 0,
+            });
+          }
+        });
+      });
+
+      // Bulk insert all trends
+      if (trendsToCreate.length > 0) {
+        await this.prismaService.hashtagTrend.createMany({
+          data: trendsToCreate,
+          skipDuplicates: true,
+        });
+        processed = trendsToCreate.length;
+      }
+
+      this.logger.log(
+        `Batch calculated ${processed} trends for ${hashtagIds.length} hashtags across ${categories.length} categories`,
+      );
+
+      return { processed, failed };
+    } catch (error) {
+      this.logger.error('Error in batch trend calculation:', error);
+      failed = hashtagIds.length * categories.length;
+      return { processed, failed };
     }
   }
 
@@ -123,24 +284,14 @@ export class HashtagTrendService {
       return cached;
     }
 
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-    const interestSlugs = CATEGORY_TO_INTERESTS[category];
+    // Fetch pre-calculated trends from the last hour
+    const lastHour = new Date(Date.now() - 60 * 60 * 1000);
+
     const trends = await this.prismaService.hashtagTrend.findMany({
       where: {
-        calculated_at: { gte: fifteenMinutesAgo },
+        category: category,
+        calculated_at: { gte: lastHour },
         trending_score: { gt: 0 },
-        ...(interestSlugs.length > 0 && {
-          hashtag: {
-            posts: {
-              some: {
-                Interest: {
-                  slug: { in: interestSlugs },
-                },
-                is_deleted: false,
-              },
-            },
-          },
-        }),
       },
       include: {
         hashtag: true,
@@ -153,9 +304,9 @@ export class HashtagTrendService {
     });
 
     if (trends.length === 0) {
-      // background recalculate job
-      this.recalculateTrends().catch((err) =>
-        this.logger.error('Background recalculation failed:', err),
+      // Trigger background recalculation for this category
+      this.recalculateTrends(category).catch((err) =>
+        this.logger.error(`Background recalculation failed for ${category}:`, err),
       );
       return [];
     }
@@ -196,13 +347,19 @@ export class HashtagTrendService {
     if (activeHashtags.length > 0) {
       await this.trendingQueue.add(
         RedisQueues.bulkHashTagQueue.processes.recalculateTrends,
-        { hashtagIds: activeHashtags.map((h) => h.id) },
+        {
+          hashtagIds: activeHashtags.map((h) => h.id),
+          category: category,
+        },
         {
           removeOnComplete: true,
           removeOnFail: false,
           attempts: 2,
         },
       );
+
+      // Invalidate cache for this category
+      await this.redisService.delPattern(`${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:*`);
     }
 
     return activeHashtags.length;
