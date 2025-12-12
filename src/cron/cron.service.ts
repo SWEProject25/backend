@@ -13,7 +13,7 @@ export class CronService {
     private readonly hashtagTrendService: HashtagTrendService,
   ) {}
 
-  // Calculate trends every 15 minutes
+  // Calculate hashtag trends every 15 minutes
   @Cron('0 */15 * * * *', {
     name: CronJobs.trendsJob.name,
     timeZone: 'UTC',
@@ -31,7 +31,7 @@ export class CronService {
     }
     const totalQueued = results.reduce((sum, r) => sum + (r.count || 0), 0);
     this.logger.log(
-      `✅ Completed scheduled trend calculation. Total queued: ${totalQueued} hashtags across ${ALL_TREND_CATEGORIES.length} categories`,
+      `Completed scheduled trend calculation. Total queued: ${totalQueued} hashtags across ${ALL_TREND_CATEGORIES.length} categories`,
     );
 
     return results;

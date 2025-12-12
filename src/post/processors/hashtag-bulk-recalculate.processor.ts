@@ -41,17 +41,20 @@ export class HashtagBulkRecalculateProcessor extends WorkerHost {
       for (let i = 0; i < hashtagIds.length; i += batchSize) {
         const batch = hashtagIds.slice(i, i + batchSize);
 
-        const { processed, failed } = await this.hashtagTrendService.calculateTrendsBatch(
-          batch,
-          categories,
-        );
-
-        totalProcessed += processed;
-        totalFailed += failed;
-
-        // Update job progress
-        const progress = ((i + batch.length) / hashtagIds.length) * 100;
-        await job.updateProgress(Math.min(progress, 100));
+        for (const hashtagId of batch) {
+          for (const cat of categories) {
+            try {
+              await this.hashtagTrendService.calculateTrend(hashtagId, cat);
+              totalProcessed++;
+            } catch (error) {
+              this.logger.error(
+                `Failed to calculate trend for hashtag ${hashtagId} [${cat}]:`,
+                error,
+              );
+              totalFailed++;
+            }
+          }
+        }
       }
 
       const result = {

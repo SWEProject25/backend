@@ -32,10 +32,23 @@ export class HashtagCalculateTrendsProcessor extends WorkerHost {
 
       this.logger.log(`Calculating trends for ${hashtagIds.length} hashtags`);
 
-      const { processed, failed } = await this.hashtagTrendService.calculateTrendsBatch(
-        hashtagIds,
-        categories,
-      );
+      let processed = 0;
+      let failed = 0;
+
+      for (const hashtagId of hashtagIds) {
+        for (const cat of categories) {
+          try {
+            await this.hashtagTrendService.calculateTrend(hashtagId, cat);
+            processed++;
+          } catch (error) {
+            this.logger.error(
+              `Failed to calculate trend for hashtag ${hashtagId} [${cat}]:`,
+              error,
+            );
+            failed++;
+          }
+        }
+      }
 
       const result = {
         processed,
