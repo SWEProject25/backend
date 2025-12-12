@@ -85,5 +85,5 @@ export interface TransformedPost {
   mentions: { userId: number; username: string }[];
   isRepost: boolean;
   isQuote: boolean;
-  originalPostData?: TransformedPost;
+  originalPostData?: TransformedPost | { isDeleted: boolean };
 }
