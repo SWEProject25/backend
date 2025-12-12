@@ -202,7 +202,7 @@ export class PostService {
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
     private readonly socketService: SocketService,
-  ) { }
+  ) {}
 
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
@@ -399,11 +399,11 @@ export class PostService {
         hashtagIds: hashtagRecords.map((r) => r.id),
         parentPostAuthorId: postData.parentId
           ? (
-            await tx.post.findUnique({
-              where: { id: postData.parentId },
-              select: { user_id: true },
-            })
-          )?.user_id
+              await tx.post.findUnique({
+                where: { id: postData.parentId },
+                select: { user_id: true },
+              })
+            )?.user_id
           : undefined,
       };
     });
@@ -490,11 +490,10 @@ export class PostService {
       }
 
       // Update parent post stats cache if this is a reply or quote
-      if (
-        createPostDto.parentId &&
-        (createPostDto.type === 'REPLY' || createPostDto.type === 'QUOTE')
-      ) {
+      if (createPostDto.parentId && createPostDto.type === 'REPLY') {
         await this.updatePostStatsCache(createPostDto.parentId, 'commentsCount', 1);
+      } else if (createPostDto.parentId && createPostDto.type === 'QUOTE') {
+        await this.updatePostStatsCache(createPostDto.parentId, 'retweetsCount', 1);
       }
 
       if (post.content) {
@@ -550,14 +549,14 @@ export class PostService {
 
     const where = hasFilters
       ? {
-        ...(userId && { user_id: userId }),
-        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-        ...(type && { type }),
-        is_deleted: false,
-      }
+          ...(userId && { user_id: userId }),
+          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+          ...(type && { type }),
+          is_deleted: false,
+        }
       : {
-        is_deleted: false,
-      };
+          is_deleted: false,
+        };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -763,12 +762,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-          userId: post.user_id,
-          username: post.username,
-          verified: post.isVerified,
-          name: post.authorName || post.username,
-          avatar: post.authorProfileImage,
-        };
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+          };
 
     // Build originalPostData
     let originalPostData: any = null;
@@ -1257,8 +1256,10 @@ export class PostService {
     });
 
     // Update parent post stats cache if this was a reply or quote
-    if (result.post.parent_id && (result.post.type === 'REPLY' || result.post.type === 'QUOTE')) {
+    if (result.post.parent_id && result.post.type === 'REPLY') {
       await this.updatePostStatsCache(result.post.parent_id, 'commentsCount', -1);
+    } else if (result.post.parent_id && result.post.type === 'QUOTE') {
+      await this.updatePostStatsCache(result.post.parent_id, 'retweetsCount', -1);
     }
 
     return result;
@@ -1300,7 +1301,7 @@ export class PostService {
     }
 
     // Fetch stats from database
-    const [likesCount, repostsCount, repliesCount] = await Promise.all([
+    const [likesCount, repostsCount, repliesCount, quotesCount] = await Promise.all([
       this.prismaService.like.count({
         where: { post_id: postId },
       }),
@@ -1310,6 +1311,14 @@ export class PostService {
       this.prismaService.post.count({
         where: {
           parent_id: postId,
+          type: PostType.REPLY,
+          is_deleted: false,
+        },
+      }),
+      this.prismaService.post.count({
+        where: {
+          parent_id: postId,
+          type: PostType.QUOTE,
           is_deleted: false,
         },
       }),
@@ -1317,7 +1326,7 @@ export class PostService {
 
     const stats = {
       likesCount: likesCount,
-      retweetsCount: repostsCount,
+      retweetsCount: repostsCount + quotesCount,
       commentsCount: repliesCount,
     };
 
@@ -2009,12 +2018,12 @@ SELECT * FROM candidate_posts;
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-          userId: post.user_id,
-          username: post.username,
-          verified: post.isVerified,
-          name: post.authorName || post.username,
-          avatar: post.authorProfileImage,
-        };
+            userId: post.user_id,
+            username: post.username,
+            verified: post.isVerified,
+            name: post.authorName || post.username,
+            avatar: post.authorProfileImage,
+          };
 
     return {
       // User Information (reposter for simple reposts, author otherwise)
