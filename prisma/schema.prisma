@@ -46,6 +46,7 @@ model User {
   SentNotifications       Notification[] @relation("SentNotifications")
   DeviceTokens            DeviceToken[]
   Media                   Media[]
+  hashtagTrends           HashtagTrend[]
 }
 
 model Profile {
@@ -215,6 +216,7 @@ model Hashtag {
 model HashtagTrend {
   id             Int      @id @default(autoincrement())
   hashtag_id     Int
+  user_id        Int?
   category       String   @default("general") @db.VarChar(50)
   post_count_1h  Int
   post_count_24h Int
@@ -222,6 +224,7 @@ model HashtagTrend {
   trending_score Float
   calculated_at  DateTime @default(now())
   hashtag        Hashtag  @relation(fields: [hashtag_id], references: [id], onDelete: Cascade)
+  user           User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   @@unique([hashtag_id, category])
   @@index([category, trending_score])
