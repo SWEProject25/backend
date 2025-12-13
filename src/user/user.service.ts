@@ -222,4 +222,22 @@ export class UserService {
   public async checkUsername(username: string) {
     return await this.prismaService.user.findUnique({ where: { username } });
   }
+
+  public async getActiveUsers(): Promise<Array<{ id: number }>> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // the last 30 days
+
+    return this.prismaService.user.findMany({
+      where: {
+        has_completed_interests: true,
+        deleted_at: null,
+        OR: [
+          { Posts: { some: { created_at: { gte: thirtyDaysAgo } } } },
+          { likes: { some: { created_at: { gte: thirtyDaysAgo } } } },
+          { Following: { some: { createdAt: { gte: thirtyDaysAgo } } } },
+        ],
+      },
+      select: { id: true },
+      take: 1000,
+    });
+  }
 }
