@@ -73,7 +73,7 @@ export class PostController {
     private readonly repostService: RepostService,
     @Inject(Services.MENTION)
     private readonly mentionService: MentionService,
-  ) {}
+  ) { }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -1014,7 +1014,7 @@ export class PostController {
     @Query('limit') limit: number = 10,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const replies = await this.postService.getUserReplies(user.id, +page, +limit);
+    const replies = await this.postService.getUserReplies(user.id, user.id, +page, +limit);
 
     return {
       status: 'success',
@@ -1116,8 +1116,9 @@ export class PostController {
     @Param('userId') userId: number,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    const replies = await this.postService.getUserReplies(userId, +page, +limit);
+    const replies = await this.postService.getUserReplies(userId, user.id, +page, +limit);
 
     return {
       status: 'success',

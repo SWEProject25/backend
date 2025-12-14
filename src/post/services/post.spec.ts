@@ -193,7 +193,7 @@ describe('Post Service', () => {
       storageService.uploadFiles.mockResolvedValue(mockUrls);
       prisma.$transaction.mockImplementation(async (callback) => callback(mockTx));
       prisma.post.findMany.mockResolvedValue([mockRawPost]);
-      prisma.post.findFirst.mockResolvedValue(null); 
+      prisma.post.findFirst.mockResolvedValue(null);
       prisma.post.groupBy.mockResolvedValue([]);
       prisma.user.findMany.mockResolvedValue([]);
       postQueue.add.mockResolvedValue({});
@@ -987,7 +987,7 @@ describe('Post Service', () => {
       jest.spyOn(service, 'findPosts').mockResolvedValue(mockReplies);
       jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue(mockEnrichedReplies);
 
-      const result = await service.getUserReplies(userId, page, limit);
+      const result = await service.getUserReplies(userId, userId, page, limit);
 
       expect(service.findPosts).toHaveBeenCalledWith({
         where: {
@@ -1010,7 +1010,7 @@ describe('Post Service', () => {
       jest.spyOn(service, 'findPosts').mockResolvedValue([]);
       jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue([]);
 
-      const result = await service.getUserReplies(userId, page, limit);
+      const result = await service.getUserReplies(userId, userId, page, limit);
 
       expect(service.findPosts).toHaveBeenCalledWith({
         where: {
