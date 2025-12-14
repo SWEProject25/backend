@@ -390,13 +390,24 @@ export class NotificationService {
             EXISTS(SELECT 1 FROM "Like" WHERE post_id = p.id AND user_id = ${recipientId}) as "isLikedByMe",
             EXISTS(SELECT 1 FROM follows WHERE "followerId" = ${recipientId} AND "followingId" = p.user_id) as "isFollowedByMe",
             EXISTS(SELECT 1 FROM "Repost" WHERE post_id = p.id AND user_id = ${recipientId}) as "isRepostedByMe",
+            EXISTS(SELECT 1 FROM mutes WHERE "muterId" = ${recipientId} AND "mutedId" = p.user_id) as "isMutedByMe",
+            EXISTS(SELECT 1 FROM blocks WHERE "blockerId" = ${recipientId} AND "blockedId" = p.user_id) as "isBlockedByMe",
             
             -- Media URLs (as JSON array)
             COALESCE(
               (SELECT json_agg(json_build_object('url', m.media_url, 'type', m.type))
                FROM "Media" m WHERE m.post_id = p.id),
               '[]'::json
-            ) as "mediaUrls"
+            ) as "mediaUrls",
+            
+            -- Mentions (as JSON array)
+            COALESCE(
+              (SELECT json_agg(json_build_object('id', men.user_id, 'username', u_men.username))
+               FROM mentions men
+               LEFT JOIN "User" u_men ON u_men.id = men.user_id
+               WHERE men.post_id = p.id),
+              '[]'::json
+            ) as "mentions"
             
           FROM posts p
           LEFT JOIN "User" u ON u.id = p.user_id
@@ -423,6 +434,8 @@ export class NotificationService {
         name: post.authorName || post.username,
         avatar: post.authorProfileImage,
         postId: post.id,
+        parentId: post.parent_id,
+        type: post.type,
         date: post.created_at,
         likesCount: post.likeCount,
         retweetsCount: post.repostCount,
@@ -430,8 +443,11 @@ export class NotificationService {
         isLikedByMe: post.isLikedByMe,
         isFollowedByMe: post.isFollowedByMe,
         isRepostedByMe: post.isRepostedByMe,
+        isMutedByMe: post.isMutedByMe,
+        isBlockedByMe: post.isBlockedByMe,
         text: post.content || '',
         media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+        mentions: Array.isArray(post.mentions) ? post.mentions : [],
         isRepost: false,
         isQuote,
       };
@@ -484,13 +500,24 @@ export class NotificationService {
             EXISTS(SELECT 1 FROM "Like" WHERE post_id = p.id AND user_id = ${recipientId}) as "isLikedByMe",
             EXISTS(SELECT 1 FROM follows WHERE "followerId" = ${recipientId} AND "followingId" = p.user_id) as "isFollowedByMe",
             EXISTS(SELECT 1 FROM "Repost" WHERE post_id = p.id AND user_id = ${recipientId}) as "isRepostedByMe",
+            EXISTS(SELECT 1 FROM mutes WHERE "muterId" = ${recipientId} AND "mutedId" = p.user_id) as "isMutedByMe",
+            EXISTS(SELECT 1 FROM blocks WHERE "blockerId" = ${recipientId} AND "blockedId" = p.user_id) as "isBlockedByMe",
             
             -- Media URLs (as JSON array)
             COALESCE(
               (SELECT json_agg(json_build_object('url', m.media_url, 'type', m.type))
                FROM "Media" m WHERE m.post_id = p.id),
               '[]'::json
-            ) as "mediaUrls"
+            ) as "mediaUrls",
+            
+            -- Mentions (as JSON array)
+            COALESCE(
+              (SELECT json_agg(json_build_object('id', men.user_id, 'username', u_men.username))
+               FROM mentions men
+               LEFT JOIN "User" u_men ON u_men.id = men.user_id
+               WHERE men.post_id = p.id),
+              '[]'::json
+            ) as "mentions"
             
           FROM posts p
           LEFT JOIN "User" u ON u.id = p.user_id
@@ -516,6 +543,8 @@ export class NotificationService {
         name: post.authorName || post.username,
         avatar: post.authorProfileImage,
         postId: post.id,
+        parentId: post.parent_id,
+        type: post.type,
         date: post.created_at,
         likesCount: post.likeCount,
         retweetsCount: post.repostCount,
@@ -523,8 +552,11 @@ export class NotificationService {
         isLikedByMe: post.isLikedByMe,
         isFollowedByMe: post.isFollowedByMe,
         isRepostedByMe: post.isRepostedByMe,
+        isMutedByMe: post.isMutedByMe,
+        isBlockedByMe: post.isBlockedByMe,
         text: post.content || '',
         media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+        mentions: Array.isArray(post.mentions) ? post.mentions : [],
         isRepost: false,
         isQuote: false,
       };
