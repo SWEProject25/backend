@@ -78,7 +78,7 @@ export class HashtagController {
   async getTrending(
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('category', new DefaultValuePipe(TrendCategory.GENERAL)) category: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentUser() user?: AuthenticatedUser,
   ) {
     if (limit < 1 || limit > 50) {
       throw new BadRequestException('Limit must be between 1 and 50');
@@ -92,7 +92,7 @@ export class HashtagController {
     const trending = await this.hashtagTrendService.getTrending(
       limit,
       category as TrendCategory,
-      user.id,
+      user?.id,
     );
 
     return {

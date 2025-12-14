@@ -109,30 +109,41 @@ export class HashtagTrendService {
 
       const score = count1h * 10 + count24h * 2 + count7d * 0.5;
 
-      await this.prismaService.hashtagTrend.upsert({
+      const isPersonalized = category === TrendCategory.PERSONALIZED;
+      const userIdForTrend = isPersonalized ? userId : null;
+      const existingTrend = await this.prismaService.hashtagTrend.findFirst({
         where: {
-          hashtag_id_category: {
-            hashtag_id: hashtagId,
-            category: category,
-          },
-        },
-        update: {
-          post_count_1h: count1h,
-          post_count_24h: count24h,
-          post_count_7d: count7d,
-          trending_score: score,
-          calculated_at: now,
-        },
-        create: {
           hashtag_id: hashtagId,
-          category: category,
-          post_count_1h: count1h,
-          post_count_24h: count24h,
-          post_count_7d: count7d,
-          trending_score: score,
-          calculated_at: now,
+          category,
+          user_id: userIdForTrend,
         },
       });
+
+      if (existingTrend) {
+        await this.prismaService.hashtagTrend.update({
+          where: { id: existingTrend.id },
+          data: {
+            post_count_1h: count1h,
+            post_count_24h: count24h,
+            post_count_7d: count7d,
+            trending_score: score,
+            calculated_at: now,
+          },
+        });
+      } else {
+        await this.prismaService.hashtagTrend.create({
+          data: {
+            hashtag_id: hashtagId,
+            category,
+            user_id: userIdForTrend,
+            post_count_1h: count1h,
+            post_count_24h: count24h,
+            post_count_7d: count7d,
+            trending_score: score,
+            calculated_at: now,
+          },
+        });
+      }
 
       this.logger.debug(
         `Calculated trend for hashtag ${hashtagId} [${category}]: score=${score} (1h: ${count1h}, 24h: ${count24h}, 7d: ${count7d})`,
@@ -148,25 +159,35 @@ export class HashtagTrendService {
   public async getTrending(
     limit: number = 10,
     category: TrendCategory = TrendCategory.GENERAL,
-    userId: number,
+    userId?: number,
   ) {
-    console.log(category);
-    const cacheKey = `${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:${limit}`;
+    const cacheKey =
+      category === TrendCategory.PERSONALIZED && userId
+        ? `${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:${userId}:${limit}`
+        : `${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:${limit}`;
+
     const cached = await this.redisService.getJSON<any[]>(cacheKey);
-    console.log(cached);
     if (cached && cached.length > 0) {
       return cached;
     }
 
-    const lastHour = new Date(Date.now() - 60 * 60 * 1000);
+    const lastDay = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const whereClause: any = {
+      category: category,
+      calculated_at: { gte: lastDay },
+      trending_score: { gt: 0 },
+    };
+
+    // For personalized trends, filter by user_id
+    if (category === TrendCategory.PERSONALIZED) {
+      if (!userId) {
+        return [];
+      }
+      whereClause.user_id = userId;
+    }
 
     const trends = await this.prismaService.hashtagTrend.findMany({
-      where: {
-        // TODO: => fix for personalized
-        category: category === TrendCategory.PERSONALIZED ? TrendCategory.GENERAL : category,
-        calculated_at: { gte: lastHour },
-        trending_score: { gt: 0 },
-      },
+      where: whereClause,
       include: {
         hashtag: true,
       },
@@ -176,7 +197,7 @@ export class HashtagTrendService {
       take: limit,
       distinct: ['hashtag_id'],
     });
-    console.log(trends);
+
     if (trends.length === 0) {
       this.recalculateTrends(category, userId).catch((err) =>
         this.logger.error(`Background recalculation failed for ${category}:`, err),
@@ -196,12 +217,10 @@ export class HashtagTrendService {
   async recalculateTrends(category: TrendCategory = TrendCategory.GENERAL, userId?: number) {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     let interestSlugs = CATEGORY_TO_INTERESTS[category];
-    console.log(interestSlugs);
-    let userInterests;
+
     if (category === TrendCategory.PERSONALIZED && userId) {
-      userInterests = await this.usersService.getUserInterests(userId);
+      const userInterests = await this.usersService.getUserInterests(userId);
       interestSlugs = userInterests.map((userInterests) => userInterests.slug);
-      console.log(userInterests, interestSlugs, 'from recalc');
     }
     const whereClause: any = {
       posts: {
@@ -230,6 +249,7 @@ export class HashtagTrendService {
         {
           hashtagIds: activeHashtags.map((h) => h.id),
           category: category,
+          userId,
         },
         {
           removeOnComplete: true,
@@ -239,7 +259,11 @@ export class HashtagTrendService {
       );
 
       // Invalidate cache for this category
-      await this.redisService.delPattern(`${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:*`);
+      if (category === TrendCategory.PERSONALIZED && userId) {
+        await this.redisService.delPattern(`${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:${userId}:*`);
+      } else {
+        await this.redisService.delPattern(`${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:*`);
+      }
     }
 
     return activeHashtags.length;

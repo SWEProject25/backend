@@ -226,9 +226,10 @@ model HashtagTrend {
   hashtag        Hashtag  @relation(fields: [hashtag_id], references: [id], onDelete: Cascade)
   user           User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
-  @@unique([hashtag_id, category])
+  @@unique([hashtag_id, category, user_id], name: "hashtag_id_category_userId")
   @@index([category, trending_score])
   @@index([category, calculated_at])
+  @@index([user_id, category, trending_score])
   @@map("hashtag_trends")
 }
 
