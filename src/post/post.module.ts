@@ -17,6 +17,7 @@ import { HashtagController } from './hashtag.controller';
 import { HashtagCalculateTrendsProcessor } from './processors/hashtag-calculate-trends.processor';
 import { HashtagBulkRecalculateProcessor } from './processors/hashtag-bulk-recalculate.processor';
 import { GatewayModule } from 'src/gateway/gateway.module';
+import { UsersModule } from 'src/users/users.module';
 
 @Module({
   controllers: [PostController, HashtagController],
@@ -69,6 +70,7 @@ import { GatewayModule } from 'src/gateway/gateway.module';
     HttpModule,
     RedisModule,
     GatewayModule,
+    UsersModule,
     BullModule.registerQueue({
       name: RedisQueues.postQueue.name,
       defaultJobOptions: {
@@ -91,6 +93,12 @@ import { GatewayModule } from 'src/gateway/gateway.module';
       },
     }),
   ],
-  exports: [Services.POST],
+  exports: [
+    {
+      provide: Services.HASHTAG_TRENDS,
+      useClass: HashtagTrendService,
+    },
+    Services.POST,
+  ],
 })
 export class PostModule {}

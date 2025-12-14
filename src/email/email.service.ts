@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import mailerConfig from './../common/config/mailer.config';
 import { SendEmailDto } from './dto/send-email.dto';
@@ -8,6 +8,10 @@ import { Resend } from 'resend';
 import { EmailClient, EmailMessage, KnownEmailSendStatus } from '@azure/communication-email';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { RedisQueues } from 'src/utils/constants';
+import { EmailJob } from './interfaces/email-job.interface';
 
 @Injectable()
 export class EmailService {
@@ -19,6 +23,9 @@ export class EmailService {
   constructor(
     @Inject(mailerConfig.KEY)
     private readonly mailerConfiguration: ConfigType<typeof mailerConfig>,
+    @Optional()
+    @InjectQueue(RedisQueues.emailQueue.name)
+    private readonly emailQueue?: Queue,
   ) {
     // Initialize AWS SES SMTP Client
     const awsSesConfig = mailerConfiguration.awsSes;
@@ -271,5 +278,43 @@ export class EmailService {
       this.logger.error(`Error reading template: ${path}`, error);
       throw error;
     }
+  }
+
+  public async queueEmail(emailJob: EmailJob): Promise<string> {
+    if (!this.emailQueue) {
+      throw new Error('Email queue is not available');
+    }
+
+    try {
+      const job = await this.emailQueue.add(RedisQueues.emailQueue.processes.sendEmail, emailJob, {
+        removeOnComplete: true,
+        removeOnFail: false,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+      });
+
+      this.logger.log(`Email queued successfully. Job ID: ${job.id}`);
+      return job.id!;
+    } catch (error) {
+      this.logger.error('Failed to queue email:', error);
+      throw error;
+    }
+  }
+
+  public async queueTemplateEmail(
+    recipients: string[] | Array<{ email: string; name?: string }>,
+    subject: string,
+    templatePath: string,
+    templateVariables: Record<string, string>,
+  ): Promise<string> {
+    const html = this.renderTemplate(templatePath, templateVariables);
+    return await this.queueEmail({
+      recipients,
+      subject,
+      html,
+    });
   }
 }

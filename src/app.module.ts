@@ -26,6 +26,8 @@ import redisConfig from './config/redis.config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { FirebaseModule } from './firebase/firebase.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { CronModule } from './cron/cron.module';
 
 const envFilePath = '.env';
 
@@ -86,6 +88,8 @@ const envFilePath = '.env';
     AiIntegrationModule,
     GatewayModule,
     NotificationsModule,
+    ScheduleModule.forRoot(),
+    // CronModule,
   ],
   controllers: [],
   providers: [

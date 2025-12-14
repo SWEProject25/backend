@@ -3,6 +3,7 @@ export enum TrendCategory {
   NEWS = 'news',
   SPORTS = 'sports',
   ENTERTAINMENT = 'entertainment',
+  PERSONALIZED = 'personalized',
 }
 
 export const CATEGORY_TO_INTERESTS: Record<TrendCategory, string[]> = {
@@ -10,6 +11,7 @@ export const CATEGORY_TO_INTERESTS: Record<TrendCategory, string[]> = {
   [TrendCategory.NEWS]: ['news'],
   [TrendCategory.SPORTS]: ['sports'],
   [TrendCategory.ENTERTAINMENT]: ['music', 'dance', 'celebrity', 'movies-tv', 'gaming', 'art'],
+  [TrendCategory.PERSONALIZED]: [],
 };
 
 // Helper to get all category values

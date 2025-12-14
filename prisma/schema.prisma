@@ -46,6 +46,7 @@ model User {
   SentNotifications       Notification[] @relation("SentNotifications")
   DeviceTokens            DeviceToken[]
   Media                   Media[]
+  hashtagTrends           HashtagTrend[]
 }
 
 model Profile {
@@ -94,9 +95,9 @@ model Interest {
   posts       Post[]
 
   @@index([is_active])
-
   @@map("interests")
 }
+
 model UserInterest {
   user_id     Int
   interest_id Int
@@ -111,25 +112,25 @@ model UserInterest {
 }
 
 model Post {
-  id          Int            @id @default(autoincrement())
-  user_id     Int
-  content     String?
-  type        PostType
-  parent_id   Int?
-  visibility  PostVisibility
-  interest_id Int?
-  created_at  DateTime       @default(now())
-  is_deleted  Boolean        @default(false)
-  summary    String?
-  likes       Like[]
-  media       Media[]
-  mentions    Mention[]
-  repostedBy  Repost[]
-  ParentPost  Post?          @relation("PostToReplies", fields: [parent_id], references: [id])
-  Replies     Post[]         @relation("PostToReplies")
-  User        User           @relation(fields: [user_id], references: [id])
-  Interest    Interest?      @relation(fields: [interest_id], references: [id])
-  hashtags    Hashtag[]      @relation("PostHashtags")
+  id            Int            @id @default(autoincrement())
+  user_id       Int
+  content       String?
+  type          PostType
+  parent_id     Int?
+  visibility    PostVisibility
+  interest_id   Int?
+  created_at    DateTime       @default(now())
+  is_deleted    Boolean        @default(false)
+  summary       String?
+  likes         Like[]
+  media         Media[]
+  mentions      Mention[]
+  repostedBy    Repost[]
+  ParentPost    Post?          @relation("PostToReplies", fields: [parent_id], references: [id])
+  Replies       Post[]         @relation("PostToReplies")
+  User          User           @relation(fields: [user_id], references: [id])
+  Interest      Interest?      @relation(fields: [interest_id], references: [id])
+  hashtags      Hashtag[]      @relation("PostHashtags")
   Notifications Notification[]
 
   @@index([is_deleted, type, created_at])
@@ -138,7 +139,6 @@ model Post {
   @@index([parent_id, is_deleted])
   @@index([created_at(sort: Desc)])
   @@map("posts")
-
 }
 
 model Follow {
@@ -151,7 +151,6 @@ model Follow {
   @@id([followerId, followingId])
   @@index([followerId])
   @@index([followingId])
-
   @@map("follows")
 }
 
@@ -178,7 +177,6 @@ model Mute {
   @@id([muterId, mutedId])
   @@index([muterId])
   @@index([mutedId])
-
   @@map("mutes")
 }
 
@@ -208,25 +206,30 @@ model Repost {
 }
 
 model Hashtag {
-  id         Int             @id @default(autoincrement())
-  tag        String          @unique
-  created_at DateTime        @default(now())
-  posts      Post[]          @relation("PostHashtags")
+  id         Int            @id @default(autoincrement())
+  tag        String         @unique
+  created_at DateTime       @default(now())
+  posts      Post[]         @relation("PostHashtags")
   trends     HashtagTrend[]
 }
 
 model HashtagTrend {
-  id               Int      @id @default(autoincrement())
-  hashtag_id       Int
-  post_count_1h    Int
-  post_count_24h   Int
-  post_count_7d    Int
-  trending_score   Float
-  calculated_at    DateTime @default(now())
-  hashtag          Hashtag  @relation(fields: [hashtag_id], references: [id], onDelete: Cascade)
+  id             Int      @id @default(autoincrement())
+  hashtag_id     Int
+  user_id        Int?
+  category       String   @default("general") @db.VarChar(50)
+  post_count_1h  Int
+  post_count_24h Int
+  post_count_7d  Int
+  trending_score Float
+  calculated_at  DateTime @default(now())
+  hashtag        Hashtag  @relation(fields: [hashtag_id], references: [id], onDelete: Cascade)
+  user           User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
-  @@index([trending_score])
-  @@index([hashtag_id])
+  @@unique([hashtag_id, category, user_id], name: "hashtag_id_category_userId")
+  @@index([category, trending_score])
+  @@index([category, calculated_at])
+  @@index([user_id, category, trending_score])
   @@map("hashtag_trends")
 }
 
@@ -256,14 +259,14 @@ model Mention {
 }
 
 model Conversation {
-  id               Int       @id @default(autoincrement())
+  id               Int            @id @default(autoincrement())
   user1Id          Int
   user2Id          Int
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime? @updatedAt
-  nextMessageIndex Int       @default(1)
-  User1            User      @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
-  User2            User      @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime?      @updatedAt
+  nextMessageIndex Int            @default(1)
+  User1            User           @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
+  User2            User           @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
   Messages         Message[]
   Notifications    Notification[]
 
@@ -315,9 +318,9 @@ model Notification {
   actorId     Int              @map("actor_id")
 
   // Actor snapshot to avoid N+1 queries
-  actorUsername   String  @map("actor_username") @db.VarChar(50)
+  actorUsername    String  @map("actor_username") @db.VarChar(50)
   actorDisplayName String? @map("actor_display_name") @db.VarChar(100)
-  actorAvatarUrl  String? @map("actor_avatar_url") @db.VarChar(255)
+  actorAvatarUrl   String? @map("actor_avatar_url") @db.VarChar(255)
 
   // Post-related (for LIKE, REPOST, QUOTE, REPLY, MENTION)
   postId       Int? @map("post_id")

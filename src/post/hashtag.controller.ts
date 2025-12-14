@@ -13,18 +13,12 @@ import {
   Logger,
   BadRequestException,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
-  ApiBearerAuth,
-  ApiCookieAuth,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiQuery, ApiCookieAuth } from '@nestjs/swagger';
 import { HashtagTrendService } from './services/hashtag-trends.service';
 import { Services } from 'src/utils/constants';
-import { Public } from 'src/auth/decorators/public.decorator';
 import { TrendCategory, isValidTrendCategory } from './enums/trend-category.enum';
+import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Controller('hashtags')
 export class HashtagController {
@@ -36,7 +30,6 @@ export class HashtagController {
   ) {}
 
   @Get('trending')
-  @Public()
   @ApiOperation({
     summary: 'Get trending hashtags',
     description:
@@ -54,7 +47,7 @@ export class HashtagController {
     required: false,
     enum: TrendCategory,
     description:
-      'Category to filter trends by. "general" returns all trends, "news" returns hashtags from news posts, "sports" from sports posts, "entertainment" from entertainment-related posts (music, movies, gaming, etc.)',
+      'Category to filter trends by. Options: "general" (all trends), "news" (news posts), "sports" (sports posts), "entertainment" (music, movies, gaming, etc.), "personalized" (based on user interests)',
     example: TrendCategory.GENERAL,
   })
   @ApiResponse({
@@ -85,6 +78,7 @@ export class HashtagController {
   async getTrending(
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('category', new DefaultValuePipe(TrendCategory.GENERAL)) category: string,
+    @CurrentUser() user?: AuthenticatedUser,
   ) {
     if (limit < 1 || limit > 50) {
       throw new BadRequestException('Limit must be between 1 and 50');
@@ -95,8 +89,11 @@ export class HashtagController {
         `Invalid category. Must be one of: ${Object.values(TrendCategory).join(', ')}`,
       );
     }
-
-    const trending = await this.hashtagTrendService.getTrending(limit, category as TrendCategory);
+    const trending = await this.hashtagTrendService.getTrending(
+      limit,
+      category as TrendCategory,
+      user?.id,
+    );
 
     return {
       status: 'success',
@@ -121,7 +118,7 @@ export class HashtagController {
     required: false,
     enum: TrendCategory,
     description:
-      'Category to recalculate trends for. Defaults to "general" which processes all hashtags.',
+      'Category to recalculate trends for. Options: general, news, sports, entertainment, personalized. Defaults to "general" which processes all hashtags.',
     example: TrendCategory.GENERAL,
   })
   @ApiResponse({
