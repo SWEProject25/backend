@@ -1758,8 +1758,7 @@ candidate_posts AS (
     SELECT 
       COUNT(DISTINCT l."user_id")::int as "likeCount",
       COUNT(DISTINCT CASE WHEN replies."id" IS NOT NULL AND replies."type" = 'REPLY' THEN replies."id" END)::int as "replyCount",
-      COUNT(DISTINCT r."user_id")::int as "repostCount",
-      COUNT(DISTINCT CASE WHEN quotes."id" IS NOT NULL AND quotes."type" = 'QUOTE' THEN quotes."id" END)::int as "quoteCount"
+      COUNT(DISTINCT r."user_id")::int as "repostCount"
     FROM "posts" base
     LEFT JOIN "Like" l ON l."post_id" = base."id"
     LEFT JOIN "posts" replies ON replies."parent_id" = base."id" AND replies."is_deleted" = false
