@@ -242,7 +242,7 @@ export class PostService {
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
     private readonly socketService: SocketService,
-  ) {}
+  ) { }
 
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
@@ -439,11 +439,11 @@ export class PostService {
         hashtagIds: hashtagRecords.map((r) => r.id),
         parentPostAuthorId: postData.parentId
           ? (
-              await tx.post.findUnique({
-                where: { id: postData.parentId },
-                select: { user_id: true },
-              })
-            )?.user_id
+            await tx.post.findUnique({
+              where: { id: postData.parentId },
+              select: { user_id: true },
+            })
+          )?.user_id
           : undefined,
       };
     });
@@ -483,7 +483,7 @@ export class PostService {
       if (createPostDto.parentId) {
         await this.checkPostExists(createPostDto.parentId);
       }
-      
+
       urls = await this.storageService.uploadFiles(media);
       const hashtags = extractHashtags(content);
 
@@ -560,7 +560,7 @@ export class PostService {
         limit: 1,
       });
       const [enrichedPost] = await this.enrichIfQuoteOrReply([fullPost], userId);
-      
+
       return enrichedPost;
     } catch (error) {
       // deleting uploaded files in case of any error
@@ -602,14 +602,14 @@ export class PostService {
 
     const where = hasFilters
       ? {
-          ...(userId && { user_id: userId }),
-          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-          ...(type && { type }),
-          is_deleted: false,
-        }
+        ...(userId && { user_id: userId }),
+        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+        ...(type && { type }),
+        is_deleted: false,
+      }
       : {
-          is_deleted: false,
-        };
+        is_deleted: false,
+      };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -815,12 +815,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     // Build originalPostData
     let originalPostData: any = null;
@@ -1082,7 +1082,7 @@ export class PostService {
     };
   }
 
-  private async getReposts(userId: number,currentUserId: number, page: number, limit: number): Promise<RepostedPost[]> {
+  private async getReposts(userId: number, currentUserId: number, page: number, limit: number): Promise<RepostedPost[]> {
     const reposts = await this.prismaService.repost.findMany({
       where: {
         user_id: userId,
@@ -1156,7 +1156,7 @@ export class PostService {
     }));
   }
 
-  async getUserPosts(userId: number,currentUserId: number, page: number, limit: number) {
+  async getUserPosts(userId: number, currentUserId: number, page: number, limit: number) {
     // includes reposts, posts, and quotes
     const safetyLimit = page * limit;
     const offset = (page - 1) * limit;
@@ -1234,19 +1234,26 @@ export class PostService {
     });
   }
 
-  async getUserReplies(userId: number, page: number, limit: number) {
+  async getUserReplies(userId: number, currentUserId: number, page: number, limit: number) {
     const replies = await this.findPosts({
       where: {
         type: PostType.REPLY,
         user_id: userId,
         is_deleted: false,
       },
-      userId,
+      userId: currentUserId,
       page,
       limit,
     });
 
-    return await this.enrichIfQuoteOrReply(replies, userId);
+    const [enrichedOriginalPostData] = await this.enrichIfQuoteOrReply(replies, currentUserId);
+
+    if (enrichedOriginalPostData.originalPostData && 'postId' in enrichedOriginalPostData.originalPostData) {
+      const [nestedEnriched] = await this.enrichIfQuoteOrReply([enrichedOriginalPostData.originalPostData], currentUserId);
+      enrichedOriginalPostData.originalPostData = nestedEnriched
+    }
+
+    return enrichedOriginalPostData;
   }
 
   async getRepliesOfPost(postId: number, page: number, limit: number, userId: number) {
@@ -2133,12 +2140,12 @@ SELECT * FROM candidate_posts;
       isRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     return {
       // User Information (reposter for reposts, author otherwise)
@@ -2173,48 +2180,26 @@ SELECT * FROM candidate_posts;
         isRepost || isQuote
           ? isRepostOfQuote
             ? // Reposting a quote tweet: show the quote with its nested original
-              {
-                userId: post.user_id,
-                username: post.username,
-                verified: post.isVerified,
-                name: post.authorName || post.username,
-                avatar: post.authorProfileImage,
-                postId: post.id,
-                date: post.created_at,
-                likesCount: post.likeCount,
-                retweetsCount: post.repostCount,
-                commentsCount: post.replyCount,
-                isLikedByMe: post.isLikedByMe,
-                isFollowedByMe: post.isFollowedByMe,
-                isRepostedByMe: post.isRepostedByMe || false,
-                text: post.content || '',
-                media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-                mentions: Array.isArray(post.mentions) ? post.mentions : [],
-                // The post being quoted by this quote tweet
-                originalPostData: post.originalPost
-                  ? {
-                      userId: post.originalPost.author.userId,
-                      username: post.originalPost.author.username,
-                      verified: post.originalPost.author.isVerified,
-                      name: post.originalPost.author.name,
-                      avatar: post.originalPost.author.avatar,
-                      postId: post.originalPost.postId,
-                      date: post.originalPost.createdAt,
-                      likesCount: post.originalPost.likeCount,
-                      retweetsCount: post.originalPost.repostCount,
-                      commentsCount: post.originalPost.replyCount,
-                      isLikedByMe: post.originalPost.isLikedByMe || false,
-                      isFollowedByMe: post.originalPost.isFollowedByMe || false,
-                      isRepostedByMe: post.originalPost.isRepostedByMe || false,
-                      text: post.originalPost.content || '',
-                      media: post.originalPost.media || [],
-                      mentions: post.originalPost.mentions || [],
-                    }
-                  : undefined,
-              }
-            : isQuote && post.originalPost
-              ? // Direct quote tweet: show the original (no further nesting)
-                {
+            {
+              userId: post.user_id,
+              username: post.username,
+              verified: post.isVerified,
+              name: post.authorName || post.username,
+              avatar: post.authorProfileImage,
+              postId: post.id,
+              date: post.created_at,
+              likesCount: post.likeCount,
+              retweetsCount: post.repostCount,
+              commentsCount: post.replyCount,
+              isLikedByMe: post.isLikedByMe,
+              isFollowedByMe: post.isFollowedByMe,
+              isRepostedByMe: post.isRepostedByMe || false,
+              text: post.content || '',
+              media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+              mentions: Array.isArray(post.mentions) ? post.mentions : [],
+              // The post being quoted by this quote tweet
+              originalPostData: post.originalPost
+                ? {
                   userId: post.originalPost.author.userId,
                   username: post.originalPost.author.username,
                   verified: post.originalPost.author.isVerified,
@@ -2232,25 +2217,47 @@ SELECT * FROM candidate_posts;
                   media: post.originalPost.media || [],
                   mentions: post.originalPost.mentions || [],
                 }
+                : undefined,
+            }
+            : isQuote && post.originalPost
+              ? // Direct quote tweet: show the original (no further nesting)
+              {
+                userId: post.originalPost.author.userId,
+                username: post.originalPost.author.username,
+                verified: post.originalPost.author.isVerified,
+                name: post.originalPost.author.name,
+                avatar: post.originalPost.author.avatar,
+                postId: post.originalPost.postId,
+                date: post.originalPost.createdAt,
+                likesCount: post.originalPost.likeCount,
+                retweetsCount: post.originalPost.repostCount,
+                commentsCount: post.originalPost.replyCount,
+                isLikedByMe: post.originalPost.isLikedByMe || false,
+                isFollowedByMe: post.originalPost.isFollowedByMe || false,
+                isRepostedByMe: post.originalPost.isRepostedByMe || false,
+                text: post.originalPost.content || '',
+                media: post.originalPost.media || [],
+                mentions: post.originalPost.mentions || [],
+              }
               : // Simple repost: show the original post
-                {
-                  userId: post.user_id,
-                  username: post.username,
-                  verified: post.isVerified,
-                  name: post.authorName || post.username,
-                  avatar: post.authorProfileImage,
-                  postId: post.id,
-                  date: post.created_at,
-                  likesCount: post.likeCount,
-                  retweetsCount: post.repostCount,
-                  commentsCount: post.replyCount,
-                  isLikedByMe: post.isLikedByMe,
-                  isFollowedByMe: post.isFollowedByMe,
-                  isRepostedByMe: post.isRepostedByMe || false,
-                  text: post.content || '',
-                  media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-                  mentions: Array.isArray(post.mentions) ? post.mentions : [],
-                }
+              {
+                userId: post.user_id,
+                username: post.username,
+                verified: post.isVerified,
+                name: post.authorName || post.username,
+                avatar: post.authorProfileImage,
+                postId: post.id,
+                date: post.created_at,
+                likesCount: post.likeCount,
+                retweetsCount: post.repostCount,
+                commentsCount: post.replyCount,
+                isLikedByMe: post.isLikedByMe,
+                isFollowedByMe: post.isFollowedByMe,
+                isRepostedByMe: post.isRepostedByMe || false,
+                text: post.content || '',
+                media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+                mentions: Array.isArray(post.mentions) ? post.mentions : [],
+              }
           : undefined,
 
       // Scores data
