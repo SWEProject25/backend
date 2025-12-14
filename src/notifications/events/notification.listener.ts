@@ -127,18 +127,15 @@ export class NotificationListener {
         ...(notification.replyId && { replyId: notification.replyId.toString() }),
         ...(notification.threadPostId && { threadPostId: notification.threadPostId.toString() }),
         ...(notification.postPreviewText && { postPreviewText: notification.postPreviewText }),
-        ...(notification.conversationId && { conversationId: notification.conversationId.toString() }),
+        ...(notification.conversationId && {
+          conversationId: notification.conversationId.toString(),
+        }),
         ...(notification.messagePreview && { messagePreview: notification.messagePreview }),
         // Stringify post data as JSON if it exists
         ...(notification.post && { post: JSON.stringify(notification.post) }),
       };
 
-      await this.notificationService.sendPushNotification(
-        event.recipientId,
-        title,
-        body,
-        fcmData,
-      );
+      await this.notificationService.sendPushNotification(event.recipientId, title, body, fcmData);
 
       this.logger.log(`Notification processed: ${event.type} for user ${event.recipientId}`);
     } catch (error) {
