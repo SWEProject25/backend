@@ -1735,7 +1735,7 @@ candidate_posts AS (
       ) * 
       -- Type multiplier
       CASE 
-        WHEN ap."isRepost" = true THEN${personalizationWeights.wTypeRepost}
+        WHEN ap."isRepost" = true THEN ${personalizationWeights.wTypeRepost}
         WHEN ap."type" = 'QUOTE' THEN ${personalizationWeights.wTypeQuote}
         ELSE ${personalizationWeights.wTypePost}
       END
