@@ -2961,7 +2961,13 @@ SELECT * FROM candidate_posts;
                   'content', oop."content",
                   'createdAt', oop."created_at",
                   'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = oop."id"), 0),
-                  'repostCount', (COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE "post_id" = oop."id"), 0) + COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = oop."id" AND "type" = 'QUOTE' AND "is_deleted" = false), 0)),
+                  'repostCount', COALESCE((
+                    SELECT COUNT(*)::int FROM (
+                      SELECT 1 FROM "Repost" WHERE "post_id" = oop."id"
+                      UNION ALL
+                      SELECT 1 FROM "posts" WHERE "parent_id" = oop."id" AND "type" = 'QUOTE' AND "is_deleted" = false
+                    ) AS reposts
+                  ), 0),
                   'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = oop."id" AND "type" = 'REPLY' AND "is_deleted" = false), 0),
                   'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
                   'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = oop."user_id"),
