@@ -22,6 +22,23 @@ export class NotificationListener {
     try {
       this.logger.debug(`Received notification event: ${event.type} for user ${event.recipientId}`);
 
+      // Check if recipient has muted the actor
+      const isMuted = await this.prismaService.mute.findUnique({
+        where: {
+          muterId_mutedId: {
+            muterId: event.recipientId,
+            mutedId: event.actorId,
+          },
+        },
+      });
+
+      if (isMuted) {
+        this.logger.debug(
+          `Notification skipped: Recipient ${event.recipientId} has muted actor ${event.actorId}`,
+        );
+        return;
+      }
+
       // Fetch actor information
       const actor = await this.prismaService.user.findUnique({
         where: { id: event.actorId },
