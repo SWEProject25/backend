@@ -89,7 +89,7 @@ const envFilePath = '.env';
     GatewayModule,
     NotificationsModule,
     ScheduleModule.forRoot(),
-    CronModule,
+    // CronModule,
   ],
   controllers: [],
   providers: [
