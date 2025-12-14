@@ -242,7 +242,7 @@ export class PostService {
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
     private readonly socketService: SocketService,
-  ) { }
+  ) {}
 
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
@@ -439,11 +439,11 @@ export class PostService {
         hashtagIds: hashtagRecords.map((r) => r.id),
         parentPostAuthorId: postData.parentId
           ? (
-            await tx.post.findUnique({
-              where: { id: postData.parentId },
-              select: { user_id: true },
-            })
-          )?.user_id
+              await tx.post.findUnique({
+                where: { id: postData.parentId },
+                select: { user_id: true },
+              })
+            )?.user_id
           : undefined,
       };
     });
@@ -484,7 +484,6 @@ export class PostService {
         await this.checkPostExists(createPostDto.parentId);
       }
 
-
       urls = await this.storageService.uploadFiles(media);
       const hashtags = extractHashtags(content);
 
@@ -524,12 +523,17 @@ export class PostService {
         createPostDto.mentionsIds.forEach((mentionedUserId) => {
           // Don't notify yourself
           if (mentionedUserId !== userId) {
-            this.eventEmitter.emit('notification.create', {
-              type: NotificationType.MENTION,
-              recipientId: mentionedUserId,
-              actorId: userId,
-              postId: post.id,
-            });
+            // Skip mention notification for parent author if this is a reply (they already got a REPLY notification)
+            const isParentAuthor =
+              createPostDto.type === PostType.REPLY && mentionedUserId === parentPostAuthorId;
+            if (!isParentAuthor) {
+              this.eventEmitter.emit('notification.create', {
+                type: NotificationType.MENTION,
+                recipientId: mentionedUserId,
+                actorId: userId,
+                postId: post.id,
+              });
+            }
           }
         });
       }
