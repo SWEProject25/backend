@@ -426,6 +426,7 @@ export class NotificationService {
 
       const post = posts[0];
       const isQuote = post.type === 'QUOTE' && !!post.parent_id;
+      const isReply = post.type === 'REPLY' && !!post.parent_id;
 
       const postData: NotificationPostData = {
         userId: post.user_id,
@@ -452,8 +453,8 @@ export class NotificationService {
         isQuote,
       };
 
-      // For quote notifications, fetch the original post being quoted
-      if (isQuote && post.parent_id) {
+      // For quote and reply notifications, fetch the original/parent post
+      if ((isQuote || isReply) && post.parent_id) {
         const originalPostData = await this.fetchOriginalPostData(post.parent_id, recipientId);
         if (originalPostData) {
           postData.originalPostData = originalPostData;
