@@ -115,7 +115,7 @@ export class LikeService {
 
     const likedPostsIds = likes.map((like) => like.post_id);
 
-    const likedPosts = await this.postService.findPosts({
+    const { data: likedPosts, metadata } = await this.postService.findPosts({
       where: {
         is_deleted: false,
         id: { in: likedPostsIds },
@@ -124,9 +124,9 @@ export class LikeService {
       limit,
       page,
     });
-    const orderMap = new Map(likes.map((m, index) => [m.post_id, index]));
+    const orderMap = new Map(likes.map((m, index) => [m.post_id, index])); ``
 
     likedPosts.sort((a, b) => orderMap.get(a.postId)! - orderMap.get(b.postId)!);
-    return likedPosts;
+    return { data: likedPosts, metadata };
   }
 }

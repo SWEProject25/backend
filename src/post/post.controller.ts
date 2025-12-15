@@ -618,7 +618,8 @@ export class PostController {
     return {
       status: 'success',
       message: 'Replies retrieved successfully',
-      data: replies,
+      data: replies.data,
+      metadata: replies.metadata,
     };
   }
 
@@ -769,7 +770,8 @@ export class PostController {
     return {
       status: 'success',
       message: 'Liked posts retrieved successfully',
-      data: likedPosts,
+      data: likedPosts.data,
+      metadata: likedPosts.metadata,
     };
   }
 
@@ -868,7 +870,8 @@ export class PostController {
     return {
       status: 'success',
       message: 'Mentioned posts retrieved successfully',
-      data: mentionedPosts,
+      data: mentionedPosts.data,
+      metadata: mentionedPosts.metadata,
     };
   }
 
@@ -969,7 +972,8 @@ export class PostController {
     return {
       status: 'success',
       message: 'Posts retrieved successfully',
-      data: posts,
+      data: posts.data,
+      metadata: posts.metadata,
     };
   }
 
@@ -1014,7 +1018,8 @@ export class PostController {
     return {
       status: 'success',
       message: 'Replies retrieved successfully',
-      data: replies,
+      data: replies.data,
+      metadata: replies.metadata,
     };
   }
 
@@ -1066,7 +1071,8 @@ export class PostController {
     return {
       status: 'success',
       message: 'Posts retrieved successfully',
-      data: posts,
+      data: posts.data,
+      metadata: posts.metadata,
     };
   }
 
@@ -1118,7 +1124,8 @@ export class PostController {
     return {
       status: 'success',
       message: 'Replies retrieved successfully',
-      data: replies,
+      data: replies.data,
+      metadata: replies.metadata,
     };
   }
 
@@ -1162,7 +1169,8 @@ export class PostController {
     return {
       status: 'success',
       message: 'Media retrieved successfully',
-      data: media,
+      data: media.data,
+      metadata: media.metadata,
     };
   }
 
@@ -1212,7 +1220,8 @@ export class PostController {
     return {
       status: 'success',
       message: 'Media retrieved successfully',
-      data: media,
+      data: media.data,
+      metadata: media.metadata,
     };
   }
 
