@@ -461,7 +461,7 @@ describe('LikeService', () => {
       ];
 
       prisma.like.findMany.mockResolvedValue(mockLikes);
-      postService.findPosts.mockResolvedValue(mockPosts);
+      postService.findPosts.mockResolvedValue({ data: mockPosts, metadata: { totalItems: mockPosts.length, page, limit, totalPages: 1 } });
 
       const result = await service.getLikedPostsByUser(userId, page, limit);
 
@@ -482,10 +482,10 @@ describe('LikeService', () => {
         page,
       });
       // Posts should be sorted in the order they were liked (3, 1, 2)
-      expect(result).toHaveLength(3);
-      expect(result[0].postId).toBe(3);
-      expect(result[1].postId).toBe(1);
-      expect(result[2].postId).toBe(2);
+      expect(result.data).toHaveLength(3);
+      expect(result.data[0].postId).toBe(3);
+      expect(result.data[1].postId).toBe(1);
+      expect(result.data[2].postId).toBe(2);
     });
 
     it('should return empty array when user has not liked any posts', async () => {
@@ -494,7 +494,7 @@ describe('LikeService', () => {
       const limit = 10;
 
       prisma.like.findMany.mockResolvedValue([]);
-      postService.findPosts.mockResolvedValue([]);
+      postService.findPosts.mockResolvedValue({ data: [], metadata: { totalItems: 0, page, limit, totalPages: 0 } });
 
       const result = await service.getLikedPostsByUser(userId, page, limit);
 
@@ -514,7 +514,7 @@ describe('LikeService', () => {
         limit,
         page,
       });
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
     });
 
     it('should handle pagination correctly', async () => {
@@ -554,7 +554,7 @@ describe('LikeService', () => {
       ];
 
       prisma.like.findMany.mockResolvedValue(mockLikes);
-      postService.findPosts.mockResolvedValue(mockPosts);
+      postService.findPosts.mockResolvedValue({ data: mockPosts, metadata: { totalItems: mockPosts.length, page, limit, totalPages: 1 } });
 
       const result = await service.getLikedPostsByUser(userId, page, limit);
 
@@ -565,7 +565,7 @@ describe('LikeService', () => {
         skip: 5,
         take: 5,
       });
-      expect(result).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
     });
 
     it('should filter out deleted posts', async () => {
@@ -606,7 +606,7 @@ describe('LikeService', () => {
       ];
 
       prisma.like.findMany.mockResolvedValue(mockLikes);
-      postService.findPosts.mockResolvedValue(mockPosts);
+      postService.findPosts.mockResolvedValue({ data: mockPosts, metadata: { totalItems: mockPosts.length, page, limit, totalPages: 1 } });
 
       const result = await service.getLikedPostsByUser(userId, page, limit);
 
@@ -620,8 +620,8 @@ describe('LikeService', () => {
         page,
       });
       // Only one post returned (post 2 was deleted)
-      expect(result).toHaveLength(1);
-      expect(result[0].postId).toBe(1);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].postId).toBe(1);
     });
   });
 });
