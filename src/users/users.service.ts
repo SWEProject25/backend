@@ -367,7 +367,7 @@ export class UsersService {
       userId,
       authenticatedUserId,
     )) as any[];
-    const totalItems = parseInt((totalItemsResult[0] as any).count, 10);
+    const totalItems = Number.parseInt((totalItemsResult[0] as any).count, 10);
 
     const metadata = {
       totalItems,

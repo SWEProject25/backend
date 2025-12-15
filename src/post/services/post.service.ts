@@ -268,7 +268,9 @@ export class PostService {
     const statsMap = new Map<number, { replies: number; quotes: number }>();
 
     // Initialize map for all requested IDs to ensure 0 counts are returned if no data found
-    postIds.forEach(id => statsMap.set(id, { replies: 0, quotes: 0 }));
+    for (const id of postIds) {
+      statsMap.set(id, { replies: 0, quotes: 0 });
+    }
 
     for (const row of grouped) {
       if (row.parent_id) {
@@ -384,7 +386,9 @@ export class PostService {
     });
 
     const parentPostsMap = new Map<number, TransformedPost>();
-    parentPosts.forEach((p) => parentPostsMap.set(p.postId, p));
+    for (const p of parentPosts) {
+      parentPostsMap.set(p.postId, p);
+    }
 
     return post.map((p) => {
       if ((p.type === PostType.QUOTE || p.type === PostType.REPLY) && p.parentId) {
@@ -413,12 +417,12 @@ export class PostService {
     if (nestedPostsToEnrich.length > 0) {
       const nestedEnriched = await this.enrichIfQuoteOrReply(nestedPostsToEnrich, currentUserId);
       
-      nestedEnriched.forEach((enrichedPost) => {
+      for (const enrichedPost of nestedEnriched) {
         const parentIndex = indexMap.get(enrichedPost.postId);
         if (parentIndex !== undefined) {
           posts[parentIndex].originalPostData = enrichedPost;
         }
-      });
+      }
     }
     
     return posts;
@@ -563,7 +567,7 @@ export class PostService {
 
       // Emit mention notifications for all mentioned users
       if (createPostDto.mentionsIds && createPostDto.mentionsIds.length > 0) {
-        createPostDto.mentionsIds.forEach((mentionedUserId) => {
+        for (const mentionedUserId of createPostDto.mentionsIds) {
           // Don't notify yourself
           if (mentionedUserId !== userId) {
             // Skip mention notification for parent author if this is a reply or quote (they already got a REPLY/QUOTE notification)
@@ -579,7 +583,7 @@ export class PostService {
               });
             }
           }
-        });
+        }
       }
 
       // Emit post.created event for real-time hashtag tracking
@@ -2453,7 +2457,7 @@ private async GetPersonalizedForYouPosts(
 
     // Escape and format interest names for SQL IN clause
     const escapedInterestNames = interestNames
-      .map((name) => `'${name.replace(/'/g, "''")}'`)
+      .map((name) => `'${name.replaceAll(/'/g, "''")}'`)
       .join(', ');
 
     const query = `

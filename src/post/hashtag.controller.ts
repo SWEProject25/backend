@@ -1,19 +1,14 @@
 import {
   Controller,
   Get,
-  Post,
   Query,
-  Param,
   ParseIntPipe,
   DefaultValuePipe,
-  HttpStatus,
-  HttpException,
-  UseGuards,
   Inject,
   Logger,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiQuery, ApiCookieAuth } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { HashtagTrendService } from './services/hashtag-trends.service';
 import { Services } from 'src/utils/constants';
 import { TrendCategory, isValidTrendCategory } from './enums/trend-category.enum';
@@ -102,7 +97,6 @@ export class HashtagController {
         user?.id,
       );
     }
-
     return {
       status: 'success',
       data: { trending },
@@ -113,86 +107,4 @@ export class HashtagController {
       },
     };
   }
-
-  // @Post('recalculate')
-  // @ApiCookieAuth()
-  // @ApiOperation({
-  //   summary: 'Trigger hashtag trend recalculation',
-  //   description:
-  //     'Manually triggers recalculation of trends for all active hashtags from the last 7 days, optionally filtered by category',
-  // })
-  // @ApiQuery({
-  //   name: 'category',
-  //   required: false,
-  //   enum: TrendCategory,
-  //   description:
-  //     'Category to recalculate trends for. Options: general, news, sports, entertainment, personalized. Defaults to "general" which processes all hashtags.',
-  //   example: TrendCategory.GENERAL,
-  // })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'Successfully queued recalculation',
-  //   schema: {
-  //     example: {
-  //       status: 'success',
-  //       message: 'Queued recalculation for 45 hashtags',
-  //       data: {
-  //         queuedHashtags: 45,
-  //         category: 'sports',
-  //       },
-  //     },
-  //   },
-  // })
-  // @ApiResponse({
-  //   status: 400,
-  //   description: 'Invalid category',
-  // })
-  // @ApiResponse({
-  //   status: 500,
-  //   description: 'Internal server error',
-  // })
-  // async recalculate(
-  //   @Query('category', new DefaultValuePipe(TrendCategory.GENERAL)) category: string,
-  // ) {
-  //   if (!isValidTrendCategory(category)) {
-  //     throw new BadRequestException(
-  //       `Invalid category. Must be one of: ${Object.values(TrendCategory).join(', ')}`,
-  //     );
-  //   }
-
-  //   const count = await this.hashtagTrendService.recalculateTrends(category as TrendCategory);
-
-  //   return {
-  //     status: 'success',
-  //     message: `Queued recalculation for ${count} hashtags in ${category} category`,
-  //     data: {
-  //       queuedHashtags: count,
-  //       category,
-  //     },
-  //   };
-  // }
-
-  // @Post('reindex-hashtags')
-  // @ApiCookieAuth()
-  // @ApiOperation({
-  //   summary: 'Reindex all post hashtags',
-  //   description: 'Scans all posts and extracts hashtags, updating the hashtag relations.',
-  // })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'Successfully completed reindexing',
-  // })
-  // @ApiResponse({
-  //   status: 500,
-  //   description: 'Internal server error',
-  // })
-  // async reindexHashtags() {
-  //   const result = await this.hashtagTrendService.reindexAllPostHashtags();
-
-  //   return {
-  //     status: 'success',
-  //     message: 'Hashtags reindexed',
-  //     result,
-  //   };
-  // }
 }

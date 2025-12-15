@@ -212,7 +212,7 @@ export class MessagesService {
       }),
     ]);
 
-    const reversedMessages = messages.reverse(); // Return oldest first for chat display
+    const reversedMessages = messages.toReversed(); // Return oldest first for chat display
 
     return {
       data: reversedMessages,
@@ -281,7 +281,7 @@ export class MessagesService {
       data: messages,
       metadata: {
         totalItems: messages.length,
-        firstMessageId: messages.length > 0 ? messages[messages.length - 1].id : null,
+        firstMessageId: messages.length > 0 ? messages.at(-1)!.id : null,
       },
     };
   }

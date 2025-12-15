@@ -76,7 +76,7 @@ export class ConversationsService {
       });
 
       const { Messages, ...conversationData } = oldConversation;
-      const reversedMessages = Messages.reverse(); // Reverse to show oldest first
+      const reversedMessages = Messages.toReversed(); // Reverse to show oldest first
 
       return {
         data: {

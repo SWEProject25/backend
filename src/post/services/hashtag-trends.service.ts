@@ -206,10 +206,10 @@ export class HashtagTrendService {
           category,
         );
 
-        redisMetadata.forEach((metadata, id) => {
+        for (const [id, metadata] of redisMetadata) {
           metadataResults.set(id, metadata);
           this.setMemoryCachedMetadata(id, metadata.tag, category);
-        });
+        }
       }
 
       const missingFromRedis = hashtagIds.filter((id) => !metadataResults.has(id));
