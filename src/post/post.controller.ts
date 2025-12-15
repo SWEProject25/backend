@@ -3,14 +3,11 @@ import {
   Body,
   Controller,
   Delete,
-  FileTypeValidator,
   Get,
   HttpStatus,
   Inject,
-  MaxFileSizeValidator,
   Param,
   ParseArrayPipe,
-  ParseFilePipe,
   Post,
   Query,
   UploadedFiles,
@@ -43,12 +40,10 @@ import {
   GetLikedPostsResponseDto,
 } from './dto/like-response.dto';
 import { ToggleRepostResponseDto, GetRepostersResponseDto } from './dto/repost-response.dto';
-import { SearchByHashtagResponseDto } from './dto/hashtag-search-response.dto';
 import { SearchPostsResponseDto } from './dto/search-response.dto';
 import { GetPostStatsResponseDto } from './dto/post-stats-response.dto';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
-
 import { AuthenticatedUser } from 'src/auth/interfaces/user.interface';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { PostFiltersDto } from './dto/post-filter.dto';
@@ -56,7 +51,7 @@ import { SearchPostsDto } from './dto/search-posts.dto';
 import { SearchByHashtagDto } from './dto/search-by-hashtag.dto';
 import { MentionService } from './services/mention.service';
 import { ApiResponseDto } from 'src/common/dto/base-api-response.dto';
-import { Mention, Post as PostModel, PostVisibility, User } from '@prisma/client';
+import { Post as PostModel, User } from '@prisma/client';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ImageVideoUploadPipe } from 'src/storage/pipes/file-upload.pipe';
 import { TimelineFeedResponseDto } from './dto/timeline-feed-reponse.dto';

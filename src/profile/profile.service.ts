@@ -416,7 +416,9 @@ export class ProfileService {
           followingId: true,
         },
       });
-      followRelations.forEach((rel) => followStatusMap.set(rel.followingId, true));
+      for (const rel of followRelations) {
+        followStatusMap.set(rel.followingId, true);
+      }
 
       // Batch check if profile users follow current user
       const followingMeRelations = await this.prismaService.follow.findMany({
@@ -430,7 +432,9 @@ export class ProfileService {
           followerId: true,
         },
       });
-      followingMeRelations.forEach((rel) => followingMeStatusMap.set(rel.followerId, true));
+      for (const rel of followingMeRelations) {
+        followingMeStatusMap.set(rel.followerId, true);
+      }
 
       // Batch check mute status
       const muteRelations = await this.prismaService.mute.findMany({
@@ -444,7 +448,9 @@ export class ProfileService {
           mutedId: true,
         },
       });
-      muteRelations.forEach((rel) => muteStatusMap.set(rel.mutedId, true));
+      for (const rel of muteRelations) {
+        muteStatusMap.set(rel.mutedId, true);
+      }
     }
 
     const profilesWithCounts = profiles.map((profile) => {

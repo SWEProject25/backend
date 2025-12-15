@@ -34,8 +34,8 @@ export class RedisTrendingService {
   private readonly COUNTS_CACHE_TTL = 300; // 5 minutes
 
   // Lazy update queue
-  private updateQueue = new Map<string, Set<number>>();
-  private updateTimers = new Map<string, NodeJS.Timeout>();
+  private readonly updateQueue = new Map<string, Set<number>>();
+  private readonly updateTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(
     @Inject(Services.REDIS)
@@ -111,7 +111,7 @@ export class RedisTrendingService {
     this.updateQueue.get(queueKey)!.add(hashtagId);
 
     if (this.updateTimers.has(queueKey)) {
-      clearTimeout(this.updateTimers.get(queueKey)!);
+      clearTimeout(this.updateTimers.get(queueKey));
     }
 
     const timer = setTimeout(() => {

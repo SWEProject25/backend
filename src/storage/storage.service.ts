@@ -6,16 +6,16 @@ import {
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
-import { extname } from 'path';
+import { extname } from 'node:path';
 import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class StorageService {
-  private s3Client: S3Client;
-  private bucketName: string;
-  private region: string;
+  private readonly s3Client: S3Client;
+  private readonly bucketName: string;
+  private readonly region: string;
 
-  constructor(private configService: ConfigService) {
+  constructor(private readonly configService: ConfigService) {
     this.bucketName =
       this.configService.get<string>('AWS_S3_BUCKET_NAME') || 'hankers-uploads-prod';
     this.region = this.configService.get<string>('AWS_REGION') || 'us-east-1';

@@ -356,7 +356,7 @@ export class UsersService {
       limit,
     );
 
-    const totalItemsResult = (await this.prismaService.$queryRawUnsafe(
+    const totalItemsResult = await this.prismaService.$queryRawUnsafe<{ count: string }[]>(
       `
       SELECT COUNT(*) AS count
       FROM "follows" f
@@ -366,8 +366,8 @@ export class UsersService {
     `,
       userId,
       authenticatedUserId,
-    )) as any[];
-    const totalItems = Number.parseInt((totalItemsResult[0] as any).count, 10);
+    );
+    const totalItems = Number.parseInt(totalItemsResult[0].count, 10);
 
     const metadata = {
       totalItems,
