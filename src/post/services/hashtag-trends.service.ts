@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { RedisQueues, Services } from 'src/utils/constants';
@@ -157,6 +158,71 @@ export class HashtagTrendService {
       return score;
     } catch (error) {
       this.logger.error(`Error calculating trend for hashtag ${hashtagId} [${category}]:`, error);
+      throw error;
+    }
+  }
+
+  public async calculateTrendsBulk(
+    hashtagIds: number[],
+    category: TrendCategory = TrendCategory.GENERAL,
+    userId: number | null,
+  ): Promise<void> {
+    if (hashtagIds.length === 0) return;
+
+    try {
+      let interestSlugs = CATEGORY_TO_INTERESTS[category];
+      if (category === TrendCategory.PERSONALIZED && userId) {
+        const userInterests = await this.usersService.getUserInterests(userId);
+        interestSlugs = userInterests.map((ui) => ui.slug);
+      }
+
+      const shouldFilterByInterest = !(category === TrendCategory.GENERAL || interestSlugs.length === 0);
+      const userIdVal = category === TrendCategory.PERSONALIZED ? userId : null;
+
+      const deleteQuery = Prisma.sql`
+        DELETE FROM "hashtag_trends"
+        WHERE "hashtag_id" IN (${Prisma.join(hashtagIds)})
+        AND "category" = ${category}
+        AND ("user_id" = ${userIdVal} OR (${userIdVal} IS NULL AND "user_id" IS NULL))
+      `;
+
+      const insertQuery = Prisma.sql`
+        INSERT INTO "hashtag_trends" ("hashtag_id", "category", "user_id", "post_count_1h", "post_count_24h", "post_count_7d", "trending_score", "calculated_at")
+        SELECT
+            ph."A" as hashtag_id,
+            ${category},
+            ${userIdVal},
+            COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '1 hour' THEN 1 END)::int as post_count_1h,
+            COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '24 hours' THEN 1 END)::int as post_count_24h,
+            COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '7 days' THEN 1 END)::int as post_count_7d,
+            (
+                COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '1 hour' THEN 1 END) * 10.0 +
+                COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '24 hours' THEN 1 END) * 2.0 +
+                COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '7 days' THEN 1 END) * 0.5
+            )::float as trending_score,
+            NOW()
+        FROM "_PostHashtags" ph
+        JOIN "posts" p ON ph."B" = p.id
+        LEFT JOIN "interests" i ON p.interest_id = i.id
+        WHERE 
+            ph."A" IN (${Prisma.join(hashtagIds)})
+            AND p."is_deleted" = false
+            AND p."created_at" >= NOW() - INTERVAL '7 days'
+            ${shouldFilterByInterest
+          ? Prisma.sql`AND i.slug IN (${Prisma.join(interestSlugs)})`
+          : Prisma.empty
+        }
+        GROUP BY ph."A"
+      `;
+
+      await this.prismaService.$transaction([
+        this.prismaService.$executeRaw(deleteQuery),
+        this.prismaService.$executeRaw(insertQuery),
+      ]);
+
+      this.logger.log(`Bulk calculated trends for ${hashtagIds.length} hashtags [${category}]`);
+    } catch (error) {
+      this.logger.error(`Error in bulk trend calculation:`, error);
       throw error;
     }
   }

@@ -43,21 +43,22 @@ export class HashtagBulkRecalculateProcessor extends WorkerHost {
       for (let i = 0; i < hashtagIds.length; i += batchSize) {
         const batch = hashtagIds.slice(i, i + batchSize);
 
-        for (const hashtagId of batch) {
-          for (const cat of categories) {
-            try {
-              if (cat === TrendCategory.PERSONALIZED && !userId) {
-                continue;
-              }
-              await this.hashtagTrendService.calculateTrend(hashtagId, cat, userId);
-              totalProcessed++;
-            } catch (error) {
-              this.logger.error(
-                `Failed to calculate trend for hashtag ${hashtagId} [${cat}]:`,
-                error,
-              );
-              totalFailed++;
+        for (const cat of categories) {
+          try {
+            if (cat === TrendCategory.PERSONALIZED && !userId) {
+              continue;
             }
+            await this.hashtagTrendService.calculateTrendsBulk(batch, cat, userId);
+
+            // Assuming bulk calculation processed all in batch successfully
+            // Since it's a single transaction, it's all or nothing per batch
+            totalProcessed += batch.length;
+          } catch (error) {
+            this.logger.error(
+              `Failed to calculate bulk trends for batch of ${batch.length} hashtags [${cat}]:`,
+              error,
+            );
+            totalFailed += batch.length;
           }
         }
       }
