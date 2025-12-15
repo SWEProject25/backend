@@ -445,64 +445,99 @@ export class PostService {
     hashtags: string[],
     mediaWithType: { url: string; type: MediaType }[],
   ) {
-    return this.prismaService.$transaction(async (tx) => {
-      // Upsert hashtags
-      const hashtagRecords = await Promise.all(
-        hashtags.map((tag) =>
-          tx.hashtag.upsert({
-            where: { tag },
-            update: {},
-            create: { tag },
-          }),
-        ),
-      );
+    return this.prismaService.$transaction(
+      async (tx) => {
+        let hashtagRecords: { id: number; tag: string }[] = [];
 
-      // Create post
-      const post = await tx.post.create({
-        data: {
-          content: postData.content,
-          type: postData.type,
-          parent_id: postData.parentId,
-          visibility: PostVisibility.EVERY_ONE,
-          user_id: postData.userId,
-          hashtags: {
-            connect: hashtagRecords.map((record) => ({ id: record.id })),
+        if (hashtags.length > 0) {
+          const existingHashtags = await tx.hashtag.findMany({
+            where: { tag: { in: hashtags } },
+            select: { id: true, tag: true },
+          });
+
+          const existingTags = new Set(existingHashtags.map((h) => h.tag));
+          const newTags = hashtags.filter((tag) => !existingTags.has(tag));
+
+          if (newTags.length > 0) {
+            await tx.hashtag.createMany({
+              data: newTags.map((tag) => ({ tag })),
+              skipDuplicates: true,
+            });
+
+            const newHashtags = await tx.hashtag.findMany({
+              where: { tag: { in: newTags } },
+              select: { id: true, tag: true },
+            });
+
+            hashtagRecords = [...existingHashtags, ...newHashtags];
+          } else {
+            hashtagRecords = existingHashtags;
+          }
+        }
+
+        const post = await tx.post.create({
+          data: {
+            content: postData.content,
+            type: postData.type,
+            parent_id: postData.parentId,
+            visibility: PostVisibility.EVERY_ONE,
+            user_id: postData.userId,
+            ...(hashtagRecords.length > 0 && {
+              hashtags: {
+                connect: hashtagRecords.map((record) => ({ id: record.id })),
+              },
+            }),
           },
-        },
-        include: { hashtags: true },
-      });
+          select: {
+            id: true,
+            user_id: true,
+            content: true,
+            type: true,
+            created_at: true,
+            parent_id: true,
+          },
+        });
 
-      // Create media entries
-      await tx.media.createMany({
-        data: mediaWithType.map((m) => ({
-          post_id: post.id,
-          user_id: postData.userId,
-          media_url: m.url,
-          type: m.type,
-        })),
-      });
+        const operations: Promise<any>[] = [];
 
-      await tx.mention.createMany({
-        data:
-          postData.mentionsIds?.map((id) => ({
-            post_id: post.id,
-            user_id: id,
-          })) ?? [],
-      });
+        if (mediaWithType.length > 0) {
+          operations.push(
+            tx.media.createMany({
+              data: mediaWithType.map((m) => ({
+                post_id: post.id,
+                user_id: postData.userId,
+                media_url: m.url,
+                type: m.type,
+              })),
+            }),
+          );
+        }
 
-      return {
-        post: { ...post, mediaUrls: mediaWithType.map((m) => m.url) },
-        hashtagIds: hashtagRecords.map((r) => r.id),
-        parentPostAuthorId: postData.parentId
-          ? (
-            await tx.post.findUnique({
-              where: { id: postData.parentId },
-              select: { user_id: true },
-            })
-          )?.user_id
-          : undefined,
-      };
-    });
+        if (postData.mentionsIds && postData.mentionsIds.length > 0) {
+          operations.push(
+            tx.mention.createMany({
+              data: postData.mentionsIds.map((id) => ({
+                post_id: post.id,
+                user_id: id,
+              })),
+            }),
+          );
+        }
+
+        if (operations.length > 0) {
+          await Promise.all(operations);
+        }
+
+        return {
+          post: { ...post, mediaUrls: mediaWithType.map((m) => m.url) },
+          hashtagIds: hashtagRecords.map((r) => r.id),
+        };
+      },
+      {
+        maxWait: 5000,
+        timeout: 10000,
+      },
+    );
   }
 
   private async checkUsersExistence(usersIds: number[]) {
@@ -548,11 +583,25 @@ export class PostService {
 
       const mediaWithType = this.getMediaWithType(urls, media);
 
-      const { post, hashtagIds, parentPostAuthorId } = await this.createPostTransaction(
+      const { post, hashtagIds } = await this.createPostTransaction(
         createPostDto,
         hashtags,
         mediaWithType,
       );
+
+      const { data: [fullPost] } = await this.findPosts({
+        where: { is_deleted: false, id: post.id },
+        userId,
+        page: 1,
+        limit: 1,
+      });
+      const [enrichedPost] = await this.enrichIfQuoteOrReply([fullPost], userId);
+
+      let parentPostAuthorId: number | undefined = undefined;
+
+      if (enrichedPost.originalPostData && 'postId' in enrichedPost.originalPostData) {
+        parentPostAuthorId = enrichedPost.originalPostData.userId;
+      }
 
       // Emit notifications after transaction is complete
       // Handle parent post notifications (REPLY/QUOTE)
@@ -607,7 +656,7 @@ export class PostService {
               where: { id: post.id },
               select: { interest_id: true },
             });
-            
+
             if (updatedPost?.interest_id) {
               const interest = await this.prismaService.interest.findUnique({
                 where: { id: updatedPost.interest_id },
@@ -639,14 +688,6 @@ export class PostService {
         await this.addToSummarizationQueue({ postContent: post.content, postId: post.id });
         await this.addToInterestQueue({ postContent: post.content, postId: post.id });
       }
-
-      const { data: [fullPost] } = await this.findPosts({
-        where: { is_deleted: false, id: post.id },
-        userId,
-        page: 1,
-        limit: 1,
-      });
-      const [enrichedPost] = await this.enrichIfQuoteOrReply([fullPost], userId);
 
       return enrichedPost;
     } catch (error) {
@@ -689,14 +730,14 @@ export class PostService {
 
     const where = hasFilters
       ? {
-          ...(userId && { user_id: userId }),
-          ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
-          ...(type && { type }),
-          is_deleted: false,
-        }
+        ...(userId && { user_id: userId }),
+        ...(hashtag && { hashtags: { some: { tag: hashtag } } }),
+        ...(type && { type }),
+        is_deleted: false,
+      }
       : {
-          is_deleted: false,
-        };
+        is_deleted: false,
+      };
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -902,12 +943,12 @@ export class PostService {
       isSimpleRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     // Build originalPostData
     let originalPostData: any = null;
@@ -1594,23 +1635,23 @@ export class PostService {
 
     return { posts: formattedPosts };
   }
-private async GetPersonalizedForYouPosts(
-  userId: number,
-  page = 1,
-  limit = 50,
-): Promise<PostWithAllData[]> {
-  console.log(`[QUERY] Starting ULTRA-OPTIMIZED GetPersonalizedForYouPosts for user ${userId}`);
-  
-  const personalizationWeights = {
-    ownPost: 20,
-    following: 15,
-    directLike: 10,
-    commonLike: 5,
-    commonFollow: 3,
-    wTypePost: 1,
-    wTypeQuote: 0.8,
-    wTypeRepost: 0.5,
-  };
+  private async GetPersonalizedForYouPosts(
+    userId: number,
+    page = 1,
+    limit = 50,
+  ): Promise<PostWithAllData[]> {
+    console.log(`[QUERY] Starting ULTRA-OPTIMIZED GetPersonalizedForYouPosts for user ${userId}`);
+
+    const personalizationWeights = {
+      ownPost: 20,
+      following: 15,
+      directLike: 10,
+      commonLike: 5,
+      commonFollow: 3,
+      wTypePost: 1,
+      wTypeQuote: 0.8,
+      wTypeRepost: 0.5,
+    };
 
     // KEY OPTIMIZATION: Instead of pulling ALL posts from ALL interests,
     // we'll pull TOP posts from EACH interest, then combine and re-rank
@@ -2258,12 +2299,12 @@ private async GetPersonalizedForYouPosts(
       isRepost && post.repostedBy
         ? post.repostedBy
         : {
-            userId: post.user_id,
-            username: post.username,
-            verified: post.isVerified,
-            name: post.authorName || post.username,
-            avatar: post.authorProfileImage,
-          };
+          userId: post.user_id,
+          username: post.username,
+          verified: post.isVerified,
+          name: post.authorName || post.username,
+          avatar: post.authorProfileImage,
+        };
 
     return {
       // User Information (reposter for reposts, author otherwise)
@@ -2298,48 +2339,26 @@ private async GetPersonalizedForYouPosts(
         isRepost || isQuote
           ? isRepostOfQuote
             ? // Reposting a quote tweet: show the quote with its nested original
-              {
-                userId: post.user_id,
-                username: post.username,
-                verified: post.isVerified,
-                name: post.authorName || post.username,
-                avatar: post.authorProfileImage,
-                postId: post.id,
-                date: post.created_at,
-                likesCount: post.likeCount,
-                retweetsCount: post.repostCount,
-                commentsCount: post.replyCount,
-                isLikedByMe: post.isLikedByMe,
-                isFollowedByMe: post.isFollowedByMe,
-                isRepostedByMe: post.isRepostedByMe || false,
-                text: post.content || '',
-                media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-                mentions: Array.isArray(post.mentions) ? post.mentions : [],
-                // The post being quoted by this quote tweet
-                originalPostData: post.originalPost
-                  ? {
-                      userId: post.originalPost.author.userId,
-                      username: post.originalPost.author.username,
-                      verified: post.originalPost.author.isVerified,
-                      name: post.originalPost.author.name,
-                      avatar: post.originalPost.author.avatar,
-                      postId: post.originalPost.postId,
-                      date: post.originalPost.createdAt,
-                      likesCount: post.originalPost.likeCount,
-                      retweetsCount: post.originalPost.repostCount,
-                      commentsCount: post.originalPost.replyCount,
-                      isLikedByMe: post.originalPost.isLikedByMe || false,
-                      isFollowedByMe: post.originalPost.isFollowedByMe || false,
-                      isRepostedByMe: post.originalPost.isRepostedByMe || false,
-                      text: post.originalPost.content || '',
-                      media: post.originalPost.media || [],
-                      mentions: post.originalPost.mentions || [],
-                    }
-                  : undefined,
-              }
-            : isQuote && post.originalPost
-              ? // Direct quote tweet: show the original (no further nesting)
-                {
+            {
+              userId: post.user_id,
+              username: post.username,
+              verified: post.isVerified,
+              name: post.authorName || post.username,
+              avatar: post.authorProfileImage,
+              postId: post.id,
+              date: post.created_at,
+              likesCount: post.likeCount,
+              retweetsCount: post.repostCount,
+              commentsCount: post.replyCount,
+              isLikedByMe: post.isLikedByMe,
+              isFollowedByMe: post.isFollowedByMe,
+              isRepostedByMe: post.isRepostedByMe || false,
+              text: post.content || '',
+              media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+              mentions: Array.isArray(post.mentions) ? post.mentions : [],
+              // The post being quoted by this quote tweet
+              originalPostData: post.originalPost
+                ? {
                   userId: post.originalPost.author.userId,
                   username: post.originalPost.author.username,
                   verified: post.originalPost.author.isVerified,
@@ -2357,25 +2376,47 @@ private async GetPersonalizedForYouPosts(
                   media: post.originalPost.media || [],
                   mentions: post.originalPost.mentions || [],
                 }
+                : undefined,
+            }
+            : isQuote && post.originalPost
+              ? // Direct quote tweet: show the original (no further nesting)
+              {
+                userId: post.originalPost.author.userId,
+                username: post.originalPost.author.username,
+                verified: post.originalPost.author.isVerified,
+                name: post.originalPost.author.name,
+                avatar: post.originalPost.author.avatar,
+                postId: post.originalPost.postId,
+                date: post.originalPost.createdAt,
+                likesCount: post.originalPost.likeCount,
+                retweetsCount: post.originalPost.repostCount,
+                commentsCount: post.originalPost.replyCount,
+                isLikedByMe: post.originalPost.isLikedByMe || false,
+                isFollowedByMe: post.originalPost.isFollowedByMe || false,
+                isRepostedByMe: post.originalPost.isRepostedByMe || false,
+                text: post.originalPost.content || '',
+                media: post.originalPost.media || [],
+                mentions: post.originalPost.mentions || [],
+              }
               : // Simple repost: show the original post
-                {
-                  userId: post.user_id,
-                  username: post.username,
-                  verified: post.isVerified,
-                  name: post.authorName || post.username,
-                  avatar: post.authorProfileImage,
-                  postId: post.id,
-                  date: post.created_at,
-                  likesCount: post.likeCount,
-                  retweetsCount: post.repostCount,
-                  commentsCount: post.replyCount,
-                  isLikedByMe: post.isLikedByMe,
-                  isFollowedByMe: post.isFollowedByMe,
-                  isRepostedByMe: post.isRepostedByMe || false,
-                  text: post.content || '',
-                  media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
-                  mentions: Array.isArray(post.mentions) ? post.mentions : [],
-                }
+              {
+                userId: post.user_id,
+                username: post.username,
+                verified: post.isVerified,
+                name: post.authorName || post.username,
+                avatar: post.authorProfileImage,
+                postId: post.id,
+                date: post.created_at,
+                likesCount: post.likeCount,
+                retweetsCount: post.repostCount,
+                commentsCount: post.replyCount,
+                isLikedByMe: post.isLikedByMe,
+                isFollowedByMe: post.isFollowedByMe,
+                isRepostedByMe: post.isRepostedByMe || false,
+                text: post.content || '',
+                media: Array.isArray(post.mediaUrls) ? post.mediaUrls : [],
+                mentions: Array.isArray(post.mentions) ? post.mentions : [],
+              }
           : undefined,
 
       // Scores data
