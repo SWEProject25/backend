@@ -99,4 +99,4 @@ const envFilePath = '.env';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

@@ -14,6 +14,8 @@ export interface NotificationPostData {
   name: string;
   avatar: string | null;
   postId: number;
+  parentId: number | null;
+  type: string;
   date: Date | string;
   likesCount: number;
   retweetsCount: number;
@@ -21,8 +23,11 @@ export interface NotificationPostData {
   isLikedByMe: boolean;
   isFollowedByMe: boolean;
   isRepostedByMe: boolean;
+  isMutedByMe: boolean;
+  isBlockedByMe: boolean;
   text: string;
   media: Array<{ url: string; type: string }>;
+  mentions: Array<{ id: number; username: string }>;
   isRepost: boolean;
   isQuote: boolean;
   originalPostData?: NotificationPostData;
