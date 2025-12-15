@@ -124,7 +124,7 @@ export class LikeService {
       limit,
       page,
     });
-    const orderMap = new Map(likes.map((m, index) => [m.post_id, index])); ``
+    const orderMap = new Map(likes.map((m, index) => [m.post_id, index]));
 
     likedPosts.sort((a, b) => orderMap.get(a.postId)! - orderMap.get(b.postId)!);
     return { data: likedPosts, metadata };
