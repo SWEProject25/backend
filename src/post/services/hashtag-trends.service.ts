@@ -63,9 +63,10 @@ export class HashtagTrendService {
       if (category === TrendCategory.PERSONALIZED && !userId) {
         return 0;
       }
-      if (userId) {
+      if (category === TrendCategory.PERSONALIZED && userId) {
         const userInterests = await this.usersService.getUserInterests(userId);
         interestSlugs = userInterests.map((userInterests) => userInterests.slug);
+        this.logger.debug(`User ${userId} interests for personalized trends: ${interestSlugs.join(', ')}`);
       }
 
       const whereClause: any = {
@@ -200,10 +201,26 @@ export class HashtagTrendService {
       distinct: ['hashtag_id'],
     });
 
+    // Check if we have ANY recent calculation for this category/user, even if score is 0
+    // This prevents infinite loops where we calculate -> get 0 score -> calculate again
+    const anyRecentCalculation = await this.prismaService.hashtagTrend.findFirst({
+      where: {
+        category,
+        calculated_at: { gte: lastDay },
+        ...(category === TrendCategory.PERSONALIZED && userId ? { user_id: userId } : {}),
+      },
+    });
+
     if (trends.length === 0) {
-      this.recalculateTrends(category, userId).catch((err) =>
-        this.logger.error(`Background recalculation failed for ${category}:`, err),
-      );
+      // Only recalculate if we haven't calculated at all in the last 24h
+      if (!anyRecentCalculation) {
+        this.logger.log(`No recent trends found for ${category} (User: ${userId}), triggering recalculation`);
+        this.recalculateTrends(category, userId).catch((err) =>
+          this.logger.error(`Background recalculation failed for ${category}:`, err),
+        );
+      } else {
+        this.logger.debug(`Recent trends exist but score 0 for ${category}, returning empty`);
+      }
       return [];
     }
 
@@ -246,6 +263,7 @@ export class HashtagTrendService {
     });
 
     if (activeHashtags.length > 0) {
+      this.logger.log(`Queueing ${activeHashtags.length} hashtags for recalculation (Category: ${category}, User: ${userId})`);
       await this.bulkTrendingQueue.add(
         RedisQueues.bulkHashTagQueue.processes.recalculateTrends,
         {
