@@ -26,6 +26,7 @@ describe('LikeService', () => {
     const mockPostService = {
       findPosts: jest.fn(),
       updatePostStatsCache: jest.fn(),
+      checkPostExists: jest.fn().mockResolvedValue(true),
     };
 
     const mockEventEmitter = {
