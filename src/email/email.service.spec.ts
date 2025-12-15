@@ -162,7 +162,7 @@ describe('EmailService', () => {
       // then fallback to Resend
       const result = await service.sendEmail(sendEmailDto);
       expect(result === null || typeof result === 'object').toBe(true);
-    });
+    }, 15000); // Increased timeout for SMTP connection attempts
   });
 
   describe('renderTemplate', () => {
