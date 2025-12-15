@@ -600,21 +600,32 @@ export class PostService {
 
       // Emit post.created event for real-time hashtag tracking
       if (hashtagIds.length > 0) {
-        let interestSlug: string | undefined;
-        if (post.interest_id) {
-          const interest = await this.prismaService.interest.findUnique({
-            where: { id: post.interest_id },
-            select: { slug: true },
-          });
-          interestSlug = interest?.slug;
-        }
-        this.eventEmitter.emit('post.created', {
-          postId: post.id,
-          userId: post.user_id,
-          hashtagIds,
-          interestSlug,
-          timestamp: post.created_at.getTime(),
-        });
+        setTimeout(async () => {
+          try {
+            let interestSlug: string | undefined;
+            const updatedPost = await this.prismaService.post.findUnique({
+              where: { id: post.id },
+              select: { interest_id: true },
+            });
+            
+            if (updatedPost?.interest_id) {
+              const interest = await this.prismaService.interest.findUnique({
+                where: { id: updatedPost.interest_id },
+                select: { slug: true },
+              });
+              interestSlug = interest?.slug;
+            }
+            this.eventEmitter.emit('post.created', {
+              postId: post.id,
+              userId: post.user_id,
+              hashtagIds,
+              interestSlug,
+              timestamp: post.created_at.getTime(),
+            });
+          } catch (error) {
+            console.error('Failed to emit post.created event:', error);
+          }
+        }, 1500);
       }
 
       // Update parent post stats cache if this is a reply or quote

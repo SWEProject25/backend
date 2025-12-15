@@ -180,7 +180,14 @@ export class HashtagTrendService {
 
       if (trending.length === 0) {
         this.logger.warn(`No trending data in Redis for ${category}, falling back to DB`);
-        return await this.getTrendingFromDB(limit, category);
+        const dbResults = await this.getTrendingFromDB(limit, category);
+        
+        if (dbResults.length > 0) {
+          await this.redisService.setJSON(cacheKey, dbResults, this.CACHE_TTL);
+          this.logger.debug(`Cached ${dbResults.length} DB results for ${category}`);
+        }
+        
+        return dbResults;
       }
 
       this.failureCount = 0;
@@ -326,7 +333,6 @@ export class HashtagTrendService {
       return trends.map((trend) => ({
         tag: `#${trend.hashtag.tag}`,
         totalPosts: trend.post_count_7d,
-        score: trend.trending_score,
       }));
     } catch (error) {
       this.logger.error('Failed to get trending from DB:', error);
@@ -404,16 +410,29 @@ export class HashtagTrendService {
   }
 
   private async determineCategories(event: PostCreatedEvent): Promise<TrendCategory[]> {
-    const categories: Set<TrendCategory> = new Set([TrendCategory.GENERAL]);
+    const categories: Set<TrendCategory> = new Set();
+
+    categories.add(TrendCategory.GENERAL);
 
     if (event.interestSlug) {
       for (const [category, slugs] of Object.entries(CATEGORY_TO_INTERESTS)) {
-        if (slugs.includes(event.interestSlug)) {
+        if (category === TrendCategory.GENERAL || category === TrendCategory.PERSONALIZED) {
+          continue;
+        }
+        if (slugs.length > 0 && slugs.includes(event.interestSlug)) {
           categories.add(category as TrendCategory);
+          this.logger.debug(
+            `Post ${event.postId} with interest '${event.interestSlug}' mapped to category '${category}'`
+          );
         }
       }
     }
 
-    return Array.from(categories);
+    const result = Array.from(categories);
+    this.logger.debug(
+      `Post ${event.postId} will be tracked in categories: ${result.join(', ')}`
+    );
+
+    return result;
   }
 }
