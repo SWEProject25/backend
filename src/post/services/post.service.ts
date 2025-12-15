@@ -252,25 +252,33 @@ export class PostService {
     }));
   }
 
-  private async getPostCounts(postId: number) {
+  private async getPostsCounts(postIds: number[]) {
+    if (postIds.length === 0) return new Map();
+
     const grouped = await this.prismaService.post.groupBy({
       by: ['parent_id', 'type'],
       where: {
-        parent_id: postId,
+        parent_id: { in: postIds },
         is_deleted: false,
         type: { in: ['REPLY', 'QUOTE'] },
       },
       _count: { _all: true },
     });
 
-    const stats = { replies: 0, quotes: 0 };
+    const statsMap = new Map<number, { replies: number; quotes: number }>();
+
+    // Initialize map for all requested IDs to ensure 0 counts are returned if no data found
+    postIds.forEach(id => statsMap.set(id, { replies: 0, quotes: 0 }));
 
     for (const row of grouped) {
-      if (row.type === 'REPLY') stats.replies = row._count._all;
-      if (row.type === 'QUOTE') stats.quotes = row._count._all;
+      if (row.parent_id) {
+        const current = statsMap.get(row.parent_id)!;
+        if (row.type === 'REPLY') current.replies = row._count._all;
+        if (row.type === 'QUOTE') current.quotes = row._count._all;
+      }
     }
 
-    return stats;
+    return statsMap;
   }
 
   async findPosts(options: {
@@ -346,12 +354,14 @@ export class PostService {
         created_at: 'desc',
       },
     });
-    const counts = await Promise.all(posts.map((post) => this.getPostCounts(post.id)));
 
-    const postsWithCounts = posts.map((post, index) => ({
+    const postIds = posts.map(p => p.id);
+    const countsMap = await this.getPostsCounts(postIds);
+
+    const postsWithCounts = posts.map((post) => ({
       ...post,
-      quoteCount: counts[index].quotes,
-      replyCount: counts[index].replies,
+      quoteCount: countsMap.get(post.id)?.quotes || 0,
+      replyCount: countsMap.get(post.id)?.replies || 0,
     }));
 
     return this.transformPost(postsWithCounts);

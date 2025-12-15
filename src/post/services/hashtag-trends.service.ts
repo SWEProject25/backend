@@ -21,9 +21,11 @@ export class HashtagTrendService {
     private readonly redisService: RedisService,
     @InjectQueue(RedisQueues.hashTagQueue.name)
     private readonly trendingQueue: Queue,
+    @InjectQueue(RedisQueues.bulkHashTagQueue.name)
+    private readonly bulkTrendingQueue: Queue,
     @Inject(Services.USERS)
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   public async queueTrendCalculation(hashtagIds: number[]) {
     if (hashtagIds.length === 0) return;
@@ -244,7 +246,7 @@ export class HashtagTrendService {
     });
 
     if (activeHashtags.length > 0) {
-      await this.trendingQueue.add(
+      await this.bulkTrendingQueue.add(
         RedisQueues.bulkHashTagQueue.processes.recalculateTrends,
         {
           hashtagIds: activeHashtags.map((h) => h.id),
