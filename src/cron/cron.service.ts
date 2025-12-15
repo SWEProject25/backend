@@ -16,14 +16,20 @@ export class CronService {
     private readonly userService: UserService,
   ) {}
 
-  // Calculate hashtag trends every 30 minutes
+  /**
+   * Runs every 30 minutes to keep DB updated
+   */
   @Cron('0 */30 * * * *', {
     name: CronJobs.trendsJob.name,
     timeZone: 'UTC',
   })
-  async handleTrendCalculation() {
-    const results: Array<{ category: string; count?: number; error?: string; userCount?: number }> =
-      [];
+  async handleTrendSyncToPostgres() {
+    const results: Array<{
+      category: string;
+      count?: number;
+      error?: string;
+      userCount?: number;
+    }> = [];
 
     for (const category of ALL_TREND_CATEGORIES) {
       try {
@@ -33,11 +39,12 @@ export class CronService {
           let totalCount = 0;
           for (const user of activeUsers) {
             try {
-              const count = await this.hashtagTrendService.recalculateTrends(category, user.id);
+              // FIXME:
+              const count = await this.hashtagTrendService.syncTrendingToDB(category, user.id);
               totalCount += count;
             } catch (error) {
               this.logger.warn(
-                `Failed to calculate personalized trends for user ${user.id}:`,
+                `Failed to sync personalized trends for user ${user.id}:`,
                 error.message,
               );
             }
@@ -45,10 +52,11 @@ export class CronService {
 
           results.push({ category, count: totalCount, userCount: activeUsers.length });
         } else {
-          const count = await this.hashtagTrendService.recalculateTrends(category);
+          const count = await this.hashtagTrendService.syncTrendingToDB(category);
           results.push({ category, count });
         }
       } catch (error) {
+        this.logger.error(`Failed to sync trends for ${category}:`, error);
         results.push({ category, error: error.message });
       }
     }
