@@ -563,9 +563,10 @@ export class PostService {
         createPostDto.mentionsIds.forEach((mentionedUserId) => {
           // Don't notify yourself
           if (mentionedUserId !== userId) {
-            // Skip mention notification for parent author if this is a reply (they already got a REPLY notification)
+            // Skip mention notification for parent author if this is a reply or quote (they already got a REPLY/QUOTE notification)
             const isParentAuthor =
-              createPostDto.type === PostType.REPLY && mentionedUserId === parentPostAuthorId;
+              (createPostDto.type === PostType.REPLY || createPostDto.type === PostType.QUOTE) && 
+              mentionedUserId === parentPostAuthorId;
             if (!isParentAuthor) {
               this.eventEmitter.emit('notification.create', {
                 type: NotificationType.MENTION,
