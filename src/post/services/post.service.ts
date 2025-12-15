@@ -435,7 +435,7 @@ export class PostService {
         if (parentIndex !== undefined) {
           posts[parentIndex].originalPostData = enrichedPost;
         }
-      }
+      })
     }
 
     return posts;
@@ -585,7 +585,7 @@ export class PostService {
           if (mentionedUserId !== userId) {
             // Skip mention notification for parent author if this is a reply or quote (they already got a REPLY/QUOTE notification)
             const isParentAuthor =
-              (createPostDto.type === PostType.REPLY || createPostDto.type === PostType.QUOTE) && 
+              (createPostDto.type === PostType.REPLY || createPostDto.type === PostType.QUOTE) &&
               mentionedUserId === parentPostAuthorId;
             if (!isParentAuthor) {
               this.eventEmitter.emit('notification.create', {
@@ -1244,7 +1244,7 @@ export class PostService {
     const safetyLimit = page * limit;
     const offset = (page - 1) * limit;
 
-    const [{ data: posts, metadata: postMetadata }, {reposts, metadata: repostMetadata}] = await Promise.all([
+    const [{ data: posts, metadata: postMetadata }, { reposts, metadata: repostMetadata }] = await Promise.all([
       this.findPosts({
         where: {
           user_id: userId,
@@ -1260,13 +1260,15 @@ export class PostService {
     const enrichIfQuoteOrReply = await this.enrichIfQuoteOrReply(posts, currentUserId);
 
     const combined = this.combineAndSort(enrichIfQuoteOrReply, reposts);
-    return { data: combined.slice(offset, offset + limit),
-       metadata: { 
+    return {
+      data: combined.slice(offset, offset + limit),
+      metadata: {
         totalItems: postMetadata.totalItems + repostMetadata.totalItems,
         currentPage: page,
         totalPages: Math.ceil((postMetadata.totalItems + repostMetadata.totalItems) / limit),
         itemsPerPage: limit
-     } };
+      }
+    };
   }
 
   private combineAndSort(posts: TransformedPost[], reposts: RepostedPost[]) {
@@ -1327,13 +1329,15 @@ export class PostService {
         user_id: userId,
       },
     });
-    
-    return { data: media, metadata: {
-      totalItems: totalMedia,
-      currentPage: page,
-      totalPages: Math.ceil(totalMedia / limit),
-      itemsPerPage: limit,
-    } };
+
+    return {
+      data: media, metadata: {
+        totalItems: totalMedia,
+        currentPage: page,
+        totalPages: Math.ceil(totalMedia / limit),
+        itemsPerPage: limit,
+      }
+    };
   }
 
   async getUserReplies(userId: number, currentUserId: number, page: number, limit: number) {
