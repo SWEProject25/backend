@@ -61,12 +61,12 @@ export class AiSummarizationService {
       const interestsText = response.choices[0]?.message?.content?.trim();
 
       if (!interestsText || interestsText.length === 0) {
-        return '';
+        return '';  
       }
 
-      const normalizedResponse = interestsText.toUpperCase().replace(/[^A-Z]/g, '');
+      const normalizedResponse = interestsText.toUpperCase().replaceAll(/[^A-Z]/g, '');
       const matchedInterest = ALL_INTERESTS.find(
-        interest => interest.toUpperCase().replace(/[^A-Z]/g, '') === normalizedResponse
+        interest => interest.toUpperCase().replaceAll(/[^A-Z]/g, '') === normalizedResponse
       );
 
       return matchedInterest || '';

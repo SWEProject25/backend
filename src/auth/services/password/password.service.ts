@@ -149,7 +149,7 @@ export class PasswordService {
     const key = `${MAX_RESET_ATTEMPTS_PREFIX}${email}`;
     const attempts = await this.redisService.get(key);
 
-    if (attempts && parseInt(attempts) >= MAX_ATTEMPTS) {
+    if (attempts && Number.parseInt(attempts) >= MAX_ATTEMPTS) {
       throw new BadRequestException('Too many password reset requests. Please try again later.');
     }
   }
@@ -157,7 +157,7 @@ export class PasswordService {
   private async incrementResetAttempts(email: string): Promise<void> {
     const key = `${MAX_RESET_ATTEMPTS_PREFIX}${email}`;
     const current = await this.redisService.get(key);
-    const count = current ? parseInt(current) + 1 : 1;
+    const count = current ? Number.parseInt(current) + 1 : 1;
 
     await this.redisService.set(key, count.toString(), ATTEMPT_WINDOW_SECONDS);
   }

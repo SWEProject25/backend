@@ -205,7 +205,7 @@ export class RedisTrendingService {
     for (let i = 0; i < bucketsToCount; i++) {
       const bucket = currentBucket - i;
       const key = `${this.getHashtagKey(hashtagId, window, category)}:${bucket}`;
-      promises.push(this.redisService.get(key).then((val) => (val ? parseInt(val, 10) : 0)));
+      promises.push(this.redisService.get(key).then((val) => (val ? Number.parseInt(val, 10) : 0)));
     }
 
     const counts = await Promise.all(promises);
@@ -224,7 +224,7 @@ export class RedisTrendingService {
       });
 
       return results.map((result) => ({
-        hashtagId: parseInt(result.value, 10),
+        hashtagId: Number.parseInt(result.value, 10),
         score: result.score,
       }));
     } catch (error) {

@@ -2450,7 +2450,7 @@ private async GetPersonalizedForYouPosts(
 
     // Escape and format interest names for SQL IN clause
     const escapedInterestNames = interestNames
-      .map((name) => `'${name.replace(/'/g, "''")}'`)
+      .map((name) => `'${name.replaceAll(/'/g, "''")}'`)
       .join(', ');
 
     const query = `
