@@ -18,7 +18,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "seed:services": "ts-node prisma/scripts/seed-with-services.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -70,7 +71,7 @@
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
-    "redis": "^5.9.0",
+    "redis": "^5.10.0",
     "reflect-metadata": "^0.2.2",
     "resend": "^6.4.2",
     "rxjs": "^7.8.1"
