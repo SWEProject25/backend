@@ -466,6 +466,9 @@ export class PostService {
   }
 
   async checkPostExists(postId: number) {
+    if (!postId) {
+      throw new NotFoundException('Post not found');
+    }
     const post = await this.prismaService.post.findFirst({
       where: { id: postId, is_deleted: false },
     });
