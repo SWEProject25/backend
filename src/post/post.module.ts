@@ -14,10 +14,11 @@ import { MLService } from './services/ml.service';
 import { HashtagTrendService } from './services/hashtag-trends.service';
 import { RedisModule } from 'src/redis/redis.module';
 import { HashtagController } from './hashtag.controller';
-import { HashtagCalculateTrendsProcessor } from './processors/hashtag-calculate-trends.processor';
-import { HashtagBulkRecalculateProcessor } from './processors/hashtag-bulk-recalculate.processor';
 import { GatewayModule } from 'src/gateway/gateway.module';
 import { UsersModule } from 'src/users/users.module';
+import { UserModule } from 'src/user/user.module';
+import { RedisTrendingService } from './services/redis-trending.service';
+import { PersonalizedTrendsService } from './services/personalized-trends.service';
 
 @Module({
   controllers: [PostController, HashtagController],
@@ -57,12 +58,12 @@ import { UsersModule } from 'src/users/users.module';
       useClass: HashtagTrendService,
     },
     {
-      provide: Services.HASHTAG_JOB_QUEUE,
-      useClass: HashtagCalculateTrendsProcessor,
+      provide: Services.REDIS_TRENDING,
+      useClass: RedisTrendingService,
     },
     {
-      provide: Services.HASHTAG_BULK_JOB_QUEUE,
-      useClass: HashtagBulkRecalculateProcessor,
+      provide: Services.PERSONALIZED_TRENDS,
+      useClass: PersonalizedTrendsService,
     },
   ],
   imports: [
@@ -71,22 +72,9 @@ import { UsersModule } from 'src/users/users.module';
     RedisModule,
     GatewayModule,
     UsersModule,
+    UserModule,
     BullModule.registerQueue({
       name: RedisQueues.postQueue.name,
-      defaultJobOptions: {
-        removeOnComplete: true,
-        removeOnFail: true,
-      },
-    }),
-    BullModule.registerQueue({
-      name: RedisQueues.hashTagQueue.name,
-      defaultJobOptions: {
-        removeOnComplete: true,
-        removeOnFail: true,
-      },
-    }),
-    BullModule.registerQueue({
-      name: RedisQueues.bulkHashTagQueue.name,
       defaultJobOptions: {
         removeOnComplete: true,
         removeOnFail: true,

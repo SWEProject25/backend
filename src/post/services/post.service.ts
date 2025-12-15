@@ -533,11 +533,22 @@ export class PostService {
         });
       }
 
+      // Emit post.created event for real-time hashtag tracking
       if (hashtagIds.length > 0) {
-        setImmediate(() => {
-          this.hashtagTrendService.queueTrendCalculation(hashtagIds).catch((error) => {
-            console.log('Failed to queue trends:', error.stack);
+        let interestSlug: string | undefined;
+        if (post.interest_id) {
+          const interest = await this.prismaService.interest.findUnique({
+            where: { id: post.interest_id },
+            select: { slug: true },
           });
+          interestSlug = interest?.slug;
+        }
+        this.eventEmitter.emit('post.created', {
+          postId: post.id,
+          userId: post.user_id,
+          hashtagIds,
+          interestSlug,
+          timestamp: post.created_at.getTime(),
         });
       }
 
@@ -560,7 +571,7 @@ export class PostService {
         limit: 1,
       });
       const [enrichedPost] = await this.enrichIfQuoteOrReply([fullPost], userId);
-      
+
       return enrichedPost;
     } catch (error) {
       // deleting uploaded files in case of any error

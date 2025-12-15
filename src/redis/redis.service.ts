@@ -74,6 +74,76 @@ export class RedisService implements OnModuleInit {
     return await this.client.del(keys);
   }
 
+  // Sorted Set operations for trending hashtags
+  async zAdd(key: string, members: Array<{ score: number; value: string }>): Promise<number> {
+    return await this.client.zAdd(key, members);
+  }
+
+  async zRangeWithScores(
+    key: string,
+    start: number,
+    stop: number,
+    options?: { REV?: boolean },
+  ): Promise<Array<{ value: string; score: number }>> {
+    console.log('zrange service method');
+    const result = await this.client.zRangeWithScores(key, start, stop, options);
+    console.log(result);
+    return result;
+  }
+
+  async zCount(key: string, min: number | string, max: number | string): Promise<number> {
+    return await this.client.zCount(key, min, max);
+  }
+
+  async zRem(key: string, members: string | string[]): Promise<number> {
+    return await this.client.zRem(key, members);
+  }
+
+  async zRemRangeByRank(key: string, start: number, stop: number): Promise<number> {
+    return await this.client.zRemRangeByRank(key, start, stop);
+  }
+
+  async zRemRangeByScore(key: string, min: number | string, max: number | string): Promise<number> {
+    return await this.client.zRemRangeByScore(key, min, max);
+  }
+
+  async zCard(key: string): Promise<number> {
+    return await this.client.zCard(key);
+  }
+
+  async zScore(key: string, member: string): Promise<number | null> {
+    return await this.client.zScore(key, member);
+  }
+
+  async zIncrBy(key: string, increment: number, member: string): Promise<number> {
+    return await this.client.zIncrBy(key, increment, member);
+  }
+
+  async zRange(
+    key: string,
+    start: number,
+    stop: number,
+    options?: { REV?: boolean },
+  ): Promise<string[]> {
+    return await this.client.zRange(key, start, stop, options);
+  }
+
+  async zRangeByScore(key: string, min: number | string, max: number | string): Promise<string[]> {
+    return await this.client.zRangeByScore(key, min, max);
+  }
+
+  async incr(key: string): Promise<number> {
+    return await this.client.incr(key);
+  }
+
+  async zRangeByScoreWithScores(
+    key: string,
+    min: number | string,
+    max: number | string,
+  ): Promise<Array<{ value: string; score: number }>> {
+    return await this.client.zRangeByScoreWithScores(key, min, max);
+  }
+
   getClient(): RedisClientType {
     return this.client;
   }
