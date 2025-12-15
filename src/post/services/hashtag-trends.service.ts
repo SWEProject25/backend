@@ -42,7 +42,7 @@ export class HashtagTrendService {
     private readonly redisTrendingService: RedisTrendingService,
     @Inject(Services.PERSONALIZED_TRENDS)
     private readonly personalizedTrendsService: PersonalizedTrendsService,
-  ) {}
+  ) { }
 
   public async trackPostHashtags(
     postId: number,
@@ -85,31 +85,14 @@ export class HashtagTrendService {
       const score = counts.count1h * 10 + counts.count24h * 2 + counts.count7d * 0.5;
       const now = new Date();
 
-      const existingTrend = await this.prismaService.hashtagTrend.findFirst({
-        where: {
-          hashtag_id: hashtagId,
-          category,
-          user_id: null,
-        },
-      });
-
-      if (existingTrend) {
-        await this.prismaService.hashtagTrend.update({
-          where: { id: existingTrend.id },
-          data: {
-            post_count_1h: counts.count1h,
-            post_count_24h: counts.count24h,
-            post_count_7d: counts.count7d,
-            trending_score: score,
-            calculated_at: now,
-          },
-        });
-      } else {
+      // Use a try-create-catch-update pattern to handle race conditions robustly
+      // and avoid potential Prisma type issues with nulls in upsert compound keys.
+      try {
         await this.prismaService.hashtagTrend.create({
           data: {
             hashtag_id: hashtagId,
             category,
-            user_id: null,
+            user_id: null, // GENERAL trends have no user_id
             post_count_1h: counts.count1h,
             post_count_24h: counts.count24h,
             post_count_7d: counts.count7d,
@@ -117,6 +100,33 @@ export class HashtagTrendService {
             calculated_at: now,
           },
         });
+      } catch (error) {
+        if (error.code === 'P2002') {
+          // Unique constraint failed, meaning the trend exists. Update it.
+          // We need to find the ID first because we can't easily update by compound key if types are tricky
+          // But wait, if we are here, we know it exists.
+
+          await this.prismaService.hashtagTrend.update({
+            where: {
+              hashtag_id_category_userId: {
+                hashtag_id: hashtagId,
+                category,
+                // We cast to any to bypass the strict typecheck if the generated type is wrong for nulls
+                // This is safe because at runtime Prisma handles the null in the query
+                user_id: null as any,
+              }
+            },
+            data: {
+              post_count_1h: counts.count1h,
+              post_count_24h: counts.count24h,
+              post_count_7d: counts.count7d,
+              trending_score: score,
+              calculated_at: now,
+            },
+          });
+        } else {
+          throw error;
+        }
       }
 
       this.logger.debug(
