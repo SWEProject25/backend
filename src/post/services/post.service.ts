@@ -384,6 +384,36 @@ export class PostService {
     });
   }
 
+  private async enrichNestedOriginalPosts(
+    posts: TransformedPost[],
+    currentUserId: number,
+  ): Promise<TransformedPost[]> {
+
+    const nestedPostsToEnrich: TransformedPost[] = [];
+    const indexMap = new Map<number, number>(); 
+    
+    for (let i = 0; i < posts.length; i++) {
+      const entry = posts[i];
+      if (entry.originalPostData && 'postId' in entry.originalPostData) {
+        nestedPostsToEnrich.push(entry.originalPostData);
+        indexMap.set(entry.originalPostData.postId, i);
+      }
+    }
+
+    if (nestedPostsToEnrich.length > 0) {
+      const nestedEnriched = await this.enrichIfQuoteOrReply(nestedPostsToEnrich, currentUserId);
+      
+      nestedEnriched.forEach((enrichedPost) => {
+        const parentIndex = indexMap.get(enrichedPost.postId);
+        if (parentIndex !== undefined) {
+          posts[parentIndex].originalPostData = enrichedPost;
+        }
+      });
+    }
+    
+    return posts;
+  }
+
   private async createPostTransaction(
     postData: CreatePostDto,
     hashtags: string[],
@@ -1250,14 +1280,9 @@ export class PostService {
       limit,
     });
 
-    const [enrichedOriginalPostData] = await this.enrichIfQuoteOrReply(replies, currentUserId);
-
-    if (enrichedOriginalPostData.originalPostData && 'postId' in enrichedOriginalPostData.originalPostData) {
-      const [nestedEnriched] = await this.enrichIfQuoteOrReply([enrichedOriginalPostData.originalPostData], currentUserId);
-      enrichedOriginalPostData.originalPostData = nestedEnriched
-    }
-
-    return enrichedOriginalPostData;
+    const enrichedOriginalPostsData = await this.enrichIfQuoteOrReply(replies, currentUserId);
+    
+    return await this.enrichNestedOriginalPosts(enrichedOriginalPostsData, currentUserId);
   }
 
   async getRepliesOfPost(postId: number, page: number, limit: number, userId: number) {
@@ -1323,7 +1348,7 @@ export class PostService {
     }
 
     const enrichedPost = await this.enrichIfQuoteOrReply([post], userId);
-    return enrichedPost;
+    return await this.enrichNestedOriginalPosts(enrichedPost, userId);
   }
 
   async getPostStats(postId: number) {
