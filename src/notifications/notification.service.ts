@@ -288,7 +288,8 @@ export class NotificationService {
   private async handleFailedTokens(responses: any[], tokens: string[]): Promise<void> {
     const invalidTokens: string[] = [];
 
-    responses.forEach((response, index) => {
+    for (let index = 0; index < responses.length; index++) {
+      const response = responses[index];
       if (!response.success) {
         const errorCode = response.error?.code;
         // Remove tokens that are invalid, not registered, or expired
@@ -299,7 +300,7 @@ export class NotificationService {
           invalidTokens.push(tokens[index]);
         }
       }
-    });
+    }
 
     if (invalidTokens.length > 0) {
       await this.prismaService.deviceToken.deleteMany({
@@ -426,6 +427,7 @@ export class NotificationService {
 
       const post = posts[0];
       const isQuote = post.type === 'QUOTE' && !!post.parent_id;
+      const isReply = post.type === 'REPLY' && !!post.parent_id;
 
       const postData: NotificationPostData = {
         userId: post.user_id,
@@ -452,8 +454,8 @@ export class NotificationService {
         isQuote,
       };
 
-      // For quote notifications, fetch the original post being quoted
-      if (isQuote && post.parent_id) {
+      // For quote and reply notifications, fetch the original/parent post
+      if ((isQuote || isReply) && post.parent_id) {
         const originalPostData = await this.fetchOriginalPostData(post.parent_id, recipientId);
         if (originalPostData) {
           postData.originalPostData = originalPostData;
@@ -591,16 +593,13 @@ export class NotificationService {
       where.type = { notIn: excludeTypes };
     }
 
-    const [totalItems, notifications, unreadCount] = await Promise.all([
+    const [totalItems, notifications] = await Promise.all([
       this.prismaService.notification.count({ where }),
       this.prismaService.notification.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
-      }),
-      this.prismaService.notification.count({
-        where: { recipientId: userId, isRead: false },
       }),
     ]);
 
@@ -716,9 +715,9 @@ export class NotificationService {
       const unreadNotifications = await notificationsRef.where('isRead', '==', false).get();
 
       const batch = firestore.batch();
-      unreadNotifications.docs.forEach((doc) => {
+      for (const doc of unreadNotifications.docs) {
         batch.update(doc.ref, { isRead: true });
-      });
+      }
 
       await batch.commit();
     } catch (error) {

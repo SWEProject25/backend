@@ -2,8 +2,8 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import mailerConfig from './../common/config/mailer.config';
 import { SendEmailDto } from './dto/send-email.dto';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Resend } from 'resend';
 import { EmailClient, EmailMessage, KnownEmailSendStatus } from '@azure/communication-email';
 import * as nodemailer from 'nodemailer';
@@ -270,7 +270,7 @@ export class EmailService {
     try {
       let template = readFileSync(templatePath, 'utf-8');
       for (const key of Object.keys(variables)) {
-        template = template.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), variables[key]);
+        template = template.replaceAll(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), variables[key]);
       }
 
       return template;

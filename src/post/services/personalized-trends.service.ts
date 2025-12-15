@@ -4,7 +4,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Services } from 'src/utils/constants';
 import { TrendCategory, CATEGORY_TO_INTERESTS } from '../enums/trend-category.enum';
 import { RedisTrendingService } from './redis-trending.service';
-import { UserService } from 'src/user/user.service';
 import { UsersService } from 'src/users/users.service';
 
 interface UserInterests {
@@ -145,8 +144,8 @@ export class PersonalizedTrendsService {
       }
     >();
 
-    categoryTrends.forEach(({ category, trends }) => {
-      trends.forEach(({ hashtagId, score }) => {
+    for (const { category, trends } of categoryTrends) {
+      for (const { hashtagId, score } of trends) {
         if (!hashtagScores.has(hashtagId)) {
           hashtagScores.set(hashtagId, {
             scores: new Map(),
@@ -160,20 +159,20 @@ export class PersonalizedTrendsService {
 
         hashtagData.scores.set(category, score);
         hashtagData.totalScore += weightedScore;
-      });
-    });
+      }
+    }
 
     const rankedTrends = Array.from(hashtagScores.entries())
       .map(([hashtagId, data]) => {
         let primaryCategory = TrendCategory.GENERAL;
         let maxScore = 0;
 
-        data.scores.forEach((score, category) => {
+        for (const [category, score] of data.scores) {
           if (score > maxScore) {
             maxScore = score;
             primaryCategory = category;
           }
-        });
+        }
 
         return {
           hashtagId,
@@ -199,55 +198,6 @@ export class PersonalizedTrendsService {
 
     return 0.3;
   }
-
-  // async getUserInterests(userId: number): Promise<UserInterests> {
-  //   const cached = this.userInterestsCache.get(userId);
-  //   if (cached && Date.now() - cached.timestamp < this.USER_INTERESTS_CACHE_TTL * 1000) {
-  //     return cached.interests;
-  //   }
-
-  //   const redisCacheKey = `user:interests:${userId}`;
-  //   const redisCached = await this.redisService.getJSON<UserInterests>(redisCacheKey);
-  //   if (redisCached) {
-  //     this.userInterestsCache.set(userId, {
-  //       interests: redisCached,
-  //       timestamp: Date.now(),
-  //     });
-  //     return redisCached;
-  //   }
-
-  //   const user = await this.prismaService.user.findUnique({
-  //     where: { id: userId },
-  //     include: {
-  //       interests: {
-  //         include: {
-  //           interest: true,
-  //         },
-  //       },
-  //     },
-  //   });
-
-  //   if (!user) {
-  //     throw new Error(`User ${userId} not found`);
-  //   }
-
-  //   const interestSlugs = user.interests.map((ui) => ui.interest.slug);
-  //   const categories = this.mapInterestsToCategories(interestSlugs);
-
-  //   const userInterests: UserInterests = {
-  //     userId,
-  //     interestSlugs,
-  //     categories,
-  //   };
-
-  //   await this.redisService.setJSON(redisCacheKey, userInterests, this.USER_INTERESTS_CACHE_TTL);
-  //   this.userInterestsCache.set(userId, {
-  //     interests: userInterests,
-  //     timestamp: Date.now(),
-  //   });
-
-  //   return userInterests;
-  // }
 
   private mapInterestsToCategories(interestSlugs: string[]): TrendCategory[] {
     const categories = new Set<TrendCategory>();
@@ -310,74 +260,6 @@ export class PersonalizedTrendsService {
 
     this.logger.debug(`Invalidated cache for user ${userId}`);
   }
-
-  // async invalidateAllPersonalizedCache(): Promise<void> {
-  //   await this.redisService.delPattern('personalized:trending:*');
-  //   this.userInterestsCache.clear();
-  //   this.logger.log('Invalidated all personalized trending caches');
-  // }
-
-  // async batchInvalidateUserCache(userIds: number[]): Promise<void> {
-  //   await Promise.all(userIds.map((userId) => this.invalidateUserCache(userId)));
-  //   this.logger.log(`Invalidated cache for ${userIds.length} users`);
-  // }
-
-  // async getPersonalizedStats(userId: number): Promise<{
-  //   userCategories: TrendCategory[];
-  //   cachedResults: boolean;
-  //   interestsCount: number;
-  // }> {
-  //   const cacheKey = `personalized:trending:${userId}:10`;
-  //   const cached = await this.redisService.getJSON(cacheKey);
-
-  //   let userInterests: UserInterests;
-  //   try {
-  //     userInterests = await this.getUserInterests(userId);
-  //   } catch (error) {
-  //     return {
-  //       userCategories: [],
-  //       cachedResults: false,
-  //       interestsCount: 0,
-  //     };
-  //   }
-
-  //   return {
-  //     userCategories: userInterests.categories,
-  //     cachedResults: cached !== null,
-  //     interestsCount: userInterests.interestSlugs.length,
-  //   };
-  // }
-
-  // async prewarmPersonalizedCache(userIds: number[], limit: number = 10): Promise<number> {
-  //   let warmed = 0;
-
-  //   for (const userId of userIds) {
-  //     try {
-  //       await this.getPersonalizedTrending(userId, limit);
-  //       warmed++;
-  //     } catch (error) {
-  //       this.logger.warn(`Failed to prewarm cache for user ${userId}:`, error);
-  //     }
-  //   }
-
-  //   this.logger.log(`Pre-warmed personalized cache for ${warmed}/${userIds.length} users`);
-  //   return warmed;
-  // }
-
-  // async getMostActiveUsers(limit: number = 100): Promise<number[]> {
-  //   const activeUsersKey = 'trending:active_users';
-
-  //   try {
-  //     const results = await this.redisService.zRangeWithScores(activeUsersKey, 0, limit - 1, {
-  //       REV: true,
-  //     });
-
-  //     return results.map((r) => parseInt(r.value, 10));
-  //   } catch (error) {
-  //     this.logger.error('Failed to get active users:', error);
-  //     return [];
-  //   }
-  // }
 
   async trackUserActivity(userId: number): Promise<void> {
     const activeUsersKey = 'trending:active_users';

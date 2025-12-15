@@ -71,7 +71,15 @@ describe('AuthService', () => {
   const mockRedisService = {
     get: jest.fn(),
     del: jest.fn(),
+    setJSON: jest.fn(),
+    getJSON: jest.fn(),
   };
+
+  const mockGoogleOAuthConfig = {
+    clientID: 'test-client-id',
+    clientSecret: 'test-client-secret',
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -94,11 +102,7 @@ describe('AuthService', () => {
         },
         {
           provide: googleOauthConfig.KEY,
-          useValue: {
-            clientID: 'test-client-id',
-            clientSecret: 'test-client-secret',
-            callbackURL: 'http://localhost:3000/auth/google/callback',
-          },
+          useValue: mockGoogleOAuthConfig,
         },
       ],
     }).compile();
@@ -617,6 +621,376 @@ describe('AuthService', () => {
         'Username is already taken',
       );
       expect(userService.updateUsername).not.toHaveBeenCalled();
+    });
+
+    it('should allow user to update to same username they already have', async () => {
+      const sameUser = { ...mockUser, username: 'existingUsername' };
+      userService.findByUsername.mockResolvedValue(sameUser as any);
+
+      await service.updateUsername(mockUser.id, 'existingUsername');
+
+      expect(userService.updateUsername).toHaveBeenCalledWith(mockUser.id, 'existingUsername');
+    });
+  });
+
+  describe('verifyGoogleIdToken', () => {
+    const validIdToken = 'valid-google-id-token';
+    const accessToken = 'access-token-123';
+
+    it('should verify Google ID token and return user data with access token', async () => {
+      const googlePayload = {
+        sub: '108318052268079221395',
+        email: 'test@example.com',
+        name: 'Test User',
+        picture: 'https://example.com/photo.jpg',
+      };
+
+      // Mock the Google OAuth client
+      const mockVerifyIdToken = jest.fn().mockResolvedValue({
+        getPayload: () => googlePayload,
+      });
+      (service as any).googleClient = {
+        verifyIdToken: mockVerifyIdToken,
+      };
+
+      userService.findByEmail.mockResolvedValue(mockUser as any);
+      userService.findOne.mockResolvedValue(mockUser as any);
+      jwtTokenService.generateAccessToken.mockResolvedValue(accessToken);
+
+      const result = await service.verifyGoogleIdToken(validIdToken);
+
+      expect(mockVerifyIdToken).toHaveBeenCalledWith({
+        idToken: validIdToken,
+        audience: mockGoogleOAuthConfig.clientID,
+      });
+      expect(result).toHaveProperty('accessToken', accessToken);
+      expect(result).toHaveProperty('result');
+    });
+
+    it('should throw UnauthorizedException for invalid token', async () => {
+      const mockVerifyIdToken = jest.fn().mockRejectedValue(new Error('Invalid token'));
+      (service as any).googleClient = {
+        verifyIdToken: mockVerifyIdToken,
+      };
+
+      await expect(service.verifyGoogleIdToken('invalid-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(service.verifyGoogleIdToken('invalid-token')).rejects.toThrow(
+        'Invalid Google ID token',
+      );
+    });
+
+    it('should throw UnauthorizedException when payload is null', async () => {
+      const mockVerifyIdToken = jest.fn().mockResolvedValue({
+        getPayload: () => null,
+      });
+      (service as any).googleClient = {
+        verifyIdToken: mockVerifyIdToken,
+      };
+
+      await expect(service.verifyGoogleIdToken(validIdToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      await expect(service.verifyGoogleIdToken(validIdToken)).rejects.toThrow(
+        'Invalid Google ID token',
+      );
+    });
+
+    it('should create OAuth profile from Google payload', async () => {
+      const googlePayload = {
+        sub: '12345',
+        email: 'newuser@example.com',
+        name: 'New User',
+        picture: 'https://example.com/photo.jpg',
+      };
+
+      const mockVerifyIdToken = jest.fn().mockResolvedValue({
+        getPayload: () => googlePayload,
+      });
+      (service as any).googleClient = {
+        verifyIdToken: mockVerifyIdToken,
+      };
+
+      const newUser = {
+        id: 5,
+        username: 'newuser',
+        email: googlePayload.email,
+        password: '',
+        role: Role.USER,
+        is_verified: true,
+        provider_id: googlePayload.sub,
+        has_completed_interests: false,
+        has_completed_following: false,
+        created_at: new Date(),
+        updated_at: new Date(),
+        deleted_at: null,
+        Profile: {
+          id: 5,
+          user_id: 5,
+          name: googlePayload.name,
+          profile_image_url: googlePayload.picture,
+          birth_date: null,
+          banner_image_url: null,
+          bio: null,
+          location: null,
+          website: null,
+          is_deactivated: false,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      };
+
+      userService.findByEmail.mockResolvedValue(null);
+      userService.create.mockResolvedValue(newUser as any);
+      userService.findOne.mockResolvedValue(newUser as any);
+      jwtTokenService.generateAccessToken.mockResolvedValue(accessToken);
+
+      const result = await service.verifyGoogleIdToken(validIdToken);
+
+      expect(result).toBeDefined();
+      expect(result.accessToken).toBe(accessToken);
+    });
+  });
+
+  describe('validateGithubUser - additional edge cases', () => {
+    const githubUser: OAuthProfileDto = {
+      provider: 'github',
+      providerId: '136837275',
+      username: 'testuser',
+      displayName: 'Test User',
+      email: 'test@example.com',
+      profileImageUrl: 'https://example.com/avatar.jpg',
+      profileUrl: 'https://github.com/testuser',
+    };
+
+    it('should link GitHub OAuth to existing account when found by email without provider_id', async () => {
+      const userWithoutProvider = {
+        ...mockUser,
+        provider_id: null,
+      };
+
+      userService.findByProviderId.mockResolvedValue(null);
+      userService.getUserData.mockResolvedValueOnce({
+        user: userWithoutProvider,
+        profile: mockUser.Profile,
+      } as any);
+
+      const result = await service.validateGithubUser(githubUser);
+
+      expect(userService.updateOAuthData).toHaveBeenCalledWith(
+        userWithoutProvider.id,
+        githubUser.providerId,
+        githubUser.email,
+      );
+      expect(result).toEqual({
+        sub: userWithoutProvider.id,
+        username: userWithoutProvider.username,
+        role: userWithoutProvider.role,
+        email: userWithoutProvider.email,
+        name: mockUser.Profile.name,
+        profileImageUrl: mockUser.Profile.profile_image_url,
+      });
+    });
+
+    it('should find user by username when email not provided', async () => {
+      const { email, ...githubUserNoEmail } = githubUser;
+
+      userService.findByProviderId.mockResolvedValue(null);
+      userService.getUserData.mockResolvedValueOnce(null);
+      userService.getUserData.mockResolvedValueOnce({
+        user: mockUser,
+        profile: mockUser.Profile,
+      } as any);
+
+      const result = await service.validateGithubUser(githubUserNoEmail as OAuthProfileDto);
+
+      expect(userService.getUserData).toHaveBeenCalledWith(githubUser.username);
+      expect(result).toBeDefined();
+    });
+
+    it('should update provider_id when user found by username without provider_id', async () => {
+      const userWithoutProvider = {
+        ...mockUser,
+        provider_id: null,
+      };
+
+      userService.findByProviderId.mockResolvedValue(null);
+      userService.getUserData.mockResolvedValueOnce(null);
+      userService.getUserData.mockResolvedValueOnce({
+        user: userWithoutProvider,
+        profile: mockUser.Profile,
+      } as any);
+
+      const result = await service.validateGithubUser(githubUser);
+
+      expect(userService.updateOAuthData).toHaveBeenCalledWith(
+        userWithoutProvider.id,
+        githubUser.providerId,
+        githubUser.email,
+      );
+      expect(result).toEqual({
+        sub: userWithoutProvider.id,
+        username: userWithoutProvider.username,
+        role: userWithoutProvider.role,
+        email: userWithoutProvider.email,
+        name: mockUser.Profile.name,
+        profileImageUrl: mockUser.Profile.profile_image_url,
+      });
+    });
+  });
+
+  describe('updateEmail - additional tests', () => {
+    it('should allow user to update to same email they already have', async () => {
+      const sameUser = { ...mockUser, email: 'existing@example.com' };
+      userService.findByEmail.mockResolvedValue(sameUser as any);
+
+      await service.updateEmail(mockUser.id, 'existing@example.com');
+
+      expect(userService.updateEmail).toHaveBeenCalledWith(mockUser.id, 'existing@example.com');
+    });
+  });
+
+  describe('login - additional edge cases', () => {
+    const accessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
+
+    it('should return null profile when user has no Profile', async () => {
+      const userWithoutProfile = {
+        ...mockUser,
+        Profile: null,
+      };
+      userService.findOne.mockResolvedValue(userWithoutProfile as any);
+      jwtTokenService.generateAccessToken.mockResolvedValue(accessToken);
+
+      const result = await service.login(mockUser.id, mockUser.username);
+
+      expect(result.user.profile).toBeNull();
+    });
+  });
+
+  describe('validateUserJwt - additional edge cases', () => {
+    it('should return null profile fields when user has no Profile', async () => {
+      const userWithoutProfile = {
+        ...mockUser,
+        Profile: null,
+      };
+      userService.findOne.mockResolvedValue(userWithoutProfile as any);
+
+      const result = await service.validateUserJwt(mockUser.id);
+
+      expect(result.name).toBeUndefined();
+      expect(result.profileImageUrl).toBeUndefined();
+    });
+  });
+
+  describe('createOAuthCode', () => {
+    const accessToken = 'test-access-token';
+    const userData = { id: 1, username: 'testuser', email: 'test@example.com' };
+
+    beforeEach(() => {
+      redisService.setJSON.mockResolvedValue(undefined);
+    });
+
+    it('should create OAuth code and store in Redis', async () => {
+      const code = await service.createOAuthCode(accessToken, userData);
+
+      expect(code).toBeDefined();
+      expect(typeof code).toBe('string');
+      expect(code.length).toBe(64); // 32 bytes = 64 hex characters
+      expect(redisService.setJSON).toHaveBeenCalledWith(
+        `oauth:code:${code}`,
+        {
+          accessToken,
+          user: userData,
+          createdAt: expect.any(Number),
+        },
+        300, // 5 minutes
+      );
+    });
+
+    it('should generate unique codes', async () => {
+      const code1 = await service.createOAuthCode(accessToken, userData);
+      const code2 = await service.createOAuthCode(accessToken, userData);
+
+      expect(code1).not.toBe(code2);
+    });
+
+    it('should include timestamp in stored data', async () => {
+      const beforeTime = Date.now();
+      await service.createOAuthCode(accessToken, userData);
+      const afterTime = Date.now();
+
+      const callArgs = redisService.setJSON.mock.calls[0];
+      const storedData = callArgs[1] as any;
+
+      expect(storedData.createdAt).toBeGreaterThanOrEqual(beforeTime);
+      expect(storedData.createdAt).toBeLessThanOrEqual(afterTime);
+    });
+
+    it('should set correct expiry time', async () => {
+      await service.createOAuthCode(accessToken, userData);
+
+      const callArgs = redisService.setJSON.mock.calls[0];
+      const expiry = callArgs[2];
+
+      expect(expiry).toBe(300); // 5 minutes
+    });
+  });
+
+  describe('exchangeCode', () => {
+    const code = 'test-oauth-code-123';
+    const codeData = {
+      accessToken: 'test-access-token',
+      user: { id: 1, username: 'testuser', email: 'test@example.com' },
+      createdAt: Date.now(),
+    };
+
+    beforeEach(() => {
+      redisService.del.mockResolvedValue(1);
+    });
+
+    it('should exchange code for data and delete from Redis', async () => {
+      redisService.getJSON.mockResolvedValue(codeData);
+
+      const result = await service.exchangeCode(code);
+
+      expect(redisService.getJSON).toHaveBeenCalledWith(`oauth:code:${code}`);
+      expect(redisService.del).toHaveBeenCalledWith(`oauth:code:${code}`);
+      expect(result).toEqual(codeData);
+    });
+
+    it('should throw UnauthorizedException when code not found', async () => {
+      redisService.getJSON.mockResolvedValue(null);
+
+      await expect(service.exchangeCode(code)).rejects.toThrow(UnauthorizedException);
+      await expect(service.exchangeCode(code)).rejects.toThrow('Invalid or expired OAuth code');
+      expect(redisService.del).not.toHaveBeenCalled();
+    });
+
+    it('should throw UnauthorizedException when code is invalid', async () => {
+      redisService.getJSON.mockResolvedValue(undefined);
+
+      await expect(service.exchangeCode('invalid-code')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should delete code after successful exchange', async () => {
+      redisService.getJSON.mockResolvedValue(codeData);
+
+      await service.exchangeCode(code);
+
+      expect(redisService.del).toHaveBeenCalledTimes(1);
+      expect(redisService.del).toHaveBeenCalledWith(`oauth:code:${code}`);
+    });
+
+    it('should handle multiple exchange attempts for same code', async () => {
+      redisService.getJSON.mockResolvedValueOnce(codeData).mockResolvedValueOnce(null);
+
+      // First exchange should succeed
+      const result1 = await service.exchangeCode(code);
+      expect(result1).toEqual(codeData);
+
+      // Second exchange should fail
+      await expect(service.exchangeCode(code)).rejects.toThrow(UnauthorizedException);
     });
   });
 });
