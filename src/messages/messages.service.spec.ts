@@ -32,6 +32,14 @@ describe('MessagesService', () => {
     $transaction: jest.fn(),
   };
 
+  const mockRedisService = {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+    getJSON: jest.fn(),
+    setJSON: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -42,6 +50,10 @@ describe('MessagesService', () => {
         {
           provide: Services.PRISMA,
           useValue: mockPrismaService,
+        },
+        {
+          provide: Services.REDIS,
+          useValue: mockRedisService,
         },
       ],
     }).compile();

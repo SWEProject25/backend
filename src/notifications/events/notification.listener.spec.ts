@@ -35,6 +35,9 @@ describe('NotificationListener', () => {
             post: {
               findUnique: jest.fn(),
             },
+            mute: {
+              findUnique: jest.fn(),
+            },
           },
         },
       ],

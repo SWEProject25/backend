@@ -34,6 +34,7 @@ describe('SocketGateway', () => {
     isUserInConversation: jest.fn(),
     markMessagesAsSeen: jest.fn(),
     getConversationUsers: jest.fn(),
+    getConversationUsersCached: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
   };
@@ -714,7 +715,7 @@ describe('SocketGateway', () => {
       const mockSocket = createMockSocket(1);
       mockSocket.to = jest.fn().mockReturnThis();
 
-      mockMessagesService.getConversationUsers.mockResolvedValue({
+      mockMessagesService.getConversationUsersCached.mockResolvedValue({
         user1Id: 1,
         user2Id: 2,
       });
@@ -741,7 +742,7 @@ describe('SocketGateway', () => {
       const mockSocket = createMockSocket(3);
       mockSocket.to = jest.fn().mockReturnThis();
 
-      mockMessagesService.getConversationUsers.mockResolvedValue({
+      mockMessagesService.getConversationUsersCached.mockResolvedValue({
         user1Id: 1,
         user2Id: 2,
       });
@@ -755,7 +756,7 @@ describe('SocketGateway', () => {
       const mockSocket = createMockSocket(1);
       mockSocket.to = jest.fn().mockReturnThis();
 
-      mockMessagesService.getConversationUsers.mockResolvedValue({
+      mockMessagesService.getConversationUsersCached.mockResolvedValue({
         user1Id: 1,
         user2Id: 2,
       });
@@ -773,7 +774,7 @@ describe('SocketGateway', () => {
       const mockSocket = createMockSocket(2);
       mockSocket.to = jest.fn().mockReturnThis();
 
-      mockMessagesService.getConversationUsers.mockResolvedValue({
+      mockMessagesService.getConversationUsersCached.mockResolvedValue({
         user1Id: 1,
         user2Id: 2,
       });
@@ -793,7 +794,7 @@ describe('SocketGateway', () => {
       const mockSocket = createMockSocket(1);
       mockSocket.to = jest.fn().mockReturnThis();
 
-      mockMessagesService.getConversationUsers.mockResolvedValue({
+      mockMessagesService.getConversationUsersCached.mockResolvedValue({
         user1Id: 1,
         user2Id: 2,
       });
@@ -820,7 +821,7 @@ describe('SocketGateway', () => {
       const mockSocket = createMockSocket(3);
       mockSocket.to = jest.fn().mockReturnThis();
 
-      mockMessagesService.getConversationUsers.mockResolvedValue({
+      mockMessagesService.getConversationUsersCached.mockResolvedValue({
         user1Id: 1,
         user2Id: 2,
       });
@@ -834,7 +835,7 @@ describe('SocketGateway', () => {
       const mockSocket = createMockSocket(1);
       mockSocket.to = jest.fn().mockReturnThis();
 
-      mockMessagesService.getConversationUsers.mockResolvedValue({
+      mockMessagesService.getConversationUsersCached.mockResolvedValue({
         user1Id: 1,
         user2Id: 2,
       });
@@ -852,7 +853,7 @@ describe('SocketGateway', () => {
       const mockSocket = createMockSocket(2);
       mockSocket.to = jest.fn().mockReturnThis();
 
-      mockMessagesService.getConversationUsers.mockResolvedValue({
+      mockMessagesService.getConversationUsersCached.mockResolvedValue({
         user1Id: 1,
         user2Id: 2,
       });

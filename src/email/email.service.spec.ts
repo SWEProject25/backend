@@ -3,10 +3,10 @@ import { EmailService } from './email.service';
 import { Services, RedisQueues } from 'src/utils/constants';
 import mailerConfig from 'src/common/config/mailer.config';
 import { getQueueToken } from '@nestjs/bullmq';
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 
-// Mock fs.readFileSync
-jest.mock('fs', () => ({
+// Mock fs.readFileSync - must use 'node:fs' to match the import in the service
+jest.mock('node:fs', () => ({
   readFileSync: jest.fn(),
 }));
 
