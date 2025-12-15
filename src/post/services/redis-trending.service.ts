@@ -40,7 +40,7 @@ export class RedisTrendingService {
   constructor(
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
-  ) {}
+  ) { }
 
   private getHashtagKey(
     hashtagId: number,
@@ -179,6 +179,12 @@ export class RedisTrendingService {
       }
 
       this.logger.debug(`Updated score for hashtag ${hashtagId} [${category}]: ${score}`);
+
+      // Perform maintenance: cleanup old entries
+      // Fire and forget to not block the main flow
+      this.cleanupOldEntries(hashtagId, category).catch(err =>
+        this.logger.warn(`Cleanup failed for ${hashtagId}: ${err.message}`)
+      );
 
       return score;
     } catch (error) {
@@ -350,21 +356,21 @@ export class RedisTrendingService {
     }
   }
 
-  // async cleanupOldEntries(hashtagId: number, category: TrendCategory): Promise<void> {
-  //   try {
-  //     const now = Date.now();
-  //     const sevenDaysAgo = now - this.TIME_WINDOWS.SEVEN_DAYS * 1000;
+  async cleanupOldEntries(hashtagId: number, category: TrendCategory): Promise<void> {
+    try {
+      const now = Date.now();
+      const sevenDaysAgo = now - this.TIME_WINDOWS.SEVEN_DAYS * 1000;
 
-  //     await this.redisService.zRemRangeByScore(
-  //       this.getHashtagKey(hashtagId, '7d', category),
-  //       0,
-  //       sevenDaysAgo,
-  //     );
-  //   } catch (error) {
-  //     this.logger.error(`Failed to cleanup old entries for hashtag ${hashtagId}:`, error);
-  //     throw error;
-  //   }
-  // }
+      await this.redisService.zRemRangeByScore(
+        this.getHashtagKey(hashtagId, '7d', category),
+        0,
+        sevenDaysAgo,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to cleanup old entries for hashtag ${hashtagId}:`, error);
+      // Don't throw here, just log, as this is maintenance
+    }
+  }
 
   // async clearCategoryData(category: TrendCategory): Promise<void> {
   //   try {
