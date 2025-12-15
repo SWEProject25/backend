@@ -39,7 +39,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
     private readonly eventEmitter: EventEmitter2,
     @Inject(forwardRef(() => Services.POST))
     private readonly postService: PostService,
-  ) {}
+  ) { }
 
   @WebSocketServer()
   server: Server;
@@ -208,7 +208,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
         [...conversationRoom].some((socketId) => recipientRoom.has(socketId));
 
       if (!isRecipientInConversation) {
-        this.server.to(`user_${recipientId}`).emit('newMessageNotification', {...message, unseenCount});
+        this.server.to(`user_${recipientId}`).emit('newMessageNotification', { ...message, unseenCount });
 
         // Emit DM notification event
         this.eventEmitter.emit('notification.create', {
@@ -366,7 +366,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
         userId,
       });
 
-      const participants = await this.messagesService.getConversationUsers(data.conversationId);
+      const participants = await this.messagesService.getConversationUsersCached(data.conversationId);
 
       if (userId !== participants.user1Id && userId !== participants.user2Id) {
         throw new UnauthorizedException('You are not part of this conversation');
@@ -417,7 +417,7 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect, 
         userId,
       });
 
-      const participants = await this.messagesService.getConversationUsers(data.conversationId);
+      const participants = await this.messagesService.getConversationUsersCached(data.conversationId);
 
       if (userId !== participants.user1Id && userId !== participants.user2Id) {
         throw new UnauthorizedException('You are not part of this conversation');

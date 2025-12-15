@@ -14,12 +14,16 @@ import { Services } from 'src/utils/constants';
 import { getUnseenMessageCountWhere } from 'src/conversations/helpers/unseen-message.helper';
 import { getBlockCheckWhere } from 'src/conversations/helpers/block-check.helper';
 
+import { RedisService } from 'src/redis/redis.service';
+
 @Injectable()
 export class MessagesService {
   constructor(
     @Inject(Services.PRISMA)
     private readonly prismaService: PrismaService,
-  ) {}
+    @Inject(Services.REDIS)
+    private readonly redisService: RedisService,
+  ) { }
 
   async create(createMessageDto: CreateMessageDto) {
     const { conversationId, senderId, text } = createMessageDto;
@@ -100,6 +104,24 @@ export class MessagesService {
     }
 
     return { user1Id: conversation.user1Id, user2Id: conversation.user2Id };
+  }
+
+  async getConversationUsersCached(conversationId: number): Promise<{ user1Id: number; user2Id: number }> {
+    const cacheKey = `conversation:users:${conversationId}`;
+    const cached = await this.redisService.getJSON<{ user1Id: number; user2Id: number }>(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
+    const users = await this.getConversationUsers(conversationId);
+
+    // Cache for 1 hour, as participants don't change often
+    if (users.user1Id !== 0) {
+      await this.redisService.setJSON(cacheKey, users, 3600);
+    }
+
+    return users;
   }
 
   async isUserInConversation(createMessageDto: CreateMessageDto): Promise<boolean> {
