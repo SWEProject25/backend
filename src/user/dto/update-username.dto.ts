@@ -8,7 +8,7 @@ export class UpdateUsernameDto {
   @MaxLength(50, { message: 'Username must be at most 50 characters long' })
   @Matches(/^[a-zA-Z](?!.*[_.-]{2})[a-zA-Z0-9._-]+$/, {
     message:
-      'Username must start with a letter and can only contain letters, numbers, dots, and underscores — without consecutive dots or underscores.',
+      'Username must start with a letter and can only contain letters, numbers, dots, underscores, and hyphens — without consecutive dots, underscores, or hyphens.',
   })
   @ApiProperty({
     description: 'The new username for the user',
