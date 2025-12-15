@@ -168,7 +168,11 @@ export class UserService {
   }
 
   public async getUserData(uniqueIdentifier: string) {
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(uniqueIdentifier);
+    // Simple email check to avoid ReDoS vulnerability from regex backtracking
+    const atIndex = uniqueIdentifier.indexOf('@');
+    const isEmail = atIndex > 0 && 
+                    uniqueIdentifier.indexOf('.', atIndex) > atIndex + 1 && 
+                    !uniqueIdentifier.includes(' ');
     const user = await this.prismaService.user.findUnique({
       where: isEmail ? { email: uniqueIdentifier } : { username: uniqueIdentifier },
     });
