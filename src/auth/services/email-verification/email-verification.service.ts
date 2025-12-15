@@ -5,7 +5,6 @@ import {
   ConflictException,
   HttpException,
   HttpStatus,
-  NotFoundException,
 } from '@nestjs/common';
 import { EmailService } from 'src/email/email.service';
 import { UserService } from 'src/user/user.service';

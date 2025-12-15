@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 import { RequestPasswordResetDto } from 'src/auth/dto/request-password-reset.dto';
 import { EmailService } from 'src/email/email.service';
 import { UserService } from 'src/user/user.service';

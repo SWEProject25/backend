@@ -1,7 +1,7 @@
 import { Body, Controller, Inject, Post } from '@nestjs/common';
 import { EmailService } from './email.service';
-import { join } from 'path';
-import { readFileSync } from 'fs';
+import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { Routes, Services } from 'src/utils/constants';
 import { Public } from 'src/auth/decorators/public.decorator';
 
@@ -21,7 +21,6 @@ export class EmailController {
       'email-verification.html',
     );
     const template = readFileSync(templatePath, 'utf-8');
-    // console.log(template);
     return this.emailService.sendEmail({
       subject: 'Account Verification',
       recipients: ['mohamedalbaz77@gmail.com'],

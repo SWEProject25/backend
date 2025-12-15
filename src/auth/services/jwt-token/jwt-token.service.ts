@@ -10,7 +10,7 @@ export class JwtTokenService {
 
   public async generateAccessToken(userId: number, username: string): Promise<string> {
     const payload: AuthJwtPayload = { sub: userId, username };
-    const [accessToken] = await Promise.all([this.jwtService.signAsync(payload)]);
+    const accessToken = await this.jwtService.signAsync(payload);
     return accessToken;
   }
 

@@ -52,7 +52,6 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateEmailDto } from 'src/user/dto/update-email.dto';
 import { UpdateUsernameDto } from 'src/user/dto/update-username.dto';
 import { EmailDto, VerifyOtpDto } from './dto/email-verification.dto';
-import { AuthJwtPayload } from 'src/types/jwtPayload';
 import { AuthenticatedUser } from './interfaces/user.interface';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { VerifyPasswordDto } from './dto/verify-password.dto';
@@ -679,7 +678,10 @@ export class AuthController {
   @Get('github/login')
   @Public()
   @UseGuards(GithubAuthGuard)
-  public githubLogin() {}
+  public githubLogin() {
+    // Passport guard redirect handles this - method intentionally empty
+    return;
+  }
 
   @Get('github/redirect')
   @Public()

@@ -16,7 +16,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { OAuth2Client } from 'google-auth-library';
 import googleOauthConfig from './config/google-oauth.config';
 import { ConfigType } from '@nestjs/config';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { OAuthCodeData } from './interfaces/oauth-code-data.interface';
 
 const ISVERIFIED_CACHE_PREFIX = 'verified:';
@@ -25,7 +25,7 @@ const CODE_EXPIRY = 300; // 5 minutes
 
 @Injectable()
 export class AuthService {
-  private googleClient: OAuth2Client;
+  private readonly googleClient: OAuth2Client;
 
   constructor(
     @Inject(Services.USER)
