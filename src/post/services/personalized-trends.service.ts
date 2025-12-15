@@ -41,7 +41,7 @@ export class PersonalizedTrendsService {
   async getPersonalizedTrending(
     userId: number,
     limit: number = 10,
-  ): Promise<Array<{ tag: string; totalPosts: number; score: number; categories: string[] }>> {
+  ): Promise<Array<{ tag: string; totalPosts: number; }>> {
     const cacheKey = `personalized:trending:${userId}:${limit}`;
     const cached = await this.redisService.getJSON<any[]>(cacheKey);
     if (cached && cached.length > 0) {
@@ -53,6 +53,7 @@ export class PersonalizedTrendsService {
       const userInterests = await this.usersService.getUserInterests(userId);
       const interestSlugs = userInterests.map((ui) => ui.slug);
       const categories = this.mapInterestsToCategories(interestSlugs);
+      
       if (categories.length === 0) {
         this.logger.debug(`User ${userId} has no interests, falling back to GENERAL`);
         return await this.getTrendingForCategory(TrendCategory.GENERAL, limit);
@@ -71,7 +72,6 @@ export class PersonalizedTrendsService {
         this.logger.warn(`No personalized trends for user ${userId}, using GENERAL`);
         return await this.getTrendingForCategory(TrendCategory.GENERAL, limit);
       }
-
       const results = await Promise.all(
         combinedTrends.map(async (trend) => {
           let metadata = await this.redisTrendingService.getHashtagMetadata(
@@ -103,8 +103,6 @@ export class PersonalizedTrendsService {
           return {
             tag: `#${metadata.tag}`,
             totalPosts: counts.count7d,
-            score: trend.combinedScore,
-            categories: trend.categories,
           };
         }),
       );
