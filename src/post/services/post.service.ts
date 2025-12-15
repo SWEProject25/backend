@@ -1560,8 +1560,6 @@ original_posts AS (
     AND EXISTS (SELECT 1 FROM user_interests ui WHERE ui."interest_id" = p."interest_id")
     AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
     AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
-  ORDER BY p."created_at" DESC
-  LIMIT 800
 ),
 -- Get reposts from Repost table (STRICT INTEREST FILTER - only reposts matching user's interests)
 repost_items AS (
@@ -1597,8 +1595,6 @@ repost_items AS (
     AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
     AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = r."user_id")
     AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = r."user_id")
-  ORDER BY p."created_at" DESC
-  LIMIT 200
 ),
 -- Combine both
 all_posts AS (
