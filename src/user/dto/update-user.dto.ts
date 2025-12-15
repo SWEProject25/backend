@@ -34,9 +34,9 @@ export class UpdateUserDto {
   @IsString()
   @MinLength(3, { message: 'Username must be at least 3 characters long' })
   @MaxLength(50, { message: 'Username must be at most 50 characters long' })
-  @Matches(/^[a-zA-Z](?!.*[_.]{2})[a-zA-Z0-9._]*[a-zA-Z0-9]$/, {
+  @Matches(/^[a-zA-Z](?!.*[_.-]{2})[a-zA-Z0-9._-]*[a-zA-Z0-9]$/, {
     message:
-      'Username must start with a letter, end with a letter or number, and can only contain letters, numbers, dots, and underscores — without consecutive dots or underscores.',
+      'Username must start with a letter, end with a letter or number, and can only contain letters, numbers, dots, underscores, and hyphens — without consecutive dots, underscores, or hyphens.',
   })
   @Trim()
   @ToLowerCase()
