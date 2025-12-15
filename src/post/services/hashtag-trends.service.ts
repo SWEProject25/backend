@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RedisService } from 'src/redis/redis.service';
 import { RedisQueues, Services } from 'src/utils/constants';
@@ -8,6 +9,9 @@ import { TrendCategory, CATEGORY_TO_INTERESTS } from '../enums/trend-category.en
 import { UsersService } from 'src/users/users.service';
 
 const HASHTAG_TRENDS_TOKEN_PREFIX = 'hashtags:trending:';
+const HASHTAG_RECALC_PREFIX = 'hashtags:recalculating:';
+const TRENDS_COOLDOWN_PREFIX = 'hashtags:cooldown:';
+
 
 @Injectable()
 export class HashtagTrendService {
@@ -21,9 +25,11 @@ export class HashtagTrendService {
     private readonly redisService: RedisService,
     @InjectQueue(RedisQueues.hashTagQueue.name)
     private readonly trendingQueue: Queue,
+    @InjectQueue(RedisQueues.bulkHashTagQueue.name)
+    private readonly bulkTrendingQueue: Queue,
     @Inject(Services.USERS)
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   public async queueTrendCalculation(hashtagIds: number[]) {
     if (hashtagIds.length === 0) return;
@@ -61,9 +67,10 @@ export class HashtagTrendService {
       if (category === TrendCategory.PERSONALIZED && !userId) {
         return 0;
       }
-      if (userId) {
+      if (category === TrendCategory.PERSONALIZED && userId) {
         const userInterests = await this.usersService.getUserInterests(userId);
         interestSlugs = userInterests.map((userInterests) => userInterests.slug);
+        this.logger.debug(`User ${userId} interests for personalized trends: ${interestSlugs.join(', ')}`);
       }
 
       const whereClause: any = {
@@ -156,6 +163,71 @@ export class HashtagTrendService {
     }
   }
 
+  public async calculateTrendsBulk(
+    hashtagIds: number[],
+    category: TrendCategory = TrendCategory.GENERAL,
+    userId: number | null,
+  ): Promise<void> {
+    if (hashtagIds.length === 0) return;
+
+    try {
+      let interestSlugs = CATEGORY_TO_INTERESTS[category];
+      if (category === TrendCategory.PERSONALIZED && userId) {
+        const userInterests = await this.usersService.getUserInterests(userId);
+        interestSlugs = userInterests.map((ui) => ui.slug);
+      }
+
+      const shouldFilterByInterest = !(category === TrendCategory.GENERAL || interestSlugs.length === 0);
+      const userIdVal = category === TrendCategory.PERSONALIZED ? userId : null;
+
+      const deleteQuery = Prisma.sql`
+        DELETE FROM "hashtag_trends"
+        WHERE "hashtag_id" IN (${Prisma.join(hashtagIds)})
+        AND "category" = ${category}
+        AND ("user_id" = ${userIdVal} OR (${userIdVal} IS NULL AND "user_id" IS NULL))
+      `;
+
+      const insertQuery = Prisma.sql`
+        INSERT INTO "hashtag_trends" ("hashtag_id", "category", "user_id", "post_count_1h", "post_count_24h", "post_count_7d", "trending_score", "calculated_at")
+        SELECT
+            ph."A" as hashtag_id,
+            ${category},
+            ${userIdVal},
+            COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '1 hour' THEN 1 END)::int as post_count_1h,
+            COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '24 hours' THEN 1 END)::int as post_count_24h,
+            COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '7 days' THEN 1 END)::int as post_count_7d,
+            (
+                COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '1 hour' THEN 1 END) * 10.0 +
+                COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '24 hours' THEN 1 END) * 2.0 +
+                COUNT(CASE WHEN p.created_at >= NOW() - INTERVAL '7 days' THEN 1 END) * 0.5
+            )::float as trending_score,
+            NOW()
+        FROM "_PostHashtags" ph
+        JOIN "posts" p ON ph."B" = p.id
+        LEFT JOIN "interests" i ON p.interest_id = i.id
+        WHERE 
+            ph."A" IN (${Prisma.join(hashtagIds)})
+            AND p."is_deleted" = false
+            AND p."created_at" >= NOW() - INTERVAL '7 days'
+            ${shouldFilterByInterest
+          ? Prisma.sql`AND i.slug IN (${Prisma.join(interestSlugs)})`
+          : Prisma.empty
+        }
+        GROUP BY ph."A"
+      `;
+
+      await this.prismaService.$transaction([
+        this.prismaService.$executeRaw(deleteQuery),
+        this.prismaService.$executeRaw(insertQuery),
+      ]);
+
+      this.logger.log(`Bulk calculated trends for ${hashtagIds.length} hashtags [${category}]`);
+    } catch (error) {
+      this.logger.error(`Error in bulk trend calculation:`, error);
+      throw error;
+    }
+  }
+
   public async getTrending(
     limit: number = 10,
     category: TrendCategory = TrendCategory.GENERAL,
@@ -198,10 +270,51 @@ export class HashtagTrendService {
       distinct: ['hashtag_id'],
     });
 
+    // Check if we have ANY recent calculation for this category/user, even if score is 0
+    // This prevents infinite loops where we calculate -> get 0 score -> calculate again
+    const anyRecentCalculation = await this.prismaService.hashtagTrend.findFirst({
+      where: {
+        category,
+        calculated_at: { gte: lastDay },
+        ...(category === TrendCategory.PERSONALIZED && userId ? { user_id: userId } : {}),
+      },
+    });
+
+    // Check for cooldown to prevent infinite calculation loops
+    const cooldownKey = `${TRENDS_COOLDOWN_PREFIX}${category}${userId ? `:${userId}` : ''}`;
+    const isInCooldown = await this.redisService.get(cooldownKey);
+
     if (trends.length === 0) {
-      this.recalculateTrends(category, userId).catch((err) =>
-        this.logger.error(`Background recalculation failed for ${category}:`, err),
-      );
+      // If in cooldown, don't trigger another calculation
+      if (isInCooldown) {
+        this.logger.debug(`Trends for ${category} are in cooldown, skipping recalculation`);
+        return [];
+      }
+
+      // Only recalculate if we haven't calculated at all in the last 24h
+      if (!anyRecentCalculation) {
+        const recalcKey =
+          category === TrendCategory.PERSONALIZED && userId
+            ? `${HASHTAG_RECALC_PREFIX}${category}:${userId}`
+            : `${HASHTAG_RECALC_PREFIX}${category}`;
+
+        const isRecalculating = await this.redisService.get(recalcKey);
+
+        if (!isRecalculating) {
+          this.logger.log(`No recent trends found for ${category} (User: ${userId}), triggering recalculation`);
+          // Set lock for 2 minutes to prevent duplicate jobs
+          await this.redisService.set(recalcKey, '1', 120);
+
+          this.recalculateTrends(category, userId).catch((err) => {
+            this.logger.error(`Background recalculation failed for ${category}:`, err);
+            // Optional: release lock on error, but TTL will handle it
+          });
+        } else {
+          this.logger.debug(`Recalculation already in progress for ${category} (User: ${userId})`);
+        }
+      } else {
+        this.logger.debug(`Recent trends exist but score 0 for ${category}, returning empty`);
+      }
       return [];
     }
 
@@ -244,7 +357,8 @@ export class HashtagTrendService {
     });
 
     if (activeHashtags.length > 0) {
-      await this.trendingQueue.add(
+      this.logger.log(`Queueing ${activeHashtags.length} hashtags for recalculation (Category: ${category}, User: ${userId})`);
+      await this.bulkTrendingQueue.add(
         RedisQueues.bulkHashTagQueue.processes.recalculateTrends,
         {
           hashtagIds: activeHashtags.map((h) => h.id),
@@ -265,6 +379,10 @@ export class HashtagTrendService {
         await this.redisService.delPattern(`${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:*`);
       }
     }
+
+    // Set cooldown to prevent immediate re-triggering if results are empty
+    const cooldownKey = `${TRENDS_COOLDOWN_PREFIX}${category}${userId ? `:${userId}` : ''}`;
+    await this.redisService.set(cooldownKey, '1', 300); // 5 minutes cooldown
 
     return activeHashtags.length;
   }
