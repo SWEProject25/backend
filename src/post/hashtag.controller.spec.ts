@@ -10,6 +10,10 @@ describe('HashtagController', () => {
     recalculateTrends: jest.fn(),
   };
 
+  const mockPersonalizedTrendsService = {
+    getPersonalizedTrending: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HashtagController],
@@ -17,6 +21,10 @@ describe('HashtagController', () => {
         {
           provide: Services.HASHTAG_TRENDS,
           useValue: mockHashtagTrendService,
+        },
+        {
+          provide: Services.PERSONALIZED_TRENDS,
+          useValue: mockPersonalizedTrendsService,
         },
       ],
     }).compile();

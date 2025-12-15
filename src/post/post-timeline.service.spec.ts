@@ -1067,14 +1067,14 @@ describe('PostService - Timeline Endpoints', () => {
       );
     });
 
-    it('should only fetch posts from last 30 days', async () => {
+    it('should only fetch posts from last 14 days', async () => {
       mockPrismaService.$queryRawUnsafe.mockResolvedValue([mockPostWithInterestName]);
       mockMlService.getQualityScores.mockResolvedValue(new Map([[100, 0.85]]));
 
       await service.getExploreAllInterestsFeed(1);
 
       const query = mockPrismaService.$queryRawUnsafe.mock.calls[0][0];
-      expect(query).toContain("NOW() - INTERVAL '30 days'");
+      expect(query).toContain("NOW() - INTERVAL '14 days'");
     });
 
     it('should include user interaction flags', async () => {
