@@ -10,6 +10,7 @@ import { UsersService } from 'src/users/users.service';
 
 const HASHTAG_TRENDS_TOKEN_PREFIX = 'hashtags:trending:';
 const HASHTAG_RECALC_PREFIX = 'hashtags:recalculating:';
+const TRENDS_COOLDOWN_PREFIX = 'hashtags:cooldown:';
 
 
 @Injectable()
@@ -279,7 +280,17 @@ export class HashtagTrendService {
       },
     });
 
+    // Check for cooldown to prevent infinite calculation loops
+    const cooldownKey = `${TRENDS_COOLDOWN_PREFIX}${category}${userId ? `:${userId}` : ''}`;
+    const isInCooldown = await this.redisService.get(cooldownKey);
+
     if (trends.length === 0) {
+      // If in cooldown, don't trigger another calculation
+      if (isInCooldown) {
+        this.logger.debug(`Trends for ${category} are in cooldown, skipping recalculation`);
+        return [];
+      }
+
       // Only recalculate if we haven't calculated at all in the last 24h
       if (!anyRecentCalculation) {
         const recalcKey =
@@ -368,6 +379,10 @@ export class HashtagTrendService {
         await this.redisService.delPattern(`${HASHTAG_TRENDS_TOKEN_PREFIX}${category}:*`);
       }
     }
+
+    // Set cooldown to prevent immediate re-triggering if results are empty
+    const cooldownKey = `${TRENDS_COOLDOWN_PREFIX}${category}${userId ? `:${userId}` : ''}`;
+    await this.redisService.set(cooldownKey, '1', 300); // 5 minutes cooldown
 
     return activeHashtags.length;
   }

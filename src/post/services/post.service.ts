@@ -1560,6 +1560,8 @@ original_posts AS (
     AND EXISTS (SELECT 1 FROM user_interests ui WHERE ui."interest_id" = p."interest_id")
     AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
     AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
+  ORDER BY p."created_at" DESC
+  LIMIT 800
 ),
 -- Get reposts from Repost table (STRICT INTEREST FILTER - only reposts matching user's interests)
 repost_items AS (
@@ -1595,6 +1597,8 @@ repost_items AS (
     AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
     AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = r."user_id")
     AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = r."user_id")
+  ORDER BY p."created_at" DESC
+  LIMIT 200
 ),
 -- Combine both
 all_posts AS (
@@ -1629,198 +1633,198 @@ candidate_posts AS (
     COALESCE(engagement."repostCount", 0) as "repostCount",
     
     -- Author stats
-    author_stats."followersCount",
-    author_stats."followingCount",
-    author_stats."postsCount",
+    author_stats.\"followersCount\",
+    author_stats.\"followingCount\",
+    author_stats.\"postsCount\",
     
     -- Content features
-    CASE WHEN media_check."post_id" IS NOT NULL THEN true ELSE false END as "hasMedia",
-    COALESCE(hashtag_count."count", 0) as "hashtagCount",
-    COALESCE(mention_count."count", 0) as "mentionCount",
+    CASE WHEN media_check.\"post_id\" IS NOT NULL THEN true ELSE false END as \"hasMedia\",
+    COALESCE(hashtag_count.\"count\", 0) as \"hashtagCount\",
+    COALESCE(mention_count.\"count\", 0) as \"mentionCount\",
     
     -- User interaction flags
-    EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isLikedByMe",
-    EXISTS(SELECT 1 FROM user_follows uf WHERE uf.following_id = ap."user_id") as "isFollowedByMe",
-    EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = ap."id" AND "user_id" = ${userId}) as "isRepostedByMe",
+    EXISTS(SELECT 1 FROM \"Like\" WHERE \"post_id\" = ap.\"id\" AND \"user_id\" = ${userId}) as \"isLikedByMe\",
+    EXISTS(SELECT 1 FROM user_follows uf WHERE uf.following_id = ap.\"user_id\") as \"isFollowedByMe\",
+    EXISTS(SELECT 1 FROM \"Repost\" WHERE \"post_id\" = ap.\"id\" AND \"user_id\" = ${userId}) as \"isRepostedByMe\",
     
        -- Media URLs (as JSON array)
     COALESCE(
-      (SELECT json_agg(json_build_object('url', m."media_url", 'type', m."type"))
-       FROM "Media" m WHERE m."post_id" = ap."id"),
+      (SELECT json_agg(json_build_object('url', m.\"media_url\", 'type', m.\"type\"))
+       FROM \"Media\" m WHERE m.\"post_id\" = ap.\"id\"),
       '[]'::json
-    ) as "mediaUrls",
+    ) as \"mediaUrls\",
     
     -- Mentions (as JSON array)
     COALESCE(
-      (SELECT json_agg(json_build_object('userId', mu."id"::text, 'username', mu."username"))
-       FROM "Mention" men
-       INNER JOIN "User" mu ON mu."id" = men."user_id"
-       WHERE men."post_id" = ap."id"),
+      (SELECT json_agg(json_build_object('userId', mu.\"id\"::text, 'username', mu.\"username\"))
+       FROM \"Mention\" men
+       INNER JOIN \"User\" mu ON mu.\"id\" = men.\"user_id\"
+       WHERE men.\"post_id\" = ap.\"id\"),
       '[]'::json
-    ) as "mentions",
+    ) as \"mentions\",
     
 -- Original post for quotes only (with nested originalPost for quotes within quotes)
     CASE 
-      WHEN ap."parent_id" IS NOT NULL AND ap."type" = 'QUOTE' THEN
+      WHEN ap.\"parent_id\" IS NOT NULL AND ap.\"type\" = 'QUOTE' THEN
         (SELECT json_build_object(
-          'postId', op."id",
-          'content', op."content",
-          'createdAt', op."created_at",
-          'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = op."id"), 0),
-          'repostCount', (COALESCE((SELECT COUNT(*)::int FROM "Repost" WHERE "post_id" = op."id"), 0) + COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = op."id" AND "type" = 'QUOTE' AND "is_deleted" = false), 0)),
-          'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = op."id" AND "type" = 'REPLY' AND "is_deleted" = false), 0),
-          'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = op."id" AND "user_id" = ${userId}),
-          'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = op."user_id"),
-          'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = op."id" AND "user_id" = ${userId}),
+          'postId', op.\"id\",
+          'content', op.\"content\",
+          'createdAt', op.\"created_at\",
+          'likeCount', COALESCE((SELECT COUNT(*)::int FROM \"Like\" WHERE \"post_id\" = op.\"id\"), 0),
+          'repostCount', (COALESCE((SELECT COUNT(*)::int FROM \"Repost\" WHERE \"post_id\" = op.\"id\"), 0) + COALESCE((SELECT COUNT(*)::int FROM \"posts\" WHERE \"parent_id\" = op.\"id\" AND \"type\" = 'QUOTE' AND \"is_deleted\" = false), 0)),
+          'replyCount', COALESCE((SELECT COUNT(*)::int FROM \"posts\" WHERE \"parent_id\" = op.\"id\" AND \"type\" = 'REPLY' AND \"is_deleted\" = false), 0),
+          'isLikedByMe', EXISTS(SELECT 1 FROM \"Like\" WHERE \"post_id\" = op.\"id\" AND \"user_id\" = ${userId}),
+          'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = op.\"user_id\"),
+          'isRepostedByMe', EXISTS(SELECT 1 FROM \"Repost\" WHERE \"post_id\" = op.\"id\" AND \"user_id\" = ${userId}),
           'author', json_build_object(
-            'userId', ou."id",
-            'username', ou."username",
-            'isVerified', ou."is_verifed",
-            'name', COALESCE(opr."name", ou."username"),
-            'avatar', opr."profile_image_url"
+            'userId', ou.\"id\",
+            'username', ou.\"username\",
+            'isVerified', ou.\"is_verifed\",
+            'name', COALESCE(opr.\"name\", ou.\"username\"),
+            'avatar', opr.\"profile_image_url\"
           ),
             'media', COALESCE(
-            (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type"))
-             FROM "Media" om WHERE om."post_id" = op."id"),
+            (SELECT json_agg(json_build_object('url', om.\"media_url\", 'type', om.\"type\"))
+             FROM \"Media\" om WHERE om.\"post_id\" = op.\"id\"),
             '[]'::json
           ),
           'mentions', COALESCE(
-            (SELECT json_agg(json_build_object('userId', omu."id"::text, 'userName', omu."username"))
-             FROM "Mention" omen
-             INNER JOIN "User" omu ON omu."id" = omen."user_id"
-             WHERE omen."post_id" = op."id"),
+            (SELECT json_agg(json_build_object('userId', omu.\"id\"::text, 'userName', omu.\"username\"))
+             FROM \"Mention\" omen
+             INNER JOIN \"User\" omu ON omu.\"id\" = omen.\"user_id\"
+             WHERE omen.\"post_id\" = op.\"id\"),
             '[]'::json
           ),
           'originalPost', CASE 
-            WHEN op."parent_id" IS NOT NULL AND op."type" = 'QUOTE' THEN
+            WHEN op.\"parent_id\" IS NOT NULL AND op.\"type\" = 'QUOTE' THEN
               (SELECT json_build_object(
-                'postId', oop."id",
-                'content', oop."content",
-                'createdAt', oop."created_at",
-                'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = oop."id"), 0),
+                'postId', oop.\"id\",
+                'content', oop.\"content\",
+                'createdAt', oop.\"created_at\",
+                'likeCount', COALESCE((SELECT COUNT(*)::int FROM \"Like\" WHERE \"post_id\" = oop.\"id\"), 0),
                 'repostCount', COALESCE((
                   SELECT COUNT(*)::int FROM (
-                    SELECT 1 FROM "Repost" WHERE "post_id" = oop."id"
+                    SELECT 1 FROM \"Repost\" WHERE \"post_id\" = oop.\"id\"
                     UNION ALL
-                    SELECT 1 FROM "posts" WHERE "parent_id" = oop."id" AND "type" = 'QUOTE' AND "is_deleted" = false
+                    SELECT 1 FROM \"posts\" WHERE \"parent_id\" = oop.\"id\" AND \"type\" = 'QUOTE' AND \"is_deleted\" = false
                   ) AS reposts_union
                 ), 0),
-                'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = oop."id" AND "type" = 'REPLY' AND "is_deleted" = false), 0),
-                'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
-                'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = oop."user_id"),
-                'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                'replyCount', COALESCE((SELECT COUNT(*)::int FROM \"posts\" WHERE \"parent_id\" = oop.\"id\" AND \"type\" = 'REPLY' AND \"is_deleted\" = false), 0),
+                'isLikedByMe', EXISTS(SELECT 1 FROM \"Like\" WHERE \"post_id\" = oop.\"id\" AND \"user_id\" = ${userId}),
+                'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = oop.\"user_id\"),
+                'isRepostedByMe', EXISTS(SELECT 1 FROM \"Repost\" WHERE \"post_id\" = oop.\"id\" AND \"user_id\" = ${userId}),
                 'author', json_build_object(
-                  'userId', oou."id",
-                  'username', oou."username",
-                  'isVerified', oou."is_verifed",
-                  'name', COALESCE(oopr."name", oou."username"),
-                  'avatar', oopr."profile_image_url"
+                  'userId', oou.\"id\",
+                  'username', oou.\"username\",
+                  'isVerified', oou.\"is_verifed\",
+                  'name', COALESCE(oopr.\"name\", oou.\"username\"),
+                  'avatar', oopr.\"profile_image_url\"
                 ),
                 'media', COALESCE(
-                  (SELECT json_agg(json_build_object('url', oom."media_url", 'type', oom."type"))
-                   FROM "Media" oom WHERE oom."post_id" = oop."id"),
+                  (SELECT json_agg(json_build_object('url', oom.\"media_url\", 'type', oom.\"type\"))
+                   FROM \"Media\" oom WHERE oom.\"post_id\" = oop.\"id\"),
                   '[]'::json
                 ),
                 'mentions', COALESCE(
-                  (SELECT json_agg(json_build_object('userId', oomu."id"::text, 'username', oomu."username"))
-                   FROM "Mention" oomen
-                   INNER JOIN "User" oomu ON oomu."id" = oomen."user_id"
-                   WHERE oomen."post_id" = oop."id"),
+                  (SELECT json_agg(json_build_object('userId', oomu.\"id\"::text, 'username', oomu.\"username\"))
+                   FROM \"Mention\" oomen
+                   INNER JOIN \"User\" oomu ON oomu.\"id\" = oomen.\"user_id\"
+                   WHERE oomen.\"post_id\" = oop.\"id\"),
                   '[]'::json
                 )
               )
-              FROM "posts" oop
-              LEFT JOIN "User" oou ON oou."id" = oop."user_id"
-              LEFT JOIN "profiles" oopr ON oopr."user_id" = oou."id"
-              WHERE oop."id" = op."parent_id" AND oop."is_deleted" = false)
+              FROM \"posts\" oop
+              LEFT JOIN \"User\" oou ON oou.\"id\" = oop.\"user_id\"
+              LEFT JOIN \"profiles\" oopr ON oopr.\"user_id\" = oou.\"id\"
+              WHERE oop.\"id\" = op.\"parent_id\" AND oop.\"is_deleted\" = false)
             ELSE NULL
           END
         )
-        FROM "posts" op
-        LEFT JOIN "User" ou ON ou."id" = op."user_id"
-        LEFT JOIN "profiles" opr ON opr."user_id" = ou."id"
-        WHERE op."id" = ap."parent_id" AND op."is_deleted" = false)
+        FROM \"posts\" op
+        LEFT JOIN \"User\" ou ON ou.\"id\" = op.\"user_id\"
+        LEFT JOIN \"profiles\" opr ON opr.\"user_id\" = ou.\"id\"
+        WHERE op.\"id\" = ap.\"parent_id\" AND op.\"is_deleted\" = false)
       ELSE NULL
-    END as "originalPost",
+    END as \"originalPost\",
     
     -- Personalization score (STRICT INTEREST MATCH + OWN POST BONUS + TYPE WEIGHT)
     (
       (
-        CASE WHEN ap."user_id" = ${userId} THEN ${personalizationWeights.ownPost} ELSE 0 END +
+        CASE WHEN ap.\"user_id\" = ${userId} THEN ${personalizationWeights.ownPost} ELSE 0 END +
         CASE WHEN uf.following_id IS NOT NULL THEN ${personalizationWeights.following} ELSE 0 END +
         CASE WHEN la.author_id IS NOT NULL THEN ${personalizationWeights.directLike} ELSE 0 END +
-        COALESCE(common_likes."count", 0) * ${personalizationWeights.commonLike} +
-        CASE WHEN common_follows."exists" THEN ${personalizationWeights.commonFollow} ELSE 0 END
+        COALESCE(common_likes.\"count\", 0) * ${personalizationWeights.commonLike} +
+        CASE WHEN common_follows.\"exists\" THEN ${personalizationWeights.commonFollow} ELSE 0 END
       ) * 
       -- Type multiplier
       CASE 
-        WHEN ap."isRepost" = true THEN ${personalizationWeights.wTypeRepost}
-        WHEN ap."type" = 'QUOTE' THEN ${personalizationWeights.wTypeQuote}
+        WHEN ap.\"isRepost\" = true THEN ${personalizationWeights.wTypeRepost}
+        WHEN ap.\"type\" = 'QUOTE' THEN ${personalizationWeights.wTypeQuote}
         ELSE ${personalizationWeights.wTypePost}
       END
-    )::double precision as "personalizationScore"
+    )::double precision as \"personalizationScore\"
     
   FROM all_posts ap
-  INNER JOIN "User" u ON ap."user_id" = u."id"
-  LEFT JOIN "profiles" pr ON u."id" = pr."user_id"
-  LEFT JOIN user_follows uf ON ap."user_id" = uf.following_id
-  LEFT JOIN liked_authors la ON ap."user_id" = la.author_id
+  INNER JOIN \"User\" u ON ap.\"user_id\" = u.\"id\"
+  LEFT JOIN \"profiles\" pr ON u.\"id\" = pr.\"user_id\"
+  LEFT JOIN user_follows uf ON ap.\"user_id\" = uf.following_id
+  LEFT JOIN liked_authors la ON ap.\"user_id\" = la.author_id
   
   -- Engagement metrics
   LEFT JOIN LATERAL (
     SELECT 
-      COUNT(DISTINCT l."user_id")::int as "likeCount",
-      COUNT(DISTINCT CASE WHEN replies."id" IS NOT NULL AND replies."type" = 'REPLY' THEN replies."id" END)::int as "replyCount",
-      COUNT(DISTINCT r."user_id")::int as "repostCount"
-    FROM "posts" base
-    LEFT JOIN "Like" l ON l."post_id" = base."id"
-    LEFT JOIN "posts" replies ON replies."parent_id" = base."id" AND replies."is_deleted" = false
-    LEFT JOIN "Repost" r ON r."post_id" = base."id"
-    LEFT JOIN "posts" quotes ON quotes."parent_id" = base."id" AND quotes."is_deleted" = false
-    WHERE base."id" = ap."id"
+      COUNT(DISTINCT l.\"user_id\")::int as \"likeCount\",
+      COUNT(DISTINCT CASE WHEN replies.\"id\" IS NOT NULL AND replies.\"type\" = 'REPLY' THEN replies.\"id\" END)::int as \"replyCount\",
+      COUNT(DISTINCT r.\"user_id\")::int as \"repostCount\"
+    FROM \"posts\" base
+    LEFT JOIN \"Like\" l ON l.\"post_id\" = base.\"id\"
+    LEFT JOIN \"posts\" replies ON replies.\"parent_id\" = base.\"id\" AND replies.\"is_deleted\" = false
+    LEFT JOIN \"Repost\" r ON r.\"post_id\" = base.\"id\"
+    LEFT JOIN \"posts\" quotes ON quotes.\"parent_id\" = base.\"id\" AND quotes.\"is_deleted\" = false
+    WHERE base.\"id\" = ap.\"id\"
   ) engagement ON true
   
   -- Author stats
   LEFT JOIN LATERAL (
     SELECT 
-      (SELECT COUNT(*)::int FROM "follows" WHERE "followingId" = u."id") as "followersCount",
-      (SELECT COUNT(*)::int FROM "follows" WHERE "followerId" = u."id") as "followingCount",
-      (SELECT COUNT(*)::int FROM "posts" WHERE "user_id" = u."id" AND "is_deleted" = false) as "postsCount"
+      (SELECT COUNT(*)::int FROM \"follows\" WHERE \"followingId\" = u.\"id\") as \"followersCount\",
+      (SELECT COUNT(*)::int FROM \"follows\" WHERE \"followerId\" = u.\"id\") as \"followingCount\",
+      (SELECT COUNT(*)::int FROM \"posts\" WHERE \"user_id\" = u.\"id\" AND \"is_deleted\" = false) as \"postsCount\"
   ) author_stats ON true
   
   -- Media check
   LEFT JOIN LATERAL (
-    SELECT ap."id" as post_id FROM "Media" WHERE "post_id" = ap."id" LIMIT 1
+    SELECT ap.\"id\" as post_id FROM \"Media\" WHERE \"post_id\" = ap.\"id\" LIMIT 1
   ) media_check ON true
   
   -- Hashtag count
   LEFT JOIN LATERAL (
-    SELECT COUNT(*)::int as count FROM "_PostHashtags" WHERE "B" = ap."id"
+    SELECT COUNT(*)::int as count FROM \"_PostHashtags\" WHERE \"B\" = ap.\"id\"
   ) hashtag_count ON true
   
   -- Mention count
   LEFT JOIN LATERAL (
-    SELECT COUNT(*)::int as count FROM "Mention" WHERE "post_id" = ap."id"
+    SELECT COUNT(*)::int as count FROM \"Mention\" WHERE \"post_id\" = ap.\"id\"
   ) mention_count ON true
   
   -- Common likes
   LEFT JOIN LATERAL (
     SELECT COUNT(*)::float as count
-    FROM "Like" l
-    INNER JOIN user_follows uf_likes ON l."user_id" = uf_likes.following_id
-    WHERE l."post_id" = ap."id"
+    FROM \"Like\" l
+    INNER JOIN user_follows uf_likes ON l.\"user_id\" = uf_likes.following_id
+    WHERE l.\"post_id\" = ap.\"id\"
   ) common_likes ON true
   
   -- Common follows
   LEFT JOIN LATERAL (
     SELECT EXISTS(
-      SELECT 1 FROM "follows" f
-      INNER JOIN user_follows uf_follows ON f."followerId" = uf_follows.following_id
-      WHERE f."followingId" = ap."user_id"
+      SELECT 1 FROM \"follows\" f
+      INNER JOIN user_follows uf_follows ON f.\"followerId\" = uf_follows.following_id
+      WHERE f.\"followingId\" = ap.\"user_id\"
     ) as exists
   ) common_follows ON true
   
-  ORDER BY "personalizationScore" DESC, ap."effectiveDate" DESC
+  ORDER BY \"personalizationScore\" DESC, ap.\"effectiveDate\" DESC
   LIMIT ${limit} OFFSET ${(page - 1) * limit}
 )
 SELECT * FROM candidate_posts;
