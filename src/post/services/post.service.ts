@@ -1595,7 +1595,7 @@ export class PostService {
   ): Promise<{ posts: FeedPostResponse[] }> {
     const qualityWeight = 0.3;
     const personalizationWeight = 0.7;
-
+    console.log('pagepage', page, limit);
     const candidatePosts: PostWithAllData[] = await this.GetPersonalizedForYouPosts(
       userId,
       page,
@@ -1640,7 +1640,7 @@ export class PostService {
     page = 1,
     limit = 50,
   ): Promise<PostWithAllData[]> {
-    console.log(`[QUERY] Starting ULTRA-OPTIMIZED GetPersonalizedForYouPosts for user ${userId}`);
+    console.log(`[QUERY] GetPersonalizedForYouPosts for user ${userId}, page ${page}`);
 
     const personalizationWeights = {
       ownPost: 20,
@@ -1653,9 +1653,8 @@ export class PostService {
       wTypeRepost: 0.5,
     };
 
-    // KEY OPTIMIZATION: Instead of pulling ALL posts from ALL interests,
-    // we'll pull TOP posts from EACH interest, then combine and re-rank
-    const candidateLimitPerInterest = Math.ceil(limit * 3); // Get 150 candidates (50 * 3)
+    // Direct pagination - fetch exactly what's needed
+    const offset = (page - 1) * limit;
 
     const query = `
     WITH user_interests AS (
@@ -1684,9 +1683,8 @@ export class PostService {
       JOIN "posts" p ON l."post_id" = p."id"
       WHERE l."user_id" = ${userId}
     ),
-    -- CRITICAL: Get TOP posts PER INTEREST with a window function
-    -- This limits the dataset EARLY before expensive operations
-    top_posts_per_interest AS (
+    -- Get posts from user's interests with time window (no per-interest limit)
+    original_posts AS (
       SELECT 
         p."id",
         p."user_id",
@@ -1699,11 +1697,7 @@ export class PostService {
         p."is_deleted",
         false as "isRepost",
         p."created_at" as "effectiveDate",
-        NULL::jsonb as "repostedBy",
-        ROW_NUMBER() OVER (
-          PARTITION BY p."interest_id" 
-          ORDER BY p."created_at" DESC
-        ) as rn
+        NULL::jsonb as "repostedBy"
       FROM "posts" p
       WHERE p."is_deleted" = false
         AND p."type" IN ('POST', 'QUOTE')
@@ -1713,17 +1707,8 @@ export class PostService {
         AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = p."user_id")
         AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = p."user_id")
     ),
-    -- Take only top N posts per interest (e.g., top 15 per interest)
-    original_posts AS (
-      SELECT 
-        "id", "user_id", "content", "created_at", "type", 
-        "visibility", "parent_id", "interest_id", "is_deleted",
-        "isRepost", "effectiveDate", "repostedBy"
-      FROM top_posts_per_interest
-      WHERE rn <= ${Math.ceil(candidateLimitPerInterest / 11)}  -- Divide by number of interests
-    ),
-    -- Same for reposts
-    top_reposts_per_interest AS (
+    -- Get reposts from user's interests with time window
+    repost_items AS (
       SELECT 
         p."id",
         p."user_id",
@@ -1742,11 +1727,7 @@ export class PostService {
           'verified', ru."is_verifed",
           'name', COALESCE(rpr."name", ru."username"),
           'avatar', rpr."profile_image_url"
-        )::jsonb as "repostedBy",
-        ROW_NUMBER() OVER (
-          PARTITION BY p."interest_id" 
-          ORDER BY r."created_at" DESC
-        ) as rn
+        )::jsonb as "repostedBy"
       FROM "Repost" r
       INNER JOIN "posts" p ON r."post_id" = p."id"
       INNER JOIN "User" ru ON r."user_id" = ru."id"
@@ -1761,15 +1742,6 @@ export class PostService {
         AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.blocked_id = r."user_id")
         AND NOT EXISTS (SELECT 1 FROM user_mutes um WHERE um.muted_id = r."user_id")
     ),
-    repost_items AS (
-      SELECT 
-        "id", "user_id", "content", "created_at", "type",
-        "visibility", "parent_id", "interest_id", "is_deleted",
-        "isRepost", "effectiveDate", "repostedBy"
-      FROM top_reposts_per_interest
-      WHERE rn <= ${Math.ceil(candidateLimitPerInterest / 11)}
-    ),
-    -- Now we have ~150-300 posts instead of 13,000!
     all_posts AS (
       SELECT * FROM original_posts
       UNION ALL
@@ -1832,7 +1804,7 @@ export class PostService {
           '[]'::json
         ) as "mentions",
         
-        -- Original post for quotes (simplified - no deep nesting for performance)
+        -- Original post for quotes
         CASE 
           WHEN ap."parent_id" IS NOT NULL AND ap."type" = 'QUOTE' THEN
             (SELECT json_build_object(
@@ -1863,7 +1835,51 @@ export class PostService {
                  INNER JOIN "User" omu ON omu."id" = omen."user_id"
                  WHERE omen."post_id" = op."id"),
                 '[]'::json
-              )
+              ),
+              'originalPost', CASE 
+                WHEN op."parent_id" IS NOT NULL AND op."type" = 'QUOTE' THEN
+                  (SELECT json_build_object(
+                    'postId', oop."id",
+                    'content', oop."content",
+                    'createdAt', oop."created_at",
+                    'likeCount', COALESCE((SELECT COUNT(*)::int FROM "Like" WHERE "post_id" = oop."id"), 0),
+                    'repostCount', COALESCE((
+                      SELECT COUNT(*)::int FROM (
+                        SELECT 1 FROM "Repost" WHERE "post_id" = oop."id"
+                        UNION ALL
+                        SELECT 1 FROM "posts" WHERE "parent_id" = oop."id" AND "type" = 'QUOTE' AND "is_deleted" = false
+                      ) AS reposts_union
+                    ), 0),
+                    'replyCount', COALESCE((SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = oop."id" AND "type" = 'REPLY' AND "is_deleted" = false), 0),
+                    'isLikedByMe', EXISTS(SELECT 1 FROM "Like" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                    'isFollowedByMe', EXISTS(SELECT 1 FROM user_follows WHERE following_id = oop."user_id"),
+                    'isRepostedByMe', EXISTS(SELECT 1 FROM "Repost" WHERE "post_id" = oop."id" AND "user_id" = ${userId}),
+                    'author', json_build_object(
+                      'userId', oou."id",
+                      'username', oou."username",
+                      'isVerified', oou."is_verifed",
+                      'name', COALESCE(oopr."name", oou."username"),
+                      'avatar', oopr."profile_image_url"
+                    ),
+                    'media', COALESCE(
+                      (SELECT json_agg(json_build_object('url', oom."media_url", 'type', oom."type"))
+                       FROM "Media" oom WHERE oom."post_id" = oop."id"),
+                      '[]'::json
+                    ),
+                    'mentions', COALESCE(
+                      (SELECT json_agg(json_build_object('userId', oomu."id"::text, 'username', oomu."username"))
+                       FROM "Mention" oomen
+                       INNER JOIN "User" oomu ON oomu."id" = oomen."user_id"
+                       WHERE oomen."post_id" = oop."id"),
+                      '[]'::json
+                    )
+                  )
+                  FROM "posts" oop
+                  LEFT JOIN "User" oou ON oou."id" = oop."user_id"
+                  LEFT JOIN "profiles" oopr ON oopr."user_id" = oou."id"
+                  WHERE oop."id" = op."parent_id" AND oop."is_deleted" = false)
+                ELSE NULL
+              END
             )
             FROM "posts" op
             LEFT JOIN "User" ou ON ou."id" = op."user_id"
@@ -1894,8 +1910,7 @@ export class PostService {
       LEFT JOIN user_follows uf ON ap."user_id" = uf.following_id
       LEFT JOIN liked_authors la ON ap."user_id" = la.author_id
       
-      -- LATERAL joins now operate on ~150-300 posts instead of 13,000!
-      -- Combined engagement metrics and author stats (single LATERAL for performance)
+      -- Combined engagement metrics and author stats
       LEFT JOIN LATERAL (
         SELECT 
           COUNT(DISTINCT l."user_id")::int as "likeCount",
@@ -1912,7 +1927,7 @@ export class PostService {
         WHERE base."id" = ap."id"
       ) engagement ON true
       
-      -- Combined content features and personalization (single LATERAL for performance)
+      -- Combined content features and personalization
       LEFT JOIN LATERAL (
         SELECT 
           EXISTS(SELECT 1 FROM "Media" WHERE "post_id" = ap."id") as has_media,
@@ -1929,7 +1944,7 @@ export class PostService {
       ) content_features ON true
       
       ORDER BY "personalizationScore" DESC, ap."effectiveDate" DESC
-      LIMIT ${limit} OFFSET ${(page - 1) * limit}
+      LIMIT ${limit} OFFSET ${offset}
     )
     SELECT * FROM candidate_posts;
   `;
