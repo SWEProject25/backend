@@ -57,6 +57,7 @@ describe('Post Service', () => {
               update: jest.fn(),
               delete: jest.fn(),
               groupBy: jest.fn(),
+              count: jest.fn(),
             },
             user: {
               findUnique: jest.fn(),
@@ -1098,6 +1099,493 @@ describe('Post Service', () => {
         limit,
       });
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('checkPostExists', () => {
+    it('should not throw when post exists', async () => {
+      const postId = 1;
+      prisma.post.findFirst.mockResolvedValue({ id: postId, is_deleted: false });
+
+      await expect(service.checkPostExists(postId)).resolves.not.toThrow();
+    });
+
+    it('should throw NotFoundException when post not found', async () => {
+      const postId = 999;
+      prisma.post.findFirst.mockResolvedValue(null);
+
+      await expect(service.checkPostExists(postId)).rejects.toThrow('Post not found');
+    });
+  });
+
+  describe('getPostStats', () => {
+    let redisService: any;
+
+    beforeEach(() => {
+      redisService = (service as any).redisService;
+    });
+
+    it('should return cached stats when available', async () => {
+      const postId = 1;
+      const cachedStats = { likesCount: 10, retweetsCount: 5, commentsCount: 3 };
+
+      redisService.get.mockResolvedValue(JSON.stringify(cachedStats));
+
+      const result = await service.getPostStats(postId);
+
+      expect(redisService.get).toHaveBeenCalledWith(`post_stats:${postId}`);
+      expect(redisService.expire).toHaveBeenCalled();
+      expect(result).toEqual(cachedStats);
+    });
+
+    it('should fetch from DB and cache when not cached', async () => {
+      const postId = 1;
+
+      redisService.get.mockResolvedValue(null);
+      prisma.post.findFirst.mockResolvedValue({ id: postId });
+      prisma.like.count.mockResolvedValue(10);
+      prisma.repost.count.mockResolvedValue(3);
+      prisma.post.count
+        .mockResolvedValueOnce(5) // replies
+        .mockResolvedValueOnce(2); // quotes
+
+      const result = await service.getPostStats(postId);
+
+      expect(result).toEqual({
+        likesCount: 10,
+        retweetsCount: 5, // reposts + quotes
+        commentsCount: 5,
+      });
+      expect(redisService.set).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when post not found', async () => {
+      const postId = 999;
+
+      redisService.get.mockResolvedValue(null);
+      prisma.post.findFirst.mockResolvedValue(null);
+
+      await expect(service.getPostStats(postId)).rejects.toThrow('Post not found');
+    });
+  });
+
+  describe('updatePostStatsCache', () => {
+    let redisService: any;
+    let socketService: any;
+
+    beforeEach(() => {
+      redisService = (service as any).redisService;
+      socketService = (service as any).socketService;
+    });
+
+    it('should update existing cache with delta', async () => {
+      const postId = 1;
+      const cachedStats = { likesCount: 10, retweetsCount: 5, commentsCount: 3 };
+
+      redisService.get.mockResolvedValue(JSON.stringify(cachedStats));
+
+      const result = await service.updatePostStatsCache(postId, 'likesCount', 1);
+
+      expect(result).toBe(11);
+      expect(socketService.emitPostStatsUpdate).toHaveBeenCalledWith(postId, 'likeUpdate', 11);
+    });
+
+    it('should create cache from DB when not exists', async () => {
+      const postId = 1;
+
+      redisService.get.mockResolvedValue(null);
+      prisma.like.count.mockResolvedValue(10);
+      prisma.repost.count.mockResolvedValue(3);
+      prisma.post.count.mockResolvedValue(5);
+
+      const result = await service.updatePostStatsCache(postId, 'likesCount', 0);
+
+      expect(result).toBe(10);
+      expect(redisService.set).toHaveBeenCalled();
+    });
+
+    it('should not allow negative counts', async () => {
+      const postId = 1;
+      const cachedStats = { likesCount: 1, retweetsCount: 0, commentsCount: 0 };
+
+      redisService.get.mockResolvedValue(JSON.stringify(cachedStats));
+
+      const result = await service.updatePostStatsCache(postId, 'likesCount', -10);
+
+      expect(result).toBe(0); // Should not go below 0
+    });
+
+    it('should emit websocket event for retweetsCount', async () => {
+      const postId = 1;
+      const cachedStats = { likesCount: 10, retweetsCount: 5, commentsCount: 3 };
+
+      redisService.get.mockResolvedValue(JSON.stringify(cachedStats));
+
+      await service.updatePostStatsCache(postId, 'retweetsCount', 1);
+
+      expect(socketService.emitPostStatsUpdate).toHaveBeenCalledWith(postId, 'repostUpdate', 6);
+    });
+
+    it('should emit websocket event for commentsCount', async () => {
+      const postId = 1;
+      const cachedStats = { likesCount: 10, retweetsCount: 5, commentsCount: 3 };
+
+      redisService.get.mockResolvedValue(JSON.stringify(cachedStats));
+
+      await service.updatePostStatsCache(postId, 'commentsCount', 1);
+
+      expect(socketService.emitPostStatsUpdate).toHaveBeenCalledWith(postId, 'commentUpdate', 4);
+    });
+  });
+
+  describe('getForYouFeed', () => {
+    let mlService: any;
+
+    beforeEach(() => {
+      mlService = (service as any).mlService;
+    });
+
+    it('should return empty posts when no candidates', async () => {
+      jest.spyOn(service as any, 'GetPersonalizedForYouPosts').mockResolvedValue([]);
+
+      const result = await service.getForYouFeed(1, 1, 50);
+
+      expect(result).toEqual({ posts: [] });
+    });
+
+    it('should call ML service for quality scores', async () => {
+      const mockPosts = [{
+        id: 1,
+        user_id: 1,
+        content: 'Test post',
+        created_at: new Date(),
+        type: 'POST',
+        hasMedia: false,
+        hashtagCount: 0,
+        mentionCount: 0,
+        followersCount: 100,
+        followingCount: 50,
+        postsCount: 10,
+        isVerified: false,
+        personalizationScore: 0.5,
+        likeCount: 10,
+        replyCount: 5,
+        repostCount: 2,
+        isRepost: false,
+        effectiveDate: new Date(),
+        username: 'testuser',
+        authorName: 'Test User',
+        authorProfileImage: null,
+        isLikedByMe: false,
+        isFollowedByMe: false,
+        isRepostedByMe: false,
+        mediaUrls: [],
+      }];
+
+      jest.spyOn(service as any, 'GetPersonalizedForYouPosts').mockResolvedValue(mockPosts);
+      mlService.getQualityScores.mockResolvedValue(new Map([[1, 0.8]]));
+
+      const result = await service.getForYouFeed(1, 1, 50);
+
+      expect(mlService.getQualityScores).toHaveBeenCalled();
+      expect(result.posts).toHaveLength(1);
+    });
+  });
+
+  describe('getFollowingForFeed', () => {
+    let mlService: any;
+
+    beforeEach(() => {
+      mlService = (service as any).mlService;
+    });
+
+    it('should return empty posts when no candidates', async () => {
+      jest.spyOn(service as any, 'GetPersonalizedFollowingPosts').mockResolvedValue([]);
+
+      const result = await service.getFollowingForFeed(1, 1, 50);
+
+      expect(result).toEqual({ posts: [] });
+    });
+
+    it('should process posts with ML scoring', async () => {
+      const mockPosts = [{
+        id: 1,
+        user_id: 1,
+        content: 'Test post',
+        created_at: new Date(),
+        type: 'POST',
+        hasMedia: false,
+        hashtagCount: 0,
+        mentionCount: 0,
+        followersCount: 100,
+        followingCount: 50,
+        postsCount: 10,
+        isVerified: false,
+        personalizationScore: 0.5,
+        likeCount: 10,
+        replyCount: 5,
+        repostCount: 2,
+        isRepost: false,
+        effectiveDate: new Date(),
+        username: 'testuser',
+        authorName: 'Test User',
+        authorProfileImage: null,
+        isLikedByMe: false,
+        isFollowedByMe: true,
+        isRepostedByMe: false,
+        mediaUrls: [],
+      }];
+
+      jest.spyOn(service as any, 'GetPersonalizedFollowingPosts').mockResolvedValue(mockPosts);
+      mlService.getQualityScores.mockResolvedValue(new Map([[1, 0.8]]));
+
+      const result = await service.getFollowingForFeed(1, 1, 50);
+
+      expect(result.posts).toHaveLength(1);
+    });
+  });
+
+  describe('getExploreByInterestsFeed', () => {
+    let mlService: any;
+
+    beforeEach(() => {
+      mlService = (service as any).mlService;
+    });
+
+    it('should return empty posts when no candidates', async () => {
+      jest.spyOn(service as any, 'GetPersonalizedExploreByInterestsPosts').mockResolvedValue([]);
+
+      const result = await service.getExploreByInterestsFeed(1, ['tech'], {});
+
+      expect(result).toEqual({ posts: [] });
+    });
+
+    it('should skip ML scoring when sortBy is latest', async () => {
+      const mockPosts = [{
+        id: 1,
+        user_id: 1,
+        content: 'Test post',
+        created_at: new Date(),
+        type: 'POST',
+        hasMedia: false,
+        hashtagCount: 0,
+        mentionCount: 0,
+        followersCount: 100,
+        followingCount: 50,
+        postsCount: 10,
+        isVerified: false,
+        personalizationScore: 0.5,
+        likeCount: 10,
+        replyCount: 5,
+        repostCount: 2,
+        isRepost: false,
+        effectiveDate: new Date(),
+        username: 'testuser',
+        authorName: 'Test User',
+        authorProfileImage: null,
+        isLikedByMe: false,
+        isFollowedByMe: false,
+        isRepostedByMe: false,
+        mediaUrls: [],
+      }];
+
+      jest.spyOn(service as any, 'GetPersonalizedExploreByInterestsPosts').mockResolvedValue(mockPosts);
+
+      const result = await service.getExploreByInterestsFeed(1, ['tech'], { sortBy: 'latest' });
+
+      expect(mlService.getQualityScores).not.toHaveBeenCalled();
+      expect(result.posts).toHaveLength(1);
+    });
+
+    it('should use ML scoring when sortBy is score', async () => {
+      const mockPosts = [{
+        id: 1,
+        user_id: 1,
+        content: 'Test post',
+        created_at: new Date(),
+        type: 'POST',
+        hasMedia: false,
+        hashtagCount: 0,
+        mentionCount: 0,
+        followersCount: 100,
+        followingCount: 50,
+        postsCount: 10,
+        isVerified: false,
+        personalizationScore: 0.5,
+        likeCount: 10,
+        replyCount: 5,
+        repostCount: 2,
+        isRepost: false,
+        effectiveDate: new Date(),
+        username: 'testuser',
+        authorName: 'Test User',
+        authorProfileImage: null,
+        isLikedByMe: false,
+        isFollowedByMe: false,
+        isRepostedByMe: false,
+        mediaUrls: [],
+      }];
+
+      jest.spyOn(service as any, 'GetPersonalizedExploreByInterestsPosts').mockResolvedValue(mockPosts);
+      mlService.getQualityScores.mockResolvedValue(new Map([[1, 0.8]]));
+
+      const result = await service.getExploreByInterestsFeed(1, ['tech'], { sortBy: 'score' });
+
+      expect(mlService.getQualityScores).toHaveBeenCalled();
+      expect(result.posts).toHaveLength(1);
+    });
+  });
+
+  describe('getExploreAllInterestsFeed', () => {
+    it('should return empty object when no posts', async () => {
+      jest.spyOn(service as any, 'GetTopPostsForAllInterests').mockResolvedValue([]);
+
+      const result = await service.getExploreAllInterestsFeed(1, {});
+
+      expect(result).toEqual({});
+    });
+
+    it('should group posts by interest name', async () => {
+      const mockPosts = [
+        {
+          id: 1,
+          interest_name: 'tech',
+          user_id: 1,
+          content: 'Tech post',
+          created_at: new Date(),
+          type: 'POST',
+          hasMedia: false,
+          hashtagCount: 0,
+          mentionCount: 0,
+          followersCount: 100,
+          followingCount: 50,
+          postsCount: 10,
+          isVerified: false,
+          personalizationScore: 0.5,
+          likeCount: 10,
+          replyCount: 5,
+          repostCount: 2,
+          isRepost: false,
+          effectiveDate: new Date(),
+          username: 'testuser',
+          authorName: 'Test User',
+          authorProfileImage: null,
+          isLikedByMe: false,
+          isFollowedByMe: false,
+          isRepostedByMe: false,
+          mediaUrls: [],
+        },
+        {
+          id: 2,
+          interest_name: 'sports',
+          user_id: 2,
+          content: 'Sports post',
+          created_at: new Date(),
+          type: 'POST',
+          hasMedia: false,
+          hashtagCount: 0,
+          mentionCount: 0,
+          followersCount: 200,
+          followingCount: 100,
+          postsCount: 20,
+          isVerified: true,
+          personalizationScore: 0.6,
+          likeCount: 20,
+          replyCount: 10,
+          repostCount: 5,
+          isRepost: false,
+          effectiveDate: new Date(),
+          username: 'sportsuser',
+          authorName: 'Sports User',
+          authorProfileImage: null,
+          isLikedByMe: true,
+          isFollowedByMe: true,
+          isRepostedByMe: false,
+          mediaUrls: [],
+        },
+      ];
+
+      jest.spyOn(service as any, 'GetTopPostsForAllInterests').mockResolvedValue(mockPosts);
+
+      const result = await service.getExploreAllInterestsFeed(1, {});
+
+      expect(result).toHaveProperty('tech');
+      expect(result).toHaveProperty('sports');
+      expect(result['tech']).toHaveLength(1);
+      expect(result['sports']).toHaveLength(1);
+    });
+  });
+
+  describe('searchPosts', () => {
+    it('should return pagination metadata', async () => {
+      prisma.$queryRaw = jest.fn()
+        .mockResolvedValueOnce([{ count: BigInt(0) }]) // count query
+        .mockResolvedValueOnce([]); // posts query
+
+      const searchDto = {
+        searchQuery: 'test',
+        page: 1,
+        limit: 10,
+      };
+
+      const result = await service.searchPosts(searchDto, 1);
+
+      expect(result).toHaveProperty('posts');
+      expect(result).toHaveProperty('totalItems');
+      expect(result).toHaveProperty('page');
+      expect(result).toHaveProperty('limit');
+      expect(result.totalItems).toBe(0);
+    });
+  });
+
+  describe('searchPostsByHashtag', () => {
+    it('should normalize hashtag with # prefix', async () => {
+      prisma.$queryRaw = jest.fn()
+        .mockResolvedValueOnce([{ count: BigInt(0) }])
+        .mockResolvedValueOnce([]);
+
+      const searchDto = {
+        hashtag: '#test',
+        page: 1,
+        limit: 10,
+      };
+
+      const result = await service.searchPostsByHashtag(searchDto, 1);
+
+      expect(result.hashtag).toBe('test');
+    });
+
+    it('should normalize hashtag without # prefix', async () => {
+      prisma.$queryRaw = jest.fn()
+        .mockResolvedValueOnce([{ count: BigInt(0) }])
+        .mockResolvedValueOnce([]);
+
+      const searchDto = {
+        hashtag: 'test',
+        page: 1,
+        limit: 10,
+      };
+
+      const result = await service.searchPostsByHashtag(searchDto, 1);
+
+      expect(result.hashtag).toBe('test');
+    });
+
+    it('should return empty posts when hashtag not found', async () => {
+      prisma.$queryRaw = jest.fn()
+        .mockResolvedValueOnce([{ count: BigInt(0) }])
+        .mockResolvedValueOnce([]);
+
+      const searchDto = {
+        hashtag: 'nonexistent',
+        page: 1,
+        limit: 10,
+      };
+
+      const result = await service.searchPostsByHashtag(searchDto, 1);
+
+      expect(result.posts).toEqual([]);
+      expect(result.totalItems).toBe(0);
     });
   });
 });

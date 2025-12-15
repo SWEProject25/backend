@@ -9,6 +9,7 @@ import { BadRequestException, ConflictException, UnauthorizedException } from '@
 import { CreateUserDto } from '../user/dto/create-user.dto';
 import { OAuthProfileDto } from './dto/oauth-profile.dto';
 import { Role } from '@prisma/client';
+import googleOauthConfig from './config/google-oauth.config';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -90,6 +91,14 @@ describe('AuthService', () => {
         {
           provide: Services.REDIS,
           useValue: mockRedisService,
+        },
+        {
+          provide: googleOauthConfig.KEY,
+          useValue: {
+            clientID: 'test-client-id',
+            clientSecret: 'test-client-secret',
+            callbackURL: 'http://localhost:3000/auth/google/callback',
+          },
         },
       ],
     }).compile();
