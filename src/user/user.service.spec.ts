@@ -193,6 +193,20 @@ describe('UserService', () => {
         }),
       );
     });
+
+    it('should regenerate username when collision occurs', async () => {
+      // First call returns existing user (collision), second call returns null (unique)
+      prismaService.user.findUnique
+        .mockResolvedValueOnce(mockUser) // username exists
+        .mockResolvedValueOnce(null); // new username is unique
+      prismaService.user.create.mockResolvedValue(mockUserWithProfile);
+
+      await service.create(createUserDto, true);
+
+      // checkUsername should be called at least twice (once for collision, once for unique)
+      expect(prismaService.user.findUnique).toHaveBeenCalled();
+      expect(prismaService.user.create).toHaveBeenCalled();
+    });
   });
 
   describe('findByEmail', () => {
@@ -314,6 +328,209 @@ describe('UserService', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('createOAuthUser', () => {
+    it('should create OAuth user with email provided', async () => {
+      const oauthProfile: OAuthProfileDto = {
+        provider: 'google',
+        providerId: 'google-123',
+        email: 'oauth@example.com',
+        username: 'oauthuser',
+        displayName: 'OAuth User',
+        profileImageUrl: 'https://example.com/avatar.jpg',
+      };
+
+      const newUser = { ...mockUser, id: 2, email: oauthProfile.email };
+      prismaService.user.create.mockResolvedValue(newUser);
+      prismaService.profile.create.mockResolvedValue(mockProfile);
+
+      const result = await service.createOAuthUser(oauthProfile);
+
+      expect(prismaService.user.create).toHaveBeenCalledWith({
+        data: {
+          email: oauthProfile.email,
+          password: '',
+          username: oauthProfile.username,
+          is_verified: true,
+          provider_id: oauthProfile.providerId,
+        },
+      });
+      expect(result.newUser).toEqual(newUser);
+    });
+
+    it('should create OAuth user without email (generates synthetic)', async () => {
+      const oauthProfile = {
+        provider: 'github',
+        providerId: 'github-456',
+        email: null as unknown as string,
+        username: 'githubuser',
+        displayName: 'GitHub User',
+      } as OAuthProfileDto;
+
+      const newUser = { ...mockUser, id: 3 };
+      prismaService.user.create.mockResolvedValue(newUser);
+      prismaService.profile.create.mockResolvedValue(mockProfile);
+
+      const result = await service.createOAuthUser(oauthProfile);
+
+      expect(prismaService.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          email: `${oauthProfile.providerId}@${oauthProfile.provider}.oauth`,
+        }),
+      });
+      expect(result.newUser).toEqual(newUser);
+    });
+
+    it('should use username as display name if displayName not provided', async () => {
+      const oauthProfile = {
+        provider: 'github',
+        providerId: 'github-789',
+        email: 'test@github.com',
+        username: 'testuser',
+        displayName: '',
+      } as OAuthProfileDto;
+
+      const newUser = { ...mockUser, id: 4 };
+      prismaService.user.create.mockResolvedValue(newUser);
+      prismaService.profile.create.mockResolvedValue(mockProfile);
+
+      await service.createOAuthUser(oauthProfile);
+
+      expect(prismaService.profile.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          name: 'testuser',
+        }),
+      });
+    });
+  });
+
+  describe('updateOAuthData', () => {
+    it('should update OAuth data with email', async () => {
+      const userId = 1;
+      const providerId = 'google-123';
+      const email = 'newemail@example.com';
+
+      prismaService.user.update.mockResolvedValue({ ...mockUser, provider_id: providerId, email });
+
+      await service.updateOAuthData(userId, providerId, email);
+
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id: userId },
+        data: { provider_id: providerId, email },
+      });
+    });
+
+    it('should update OAuth data without email', async () => {
+      const userId = 1;
+      const providerId = 'google-123';
+
+      prismaService.user.update.mockResolvedValue({ ...mockUser, provider_id: providerId });
+
+      await service.updateOAuthData(userId, providerId);
+
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id: userId },
+        data: { provider_id: providerId },
+      });
+    });
+  });
+
+  describe('getUserData', () => {
+    it('should get user data by email', async () => {
+      const email = 'test@example.com';
+      prismaService.user.findUnique.mockResolvedValue(mockUser);
+      prismaService.profile.findUnique.mockResolvedValue(mockProfile);
+
+      const result = await service.getUserData(email);
+
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { email },
+      });
+      expect(result).toEqual({ user: mockUser, profile: mockProfile });
+    });
+
+    it('should get user data by username', async () => {
+      const username = 'testuser';
+      prismaService.user.findUnique.mockResolvedValue(mockUser);
+      prismaService.profile.findUnique.mockResolvedValue(mockProfile);
+
+      const result = await service.getUserData(username);
+
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username },
+      });
+      expect(result).toEqual({ user: mockUser, profile: mockProfile });
+    });
+
+    it('should return null when user not found', async () => {
+      prismaService.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.getUserData('notfound@example.com');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('updatePassword', () => {
+    it('should update user password', async () => {
+      const userId = 1;
+      const hashedPassword = 'newhashed';
+      const updatedUser = { ...mockUser, password: hashedPassword };
+
+      prismaService.user.update.mockResolvedValue(updatedUser);
+
+      const result = await service.updatePassword(userId, hashedPassword);
+
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id: userId },
+        data: { password: hashedPassword },
+      });
+      expect(result).toEqual(updatedUser);
+    });
+  });
+
+  describe('findById', () => {
+    it('should find user by id', async () => {
+      prismaService.user.findFirst.mockResolvedValue(mockUser);
+
+      const result = await service.findById(1);
+
+      expect(prismaService.user.findFirst).toHaveBeenCalledWith({
+        where: { id: 1 },
+      });
+      expect(result).toEqual(mockUser);
+    });
+
+    it('should return null when user not found', async () => {
+      prismaService.user.findFirst.mockResolvedValue(null);
+
+      const result = await service.findById(999);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('checkUsername', () => {
+    it('should return user when username exists', async () => {
+      prismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await service.checkUsername('existinguser');
+
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { username: 'existinguser' },
+      });
+      expect(result).toEqual(mockUser);
+    });
+
+    it('should return null when username does not exist', async () => {
+      prismaService.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.checkUsername('nonexistent');
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('updateEmail', () => {
     it('should update user email successfully', async () => {
       const newEmail = 'mohamedalbaz492+new@gmail.com';

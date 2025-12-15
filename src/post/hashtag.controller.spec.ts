@@ -1,12 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HashtagController } from './hashtag.controller';
+import { Services } from 'src/utils/constants';
 
 describe('HashtagController', () => {
   let controller: HashtagController;
 
+  const mockHashtagTrendService = {
+    getTrending: jest.fn(),
+    recalculateTrends: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HashtagController],
+      providers: [
+        {
+          provide: Services.HASHTAG_TRENDS,
+          useValue: mockHashtagTrendService,
+        },
+      ],
     }).compile();
 
     controller = module.get<HashtagController>(HashtagController);

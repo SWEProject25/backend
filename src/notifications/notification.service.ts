@@ -19,7 +19,7 @@ export class NotificationService {
     private readonly prismaService: PrismaService,
     @Inject(Services.FIREBASE)
     private readonly firebaseService: FirebaseService,
-  ) {}
+  ) { }
 
   /**
    * Create a notification in Prisma (source of truth) and sync to Firestore
@@ -171,21 +171,21 @@ export class NotificationService {
       case NotificationType.LIKE:
         return dto.postId
           ? {
-              type: NotificationType.LIKE,
-              recipientId: dto.recipientId,
-              actorId: dto.actorId,
-              postId: dto.postId,
-            }
+            type: NotificationType.LIKE,
+            recipientId: dto.recipientId,
+            actorId: dto.actorId,
+            postId: dto.postId,
+          }
           : null;
 
       case NotificationType.REPOST:
         return dto.postId
           ? {
-              type: NotificationType.REPOST,
-              recipientId: dto.recipientId,
-              actorId: dto.actorId,
-              postId: dto.postId,
-            }
+            type: NotificationType.REPOST,
+            recipientId: dto.recipientId,
+            actorId: dto.actorId,
+            postId: dto.postId,
+          }
           : null;
 
       case NotificationType.FOLLOW:
@@ -198,31 +198,31 @@ export class NotificationService {
       case NotificationType.MENTION:
         return dto.postId
           ? {
-              type: NotificationType.MENTION,
-              recipientId: dto.recipientId,
-              actorId: dto.actorId,
-              postId: dto.postId,
-            }
+            type: NotificationType.MENTION,
+            recipientId: dto.recipientId,
+            actorId: dto.actorId,
+            postId: dto.postId,
+          }
           : null;
 
       case NotificationType.QUOTE:
         return dto.quotePostId
           ? {
-              type: NotificationType.QUOTE,
-              recipientId: dto.recipientId,
-              actorId: dto.actorId,
-              quotePostId: dto.quotePostId,
-            }
+            type: NotificationType.QUOTE,
+            recipientId: dto.recipientId,
+            actorId: dto.actorId,
+            quotePostId: dto.quotePostId,
+          }
           : null;
 
       case NotificationType.REPLY:
         return dto.replyId
           ? {
-              type: NotificationType.REPLY,
-              recipientId: dto.recipientId,
-              actorId: dto.actorId,
-              replyId: dto.replyId,
-            }
+            type: NotificationType.REPLY,
+            recipientId: dto.recipientId,
+            actorId: dto.actorId,
+            replyId: dto.replyId,
+          }
           : null;
 
       case NotificationType.DM:
@@ -403,7 +403,7 @@ export class NotificationService {
             -- Mentions (as JSON array)
             COALESCE(
               (SELECT json_agg(json_build_object('id', men.user_id, 'username', u_men.username))
-               FROM mentions men
+               FROM "Mention" men
                LEFT JOIN "User" u_men ON u_men.id = men.user_id
                WHERE men.post_id = p.id),
               '[]'::json
@@ -513,7 +513,7 @@ export class NotificationService {
             -- Mentions (as JSON array)
             COALESCE(
               (SELECT json_agg(json_build_object('id', men.user_id, 'username', u_men.username))
-               FROM mentions men
+               FROM "Mention" men
                LEFT JOIN "User" u_men ON u_men.id = men.user_id
                WHERE men.post_id = p.id),
               '[]'::json

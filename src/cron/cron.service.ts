@@ -14,7 +14,7 @@ export class CronService {
     private readonly hashtagTrendService: HashtagTrendService,
     @Inject(Services.USER)
     private readonly userService: UserService,
-  ) {}
+  ) { }
 
   /**
    * Runs every 30 minutes to keep DB updated
@@ -37,20 +37,33 @@ export class CronService {
           // calculate for active users
           const activeUsers = await this.userService.getActiveUsers();
           let totalCount = 0;
-          for (const user of activeUsers) {
-            try {
-              // FIXME:
-              const count = await this.hashtagTrendService.syncTrendingToDB(category, user.id);
-              totalCount += count;
-            } catch (error) {
-              this.logger.warn(
-                `Failed to sync personalized trends for user ${user.id}:`,
-                error.message,
-              );
-            }
+          let failedCount = 0;
+
+          const BATCH_SIZE = 50;
+          for (let i = 0; i < activeUsers.length; i += BATCH_SIZE) {
+            const batch = activeUsers.slice(i, i + BATCH_SIZE);
+
+            await Promise.all(
+              batch.map(async (user) => {
+                try {
+                  const count = await this.hashtagTrendService.syncTrendingToDB(category, user.id);
+                  totalCount += count;
+                } catch (error) {
+                  failedCount++;
+                  this.logger.warn(
+                    `Failed to sync personalized trends for user ${user.id}: ${error.message}`,
+                  );
+                }
+              })
+            );
           }
 
-          results.push({ category, count: totalCount, userCount: activeUsers.length });
+          results.push({
+            category,
+            count: totalCount,
+            userCount: activeUsers.length,
+            error: failedCount > 0 ? `${failedCount} users failed` : undefined
+          });
         } else {
           const count = await this.hashtagTrendService.syncTrendingToDB(category);
           results.push({ category, count });
