@@ -85,10 +85,7 @@ export class RedisService implements OnModuleInit {
     stop: number,
     options?: { REV?: boolean },
   ): Promise<Array<{ value: string; score: number }>> {
-    console.log('zrange service method');
-    const result = await this.client.zRangeWithScores(key, start, stop, options);
-    console.log(result);
-    return result;
+    return await this.client.zRangeWithScores(key, start, stop, options);
   }
 
   async zCount(key: string, min: number | string, max: number | string): Promise<number> {

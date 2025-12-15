@@ -95,12 +95,13 @@ export class HashtagController {
     let trending;
     if (category === TrendCategory.PERSONALIZED && user?.id) {
       trending = await this.personalizedTrendService.getPersonalizedTrending(user.id, limit);
+    } else {
+      trending = await this.hashtagTrendService.getTrending(
+        limit,
+        category as TrendCategory,
+        user?.id,
+      );
     }
-    trending = await this.hashtagTrendService.getTrending(
-      limit,
-      category as TrendCategory,
-      user?.id,
-    );
 
     return {
       status: 'success',

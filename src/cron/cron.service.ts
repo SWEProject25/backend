@@ -39,6 +39,7 @@ export class CronService {
           let totalCount = 0;
           for (const user of activeUsers) {
             try {
+              // FIXME:
               const count = await this.hashtagTrendService.syncTrendingToDB(category, user.id);
               totalCount += count;
             } catch (error) {
