@@ -72,10 +72,12 @@ export class PasswordService {
     await this.redisService.set(redisKey, tokenHash, RESET_TOKEN_TTL_SECONDS);
     await this.incrementResetAttempts(email);
     await this.redisService.set(cooldownKey, 'true', PASSWORD_RESET_COOLDOWN_SECONDS);
+    const backendBaseUrl = process.env.NODE_ENV === 'dev' ? process.env.BACKEND_URL_DEV : process.env.BACKEND_URL_PROD;
+    const frontendBaseUrl = process.env.NODE_ENV === 'dev' ? process.env.FRONTEND_URL : process.env.FRONTEND_URL_PROD;
     const resetUrl =
       requestPasswordResetDto.type === RequestType.MOBILE
-        ? `${process.env.NODE_ENV === 'dev' ? process.env.BACKEND_URL_DEV : process.env.BACKEND_URL_PROD}/api/${process.env.APP_VERSION}/auth/reset-mobile-password?token=${resetToken}&id=${user.id}`
-        : `${process.env.NODE_ENV === 'dev' ? process.env.FRONTEND_URL : process.env.FRONTEND_URL_PROD}/reset-password?token=${resetToken}&id=${user.id}`;
+        ? `${backendBaseUrl}/api/${process.env.APP_VERSION}/auth/reset-mobile-password?token=${resetToken}&id=${user.id}`
+        : `${frontendBaseUrl}/reset-password?token=${resetToken}&id=${user.id}`;
 
     await this.emailService.queueTemplateEmail(
       [email],

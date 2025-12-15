@@ -41,7 +41,6 @@ import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth/optional-
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Routes, Services } from 'src/utils/constants';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
-import { Public } from 'src/auth/decorators/public.decorator';
 
 @ApiTags('Profile')
 @Controller(Routes.PROFILE)

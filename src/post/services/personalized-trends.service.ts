@@ -193,7 +193,7 @@ export class PersonalizedTrendsService {
     }
 
     if (userCategories.includes(category)) {
-      return 1.0;
+      return 1;
     }
 
     return 0.3;

@@ -61,7 +61,7 @@ export class AuthenticatedSocketAdapter extends IoAdapter {
         socket.data.username = payload.username;
 
         next();
-      } catch (error) {
+      } catch {
         next(new Error('Invalid authentication token'));
       }
     });

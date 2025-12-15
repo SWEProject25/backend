@@ -201,7 +201,7 @@ export class AuthService {
       const userId = 'sub' in user ? user.sub : user.id;
       const { accessToken, ...result } = await this.login(userId, user.username);
       return { accessToken, result };
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid Google ID token');
     }
   }

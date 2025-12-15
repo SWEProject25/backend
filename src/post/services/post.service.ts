@@ -1218,7 +1218,9 @@ export class PostService {
     );
 
     const postMap = new Map<number, any>();
-    enrichedOriginalParentData.forEach((p) => postMap.set(p.postId, p));
+    for (const p of enrichedOriginalParentData) {
+      postMap.set(p.postId, p);
+    }
 
     // 5. Embed original post data into reposts
     return {
@@ -1581,23 +1583,23 @@ export class PostService {
 
     return { posts: formattedPosts };
   }
-  private async GetPersonalizedForYouPosts(
-    userId: number,
-    page = 1,
-    limit = 50,
-  ): Promise<PostWithAllData[]> {
-    console.log(`[QUERY] Starting ULTRA-OPTIMIZED GetPersonalizedForYouPosts for user ${userId}`);
-
-    const personalizationWeights = {
-      ownPost: 20.0,
-      following: 15.0,
-      directLike: 10.0,
-      commonLike: 5.0,
-      commonFollow: 3.0,
-      wTypePost: 1.0,
-      wTypeQuote: 0.8,
-      wTypeRepost: 0.5,
-    };
+private async GetPersonalizedForYouPosts(
+  userId: number,
+  page = 1,
+  limit = 50,
+): Promise<PostWithAllData[]> {
+  console.log(`[QUERY] Starting ULTRA-OPTIMIZED GetPersonalizedForYouPosts for user ${userId}`);
+  
+  const personalizationWeights = {
+    ownPost: 20,
+    following: 15,
+    directLike: 10,
+    commonLike: 5,
+    commonFollow: 3,
+    wTypePost: 1,
+    wTypeQuote: 0.8,
+    wTypeRepost: 0.5,
+  };
 
     // KEY OPTIMIZATION: Instead of pulling ALL posts from ALL interests,
     // we'll pull TOP posts from EACH interest, then combine and re-rank
@@ -1942,8 +1944,8 @@ export class PostService {
     const wReplies = 0.15;
     const wMentions = 0.1;
     const wFreshness = 0.1;
-    const T = 2.0;
-    const wTypePost = 1.0;
+    const T = 2;
+    const wTypePost = 1;
     const wTypeQuote = 0.8;
     const wTypeRepost = 0.5;
 
@@ -2458,12 +2460,12 @@ export class PostService {
   ): Promise<PostWithAllData[]> {
     const { page = 1, limit = 50, sortBy = 'score' } = options;
     const personalizationWeights = {
-      ownPost: 20.0, // NEW: Bonus for user's own posts
-      following: 15.0,
-      directLike: 10.0,
-      commonLike: 5.0,
-      commonFollow: 3.0,
-      wTypePost: 1.0,
+      ownPost: 20, // NEW: Bonus for user's own posts
+      following: 15,
+      directLike: 10,
+      commonLike: 5,
+      commonFollow: 3,
+      wTypePost: 1,
       wTypeQuote: 0.8,
     };
 
@@ -2474,7 +2476,7 @@ export class PostService {
 
     // Escape and format interest names for SQL IN clause
     const escapedInterestNames = interestNames
-      .map((name) => `'${name.replaceAll(/'/g, "''")}'`)
+      .map((name) => `'${name.replaceAll('\'', '\'\'')}'`)
       .join(', ');
 
     const query = `
@@ -2849,12 +2851,12 @@ export class PostService {
     sortBy: 'score' | 'latest',
   ): Promise<PostWithInterestName[]> {
     const personalizationWeights = {
-      ownPost: 20.0,
-      following: 15.0,
-      directLike: 10.0,
-      commonLike: 5.0,
-      commonFollow: 3.0,
-      wTypePost: 1.0,
+      ownPost: 20,
+      following: 15,
+      directLike: 10,
+      commonLike: 5,
+      commonFollow: 3,
+      wTypePost: 1,
       wTypeQuote: 0.8,
     };
 
