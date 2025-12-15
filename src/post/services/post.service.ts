@@ -242,7 +242,7 @@ export class PostService {
     @Inject(Services.REDIS)
     private readonly redisService: RedisService,
     private readonly socketService: SocketService,
-  ) {}
+  ) { }
 
   private getMediaWithType(urls: string[], media?: Express.Multer.File[]) {
     if (urls.length === 0) return [];
@@ -288,6 +288,10 @@ export class PostService {
     limit?: number;
   }) {
     const { where, userId, page = 1, limit = 10 } = options;
+
+    const totalItems = await this.prismaService.post.count({
+      where,
+    });
 
     const posts = await this.prismaService.post.findMany({
       where,
@@ -364,7 +368,16 @@ export class PostService {
       replyCount: countsMap.get(post.id)?.replies || 0,
     }));
 
-    return this.transformPost(postsWithCounts);
+    const transformedPosts = this.transformPost(postsWithCounts);
+    return {
+      data: transformedPosts,
+      metadata: {
+        totalItems,
+        page,
+        limit,
+        totalPages: Math.ceil(totalItems / limit),
+      },
+    };
   }
 
   private async enrichIfQuoteOrReply(post: TransformedPost[], userId: number) {
@@ -376,7 +389,7 @@ export class PostService {
 
     const parentPostIds = filteredPosts.map((p) => p.parentId!);
 
-    const parentPosts = await this.findPosts({
+    const { data: parentPosts } = await this.findPosts({
       where: { id: { in: parentPostIds }, is_deleted: false },
       userId: userId,
       page: 1,
@@ -400,8 +413,8 @@ export class PostService {
   ): Promise<TransformedPost[]> {
 
     const nestedPostsToEnrich: TransformedPost[] = [];
-    const indexMap = new Map<number, number>(); 
-    
+    const indexMap = new Map<number, number>();
+
     for (let i = 0; i < posts.length; i++) {
       const entry = posts[i];
       if (entry.originalPostData && 'postId' in entry.originalPostData) {
@@ -412,7 +425,7 @@ export class PostService {
 
     if (nestedPostsToEnrich.length > 0) {
       const nestedEnriched = await this.enrichIfQuoteOrReply(nestedPostsToEnrich, currentUserId);
-      
+
       nestedEnriched.forEach((enrichedPost) => {
         const parentIndex = indexMap.get(enrichedPost.postId);
         if (parentIndex !== undefined) {
@@ -420,7 +433,7 @@ export class PostService {
         }
       });
     }
-    
+
     return posts;
   }
 
@@ -479,11 +492,11 @@ export class PostService {
         hashtagIds: hashtagRecords.map((r) => r.id),
         parentPostAuthorId: postData.parentId
           ? (
-              await tx.post.findUnique({
-                where: { id: postData.parentId },
-                select: { user_id: true },
-              })
-            )?.user_id
+            await tx.post.findUnique({
+              where: { id: postData.parentId },
+              select: { user_id: true },
+            })
+          )?.user_id
           : undefined,
       };
     });
@@ -609,7 +622,7 @@ export class PostService {
         await this.addToInterestQueue({ postContent: post.content, postId: post.id });
       }
 
-      const [fullPost] = await this.findPosts({
+      const { data: [fullPost] } = await this.findPosts({
         where: { is_deleted: false, id: post.id },
         userId,
         page: 1,
@@ -1138,7 +1151,7 @@ export class PostService {
     };
   }
 
-  private async getReposts(userId: number, currentUserId: number, page: number, limit: number): Promise<RepostedPost[]> {
+  private async getReposts(userId: number, currentUserId: number, page: number, limit: number) {
     const reposts = await this.prismaService.repost.findMany({
       where: {
         user_id: userId,
@@ -1182,7 +1195,7 @@ export class PostService {
 
     const originalPostIds = reposts.map((r) => r.post_id);
 
-    const originalPostData = await this.findPosts({
+    const { data: originalPostData, metadata } = await this.findPosts({
       where: {
         id: { in: originalPostIds },
         is_deleted: false,
@@ -1201,18 +1214,21 @@ export class PostService {
     enrichedOriginalParentData.forEach((p) => postMap.set(p.postId, p));
 
     // 5. Embed original post data into reposts
-    return reposts.map((r) => ({
-      userId: r.user_id,
-      username: r.user.username,
-      verified: r.user.is_verified,
-      name: r.user.Profile?.name || r.user.username,
-      avatar: r.user.Profile?.profile_image_url || null,
-      isFollowedByMe: (r.user.Followers && r.user.Followers.length > 0) || false,
-      isMutedByMe: (r.user.Muters && r.user.Muters.length > 0) || false,
-      isBlockedByMe: (r.user.Blockers && r.user.Blockers.length > 0) || false,
-      date: r.created_at,
-      originalPostData: postMap.get(r.post_id),
-    }));
+    return {
+      reposts: reposts.map((r) => ({
+        userId: r.user_id,
+        username: r.user.username,
+        verified: r.user.is_verified,
+        name: r.user.Profile?.name || r.user.username,
+        avatar: r.user.Profile?.profile_image_url || null,
+        isFollowedByMe: (r.user.Followers && r.user.Followers.length > 0) || false,
+        isMutedByMe: (r.user.Muters && r.user.Muters.length > 0) || false,
+        isBlockedByMe: (r.user.Blockers && r.user.Blockers.length > 0) || false,
+        date: r.created_at,
+        originalPostData: postMap.get(r.post_id),
+      })),
+      metadata
+    };
   }
 
   async getUserPosts(userId: number, currentUserId: number, page: number, limit: number) {
@@ -1220,7 +1236,7 @@ export class PostService {
     const safetyLimit = page * limit;
     const offset = (page - 1) * limit;
 
-    const [posts, reposts] = await Promise.all([
+    const [{ data: posts, metadata: postMetadata }, {reposts, metadata: repostMetadata}] = await Promise.all([
       this.findPosts({
         where: {
           user_id: userId,
@@ -1236,8 +1252,15 @@ export class PostService {
     const enrichIfQuoteOrReply = await this.enrichIfQuoteOrReply(posts, currentUserId);
 
     const combined = this.combineAndSort(enrichIfQuoteOrReply, reposts);
-    return combined.slice(offset, offset + limit);
+    return { data: combined.slice(offset, offset + limit),
+       metadata: { 
+        totalItems: postMetadata.totalItems + repostMetadata.totalItems,
+        currentPage: page,
+        totalPages: Math.ceil((postMetadata.totalItems + repostMetadata.totalItems) / limit),
+        itemsPerPage: limit
+     } };
   }
+
   private combineAndSort(posts: TransformedPost[], reposts: RepostedPost[]) {
     const combined = [
       ...posts.map((p) => ({ ...p, isRepost: false })),
@@ -1281,7 +1304,7 @@ export class PostService {
   }
 
   async getUserMedia(userId: number, page: number, limit: number) {
-    return await this.prismaService.media.findMany({
+    const media = await this.prismaService.media.findMany({
       where: {
         user_id: userId,
       },
@@ -1291,10 +1314,22 @@ export class PostService {
       skip: (page - 1) * limit,
       take: limit,
     });
+    const totalMedia = await this.prismaService.media.count({
+      where: {
+        user_id: userId,
+      },
+    });
+    
+    return { data: media, metadata: {
+      totalItems: totalMedia,
+      currentPage: page,
+      totalPages: Math.ceil(totalMedia / limit),
+      itemsPerPage: limit,
+    } };
   }
 
   async getUserReplies(userId: number, currentUserId: number, page: number, limit: number) {
-    const replies = await this.findPosts({
+    const { data: replies, metadata } = await this.findPosts({
       where: {
         type: PostType.REPLY,
         user_id: userId,
@@ -1306,8 +1341,9 @@ export class PostService {
     });
 
     const enrichedOriginalPostsData = await this.enrichIfQuoteOrReply(replies, currentUserId);
-    
-    return await this.enrichNestedOriginalPosts(enrichedOriginalPostsData, currentUserId);
+
+    const nestedEnrichedPost = await this.enrichNestedOriginalPosts(enrichedOriginalPostsData, currentUserId);
+    return { data: nestedEnrichedPost, metadata };
   }
 
   async getRepliesOfPost(postId: number, page: number, limit: number, userId: number) {
@@ -1362,7 +1398,7 @@ export class PostService {
   }
 
   async getPostById(postId: number, userId: number) {
-    const [post] = await this.findPosts({
+    const { data: [post] } = await this.findPosts({
       where: { id: postId, is_deleted: false },
       userId,
       page: 1,
@@ -1374,6 +1410,7 @@ export class PostService {
 
     const enrichedPost = await this.enrichIfQuoteOrReply([post], userId);
     return await this.enrichNestedOriginalPosts(enrichedPost, userId);
+
   }
 
   async getPostStats(postId: number) {
@@ -1533,29 +1570,29 @@ export class PostService {
 
     return { posts: formattedPosts };
   }
-private async GetPersonalizedForYouPosts(
-  userId: number,
-  page = 1,
-  limit = 50,
-): Promise<PostWithAllData[]> {
-  console.log(`[QUERY] Starting ULTRA-OPTIMIZED GetPersonalizedForYouPosts for user ${userId}`);
-  
-  const personalizationWeights = {
-    ownPost: 20.0,
-    following: 15.0,
-    directLike: 10.0,
-    commonLike: 5.0,
-    commonFollow: 3.0,
-    wTypePost: 1.0,
-    wTypeQuote: 0.8,
-    wTypeRepost: 0.5,
-  };
+  private async GetPersonalizedForYouPosts(
+    userId: number,
+    page = 1,
+    limit = 50,
+  ): Promise<PostWithAllData[]> {
+    console.log(`[QUERY] Starting ULTRA-OPTIMIZED GetPersonalizedForYouPosts for user ${userId}`);
 
-  // KEY OPTIMIZATION: Instead of pulling ALL posts from ALL interests,
-  // we'll pull TOP posts from EACH interest, then combine and re-rank
-  const candidateLimitPerInterest = Math.ceil(limit * 3); // Get 150 candidates (50 * 3)
+    const personalizationWeights = {
+      ownPost: 20.0,
+      following: 15.0,
+      directLike: 10.0,
+      commonLike: 5.0,
+      commonFollow: 3.0,
+      wTypePost: 1.0,
+      wTypeQuote: 0.8,
+      wTypeRepost: 0.5,
+    };
 
-  const query = `
+    // KEY OPTIMIZATION: Instead of pulling ALL posts from ALL interests,
+    // we'll pull TOP posts from EACH interest, then combine and re-rank
+    const candidateLimitPerInterest = Math.ceil(limit * 3); // Get 150 candidates (50 * 3)
+
+    const query = `
     WITH user_interests AS (
       SELECT "interest_id"
       FROM "user_interests"
@@ -1845,8 +1882,8 @@ private async GetPersonalizedForYouPosts(
     SELECT * FROM candidate_posts;
   `;
 
-  return await this.prismaService.$queryRawUnsafe<PostWithAllData[]>(query);
-}
+    return await this.prismaService.$queryRawUnsafe<PostWithAllData[]>(query);
+  }
   async getFollowingForFeed(
     userId: number,
     page = 1,

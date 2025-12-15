@@ -149,6 +149,7 @@ describe('Post Service', () => {
         type: PostType.POST,
         visibility: PostVisibility.EVERY_ONE,
         user_id: 1,
+        created_at: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
         hashtags: [],
@@ -224,6 +225,7 @@ describe('Post Service', () => {
         type: 'POST',
         visibility: 'EVERY_ONE',
         user_id: 1,
+        created_at: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
         hashtags: [],
@@ -503,7 +505,10 @@ describe('Post Service', () => {
         },
       }];
 
-      jest.spyOn(service, 'findPosts').mockResolvedValue([mockPost]);
+      jest.spyOn(service, 'findPosts').mockResolvedValue({
+        data: [mockPost],
+        metadata: { totalItems: 1, page: 1, limit: 1, totalPages: 1 },
+      });
       jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue(mockEnrichedPost);
 
       const result = await service.getPostById(postId, userId);
@@ -698,11 +703,12 @@ describe('Post Service', () => {
         },
       ];
 
-      const mockCounts = [{ replies: 3, quotes: 1 }];
+      const mockCountsMap = new Map([[1, { replies: 3, quotes: 1 }]]);
 
       prisma.post.findMany.mockResolvedValue(mockRawPosts);
-      // Mock the private getPostCounts method
-      jest.spyOn(service as any, 'getPostCounts').mockResolvedValue(mockCounts[0]);
+      prisma.post.count.mockResolvedValue(1);
+      // Mock the private getPostsCounts method
+      jest.spyOn(service as any, 'getPostsCounts').mockResolvedValue(mockCountsMap);
       jest.spyOn(service as any, 'transformPost').mockReturnValue([
         {
           userId: 1,
@@ -739,8 +745,9 @@ describe('Post Service', () => {
         take: 10,
         orderBy: { created_at: 'desc' },
       });
-      expect(result).toHaveLength(1);
-      expect(result[0].userId).toBe(1);
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].userId).toBe(1);
+      expect(result.metadata).toEqual({ totalItems: 1, page: 1, limit: 10, totalPages: 1 });
     });
 
     it('should return empty array when no posts found', async () => {
@@ -753,12 +760,16 @@ describe('Post Service', () => {
       };
 
       prisma.post.findMany.mockResolvedValue([]);
-      jest.spyOn(service as any, 'getPostCounts').mockResolvedValue({ replies: 0, quotes: 0 });
+      prisma.post.count.mockResolvedValue(0);
+      jest.spyOn(service as any, 'getPostsCounts').mockResolvedValue(new Map());
       jest.spyOn(service as any, 'transformPost').mockReturnValue([]);
 
       const result = await service.findPosts(options);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({
+        data: [],
+        metadata: { totalItems: 0, page: 1, limit: 10, totalPages: 0 },
+      });
     });
   });
 
@@ -844,8 +855,14 @@ describe('Post Service', () => {
         },
       ];
 
-      jest.spyOn(service, 'findPosts').mockResolvedValue(mockPosts);
-      jest.spyOn(service as any, 'getReposts').mockResolvedValue(mockReposts);
+      jest.spyOn(service, 'findPosts').mockResolvedValue({
+        data: mockPosts,
+        metadata: { totalItems: 1, page: 1, limit: 10, totalPages: 1 },
+      });
+      jest.spyOn(service as any, 'getReposts').mockResolvedValue({
+        reposts: mockReposts,
+        metadata: { totalItems: 1, page: 1, limit: 10, totalPages: 1 },
+      });
       jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue(mockPosts);
       jest.spyOn(service as any, 'combineAndSort').mockReturnValue(mockCombinedResult);
 
@@ -861,7 +878,8 @@ describe('Post Service', () => {
         page: 1,
         limit: 10, // safetyLimit = page * limit
       });
-      expect(result).toHaveLength(2);
+      expect(result.data).toHaveLength(2);
+      expect(result.metadata).toBeDefined();
     });
   });
 
@@ -891,6 +909,7 @@ describe('Post Service', () => {
       ];
 
       prisma.media.findMany.mockResolvedValue(mockMedia);
+      prisma.media.count = jest.fn().mockResolvedValue(2);
 
       const result = await service.getUserMedia(userId, page, limit);
 
@@ -900,7 +919,13 @@ describe('Post Service', () => {
         skip: 0,
         take: 10,
       });
-      expect(result).toEqual(mockMedia);
+      expect(result.data).toEqual(mockMedia);
+      expect(result.metadata).toEqual({
+        totalItems: 2,
+        currentPage: 1,
+        totalPages: 1,
+        itemsPerPage: 10,
+      });
     });
 
     it('should return empty array when user has no media', async () => {
@@ -909,6 +934,7 @@ describe('Post Service', () => {
       const limit = 10;
 
       prisma.media.findMany.mockResolvedValue([]);
+      prisma.media.count = jest.fn().mockResolvedValue(0);
 
       const result = await service.getUserMedia(userId, page, limit);
 
@@ -918,7 +944,15 @@ describe('Post Service', () => {
         skip: 0,
         take: 10,
       });
-      expect(result).toEqual([]);
+      expect(result).toEqual({
+        data: [],
+        metadata: {
+          totalItems: 0,
+          currentPage: 1,
+          totalPages: 0,
+          itemsPerPage: 10,
+        },
+      });
     });
   });
 
@@ -985,7 +1019,10 @@ describe('Post Service', () => {
         },
       ];
 
-      jest.spyOn(service, 'findPosts').mockResolvedValue(mockReplies);
+      jest.spyOn(service, 'findPosts').mockResolvedValue({
+        data: mockReplies,
+        metadata: { totalItems: 1, page: 1, limit: 10, totalPages: 1 },
+      });
       jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue(mockEnrichedReplies);
 
       const result = await service.getUserReplies(userId, userId, page, limit);
@@ -1000,7 +1037,10 @@ describe('Post Service', () => {
         page,
         limit,
       });
-      expect(result).toEqual(mockEnrichedReplies);
+      expect(result).toEqual({
+        data: mockEnrichedReplies,
+        metadata: { totalItems: 1, page: 1, limit: 10, totalPages: 1 },
+      });
     });
 
     it('should return empty array when user has no replies', async () => {
@@ -1008,7 +1048,10 @@ describe('Post Service', () => {
       const page = 1;
       const limit = 10;
 
-      jest.spyOn(service, 'findPosts').mockResolvedValue([]);
+      jest.spyOn(service, 'findPosts').mockResolvedValue({
+        data: [],
+        metadata: { totalItems: 0, page: 1, limit: 10, totalPages: 0 },
+      });
       jest.spyOn(service as any, 'enrichIfQuoteOrReply').mockResolvedValue([]);
 
       const result = await service.getUserReplies(userId, userId, page, limit);
@@ -1023,7 +1066,10 @@ describe('Post Service', () => {
         page,
         limit,
       });
-      expect(result).toEqual([]);
+      expect(result).toEqual({
+        data: [],
+        metadata: { totalItems: 0, page: 1, limit: 10, totalPages: 0 },
+      });
     });
   });
 
@@ -1061,7 +1107,12 @@ describe('Post Service', () => {
         },
       ];
 
-      jest.spyOn(service, 'findPosts').mockResolvedValue(mockReplies);
+      const expectedResult = {
+        data: mockReplies,
+        metadata: { totalItems: 1, page: 1, limit: 10, totalPages: 1 },
+      };
+
+      jest.spyOn(service, 'findPosts').mockResolvedValue(expectedResult);
 
       const result = await service.getRepliesOfPost(postId, page, limit, userId);
 
@@ -1075,7 +1126,7 @@ describe('Post Service', () => {
         page,
         limit,
       });
-      expect(result).toEqual(mockReplies);
+      expect(result).toEqual(expectedResult);
     });
 
     it('should return empty array when post has no replies', async () => {
@@ -1084,7 +1135,12 @@ describe('Post Service', () => {
       const limit = 10;
       const userId = 2;
 
-      jest.spyOn(service, 'findPosts').mockResolvedValue([]);
+      const expectedResult = {
+        data: [],
+        metadata: { totalItems: 0, page: 1, limit: 10, totalPages: 0 },
+      };
+
+      jest.spyOn(service, 'findPosts').mockResolvedValue(expectedResult);
 
       const result = await service.getRepliesOfPost(postId, page, limit, userId);
 
@@ -1098,7 +1154,7 @@ describe('Post Service', () => {
         page,
         limit,
       });
-      expect(result).toEqual([]);
+      expect(result).toEqual(expectedResult);
     });
   });
 
