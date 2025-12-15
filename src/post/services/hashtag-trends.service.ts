@@ -8,6 +8,8 @@ import { TrendCategory, CATEGORY_TO_INTERESTS } from '../enums/trend-category.en
 import { UsersService } from 'src/users/users.service';
 
 const HASHTAG_TRENDS_TOKEN_PREFIX = 'hashtags:trending:';
+const HASHTAG_RECALC_PREFIX = 'hashtags:recalculating:';
+
 
 @Injectable()
 export class HashtagTrendService {
@@ -214,10 +216,25 @@ export class HashtagTrendService {
     if (trends.length === 0) {
       // Only recalculate if we haven't calculated at all in the last 24h
       if (!anyRecentCalculation) {
-        this.logger.log(`No recent trends found for ${category} (User: ${userId}), triggering recalculation`);
-        this.recalculateTrends(category, userId).catch((err) =>
-          this.logger.error(`Background recalculation failed for ${category}:`, err),
-        );
+        const recalcKey =
+          category === TrendCategory.PERSONALIZED && userId
+            ? `${HASHTAG_RECALC_PREFIX}${category}:${userId}`
+            : `${HASHTAG_RECALC_PREFIX}${category}`;
+
+        const isRecalculating = await this.redisService.get(recalcKey);
+
+        if (!isRecalculating) {
+          this.logger.log(`No recent trends found for ${category} (User: ${userId}), triggering recalculation`);
+          // Set lock for 2 minutes to prevent duplicate jobs
+          await this.redisService.set(recalcKey, '1', 120);
+
+          this.recalculateTrends(category, userId).catch((err) => {
+            this.logger.error(`Background recalculation failed for ${category}:`, err);
+            // Optional: release lock on error, but TTL will handle it
+          });
+        } else {
+          this.logger.debug(`Recalculation already in progress for ${category} (User: ${userId})`);
+        }
       } else {
         this.logger.debug(`Recent trends exist but score 0 for ${category}, returning empty`);
       }
