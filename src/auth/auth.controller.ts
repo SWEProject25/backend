@@ -490,7 +490,7 @@ export class AuthController {
   public async googleRedirect(
     @Req() req: RequestWithUser,
     @Res() res: Response,
-    @Query('platform') platform: string,
+    @Query('state') platform: string,
   ) {
     const { accessToken, ...user } = await this.authService.login(
       req.user.sub ?? req.user?.id,
