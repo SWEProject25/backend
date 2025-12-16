@@ -1904,7 +1904,7 @@ export class PostService {
               'repostCount', (SELECT COUNT(*)::int FROM "Repost" WHERE "post_id" = op."id"),
               'replyCount', (SELECT COUNT(*)::int FROM "posts" WHERE "parent_id" = op."id" AND "type" = 'REPLY'),
               'author', json_build_object('username', ou."username", 'avatar', opr."profile_image_url"),
-              'media', (SELECT json_agg(json_build_object('url', om."media_url")) FROM "Media" om WHERE om."post_id" = op."id")
+              'media', (SELECT json_agg(json_build_object('url', om."media_url", 'type', om."type")) FROM "Media" om WHERE om."post_id" = op."id")
             )
             FROM "posts" op
             JOIN "User" ou ON ou."id" = op."user_id"
