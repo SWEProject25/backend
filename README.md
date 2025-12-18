@@ -1,98 +1,171 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Hankers — Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+<div align="center">
+  <img src="public/favicon.svg" alt="Hankers Logo" width="120" height="120" />
+  <h2>Scalable Social Networking Backend — NestJS</h2>
+  <p>A modular, production-ready REST API powering the Hankers platform</p>
+  <a href="https://hankers.tech" target="_blank"><strong>🔗 Live Platform: hankers.tech</strong></a>
+</div>
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## 📌 Overview
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+**Hankers Backend** is a **scalable, secure, and maintainable REST API** built with **NestJS** and **TypeScript**, designed to support a modern social networking platform similar to Twitter/X.
 
-## Project setup
+The backend follows **domain-driven and feature-based architecture**, emphasizing:
+
+- Clear separation of concerns
+- Strong typing and validation
+- Testability and scalability
+- Real-world backend engineering practices
+
+This codebase is structured to support **large teams**, **high traffic**, and **long-term growth**.
+
+---
+
+## ✨ Core Backend Features
+
+* 🔐 **Authentication & Authorization**
+
+  - JWT access & refresh tokens
+  - OTP & password reset flows
+  - Role-based access control (RBAC)
+* 👤 **User Management**
+
+  - Profiles, avatars, bios
+  - Follow / unfollow system
+  - Privacy & account settings
+* 📝 **Posts & Interactions**
+
+  - Create, edit, delete posts
+  - Replies, likes, reposts
+  - Optimized feed queries
+* 💬 **Messaging System**
+
+  - One-to-one & group chats
+  - Read receipts & typing indicators
+  - WebSocket real-time support
+* 🔔 **Notifications**
+
+  - Real-time notifications
+  - Event-driven architecture
+  - Firebase / push-ready
+* 🔍 **Search & Explore**
+
+  - Hashtags & trending topics
+  - User & content search
+  - Pagination & filtering
+* 🛡 **Security**
+
+  - Input validation
+  - Rate limiting
+  - Secure password hashing
+
+---
+
+## 🧱 Architecture Philosophy
+
+The backend follows a **Feature-First Modular Architecture**, fully aligned with NestJS best practices.
+
+Each feature is:
+
+- Encapsulated inside its own module
+- Independently testable
+- Easy to scale, refactor, or remove
+
+> ✅ This avoids bloated global folders and mirrors real production NestJS systems.
+
+---
+
+## 🛠 Tech Stack
+
+### Core
+
+- **Framework**: NestJS
+- **Language**: TypeScript
+- **Runtime**: Node.js
+
+### Data & Infrastructure
+
+- **Database**: PostgreSQL
+- **ORM**: Prisma
+- **Caching**: Redis
+- **File Storage**: AWS S3 (or compatible)
+
+### Communication
+
+- **API**: REST
+- **Real-Time**: WebSockets (Socket.IO)
+- **Async Events**: Event Emitters / Queues
+
+### Security & Auth
+
+- **Auth**: JWT + Passport
+- **Validation**: class-validator & class-transformer
+- **Hashing**: bcrypt
+
+### Testing & Quality
+
+- **Unit & Integration**: Jest
+- **E2E Testing**: Supertest
+- **Linting**: ESLint + Prettier
+
+### DevOps & Deployment
+
+- **Containerization**: Docker
+- **CI/CD**: GitHub Actions
+- **Hosting**: AWS
+
+---
+
+## 🚀 Getting Started
+
+### 1️⃣ Install Dependencies
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### ⚙️ Backend Team
+<table>
+<tr>
+  <td align="center">
+    <a href="https://github.com/OmarNabil005">
+      <img src="https://github.com/OmarNabil005.png" width="100">
+      <br />
+      <sub><b>Omar Nabil</b></sub>
+    </a>
+  </td>
+  <td align="center">
+    <a href="https://github.com/Salah3060">
+      <img src="https://github.com/Salah3060.png" width="100">
+      <br />
+      <sub><b>Salah Mostafa</b></sub>
+    </a>
+  </td>
+  <td align="center">
+    <a href="https://github.com/ahmedGamalEllabban">
+      <img src="https://github.com/ahmedGamalEllabban.png" width="100">
+      <br />
+      <sub><b>Ahmed Ellabban</b></sub>
+    </a>
+  </td>
+  <td align="center">
+    <a href="https://github.com/mohamed-sameh-albaz">
+      <img src="https://github.com/mohamed-sameh-albaz.png" width="100">
+      <br />
+      <sub><b>Mohamed Albaz</b></sub>
+    </a>
+  </td>
+  <td align="center">
+    <a href="https://github.com/YousefAref72">
+      <img src="https://github.com/YousefAref72.png" width="100">
+      <br />
+      <sub><b>Yousef Aref</b></sub>
+    </a>
+  </td>
+</tr>
+</table>
