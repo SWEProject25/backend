@@ -6,10 +6,375 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  // output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      Int            @id @default(autoincrement())
+  email                   String         @unique @map("email")
+  username                String         @unique() @map("username") @db.VarChar(50)
+  password                String         @map("password") @db.VarChar(255)
+  is_verified             Boolean        @default(false) @map("is_verifed")
+  provider_id             String?        @unique @map("provider_id")
+  role                    Role           @default(USER) @map("role")
+  has_completed_interests Boolean        @default(false) @map("has_completed_interests")
+  has_completed_following Boolean        @default(false) @map("has_completed_following")
+  created_at              DateTime       @default(now()) @map("created_at")
+  updated_at              DateTime       @updatedAt() @map("updated_at")
+  deleted_at              DateTime?      @map("deleted_at")
+  Profile                 Profile?
+  Posts                   Post[]
+  Followers               Follow[]       @relation("Following")
+  Following               Follow[]       @relation("Follower")
+  reposts                 Repost[]
+  likes                   Like[]
+  mentions                Mention[]
+  Blockers                Block[]        @relation("Blocked")
+  Blocked                 Block[]        @relation("Blocker")
+  Muters                  Mute[]         @relation("Muted")
+  Muted                   Mute[]         @relation("Muter")
+  ConversationsAsUser1    Conversation[] @relation("User1Conversations")
+  ConversationsAsUser2    Conversation[] @relation("User2Conversations")
+  MessagesSent            Message[]
+  interests               UserInterest[]
+  ReceivedNotifications   Notification[] @relation("ReceivedNotifications")
+  SentNotifications       Notification[] @relation("SentNotifications")
+  DeviceTokens            DeviceToken[]
+  Media                   Media[]
+  hashtagTrends           HashtagTrend[]
+}
+
+model Profile {
+  id                Int       @id @default(autoincrement())
+  user_id           Int       @unique
+  name              String    @db.VarChar(100)
+  birth_date        DateTime?
+  profile_image_url String?   @db.VarChar(255)
+  banner_image_url  String?   @db.VarChar(255)
+  bio               String?   @db.VarChar(160)
+  location          String?   @db.VarChar(100)
+  website           String?   @db.VarChar(100)
+  is_deactivated    Boolean?  @default(false)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  User              User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model EmailVerification {
+  id         Int      @id @default(autoincrement())
+  user_email String   @unique @map("user_email")
+  token      String
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  @@map("email_verification")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Interest {
+  id          Int            @id @default(autoincrement())
+  name        String         @unique @db.VarChar(50)
+  slug        String         @unique @db.VarChar(50)
+  description String?        @db.VarChar(255)
+  icon        String?        @db.VarChar(100)
+  is_active   Boolean        @default(true)
+  created_at  DateTime       @default(now())
+  updated_at  DateTime       @updatedAt
+  users       UserInterest[]
+  posts       Post[]
+
+  @@index([is_active])
+  @@map("interests")
+}
+
+model UserInterest {
+  user_id     Int
+  interest_id Int
+  created_at  DateTime @default(now())
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  interest    Interest @relation(fields: [interest_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, interest_id])
+  @@index([user_id])
+  @@index([interest_id])
+  @@map("user_interests")
+}
+
+model Post {
+  id            Int            @id @default(autoincrement())
+  user_id       Int
+  content       String?
+  type          PostType
+  parent_id     Int?
+  visibility    PostVisibility
+  interest_id   Int?
+  created_at    DateTime       @default(now())
+  is_deleted    Boolean        @default(false)
+  summary       String?
+  likes         Like[]
+  media         Media[]
+  mentions      Mention[]
+  repostedBy    Repost[]
+  ParentPost    Post?          @relation("PostToReplies", fields: [parent_id], references: [id])
+  Replies       Post[]         @relation("PostToReplies")
+  User          User           @relation(fields: [user_id], references: [id])
+  Interest      Interest?      @relation(fields: [interest_id], references: [id])
+  hashtags      Hashtag[]      @relation("PostHashtags")
+  Notifications Notification[]
+
+  @@index([is_deleted, type, created_at])
+  @@index([interest_id, is_deleted, type, created_at])
+  @@index([user_id, is_deleted, type, created_at])
+  @@index([parent_id, is_deleted])
+  @@index([created_at(sort: Desc)])
+  @@map("posts")
+}
+
+model Follow {
+  followerId  Int
+  followingId Int
+  createdAt   DateTime @default(now())
+  Follower    User     @relation("Follower", fields: [followerId], references: [id])
+  Following   User     @relation("Following", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model Block {
+  blockerId Int
+  blockedId Int
+  createdAt DateTime @default(now())
+  Blocker   User     @relation("Blocker", fields: [blockerId], references: [id])
+  Blocked   User     @relation("Blocked", fields: [blockedId], references: [id])
+
+  @@id([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+  @@map("blocks")
+}
+
+model Mute {
+  muterId   Int
+  mutedId   Int
+  createdAt DateTime @default(now())
+  Muter     User     @relation("Muter", fields: [muterId], references: [id])
+  Muted     User     @relation("Muted", fields: [mutedId], references: [id])
+
+  @@id([muterId, mutedId])
+  @@index([muterId])
+  @@index([mutedId])
+  @@map("mutes")
+}
+
+enum PostType {
+  POST
+  REPLY
+  QUOTE
+}
+
+enum PostVisibility {
+  EVERY_ONE
+  FOLLOWERS
+  MENTIONED
+  VERIFIED
+}
+
+model Repost {
+  post_id    Int
+  user_id    Int
+  created_at DateTime @default(now())
+  post       Post     @relation(fields: [post_id], references: [id])
+  user       User     @relation(fields: [user_id], references: [id])
+
+  @@id([post_id, user_id])
+  @@index([user_id, created_at])
+  @@index([created_at])
+}
+
+model Hashtag {
+  id         Int            @id @default(autoincrement())
+  tag        String         @unique
+  created_at DateTime       @default(now())
+  posts      Post[]         @relation("PostHashtags")
+  trends     HashtagTrend[]
+}
+
+model HashtagTrend {
+  id             Int      @id @default(autoincrement())
+  hashtag_id     Int
+  user_id        Int?
+  category       String   @default("general") @db.VarChar(50)
+  post_count_1h  Int
+  post_count_24h Int
+  post_count_7d  Int
+  trending_score Float
+  calculated_at  DateTime @default(now())
+  hashtag        Hashtag  @relation(fields: [hashtag_id], references: [id], onDelete: Cascade)
+  user           User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@unique([hashtag_id, category, user_id], name: "hashtag_id_category_userId")
+  @@index([category, trending_score])
+  @@index([category, calculated_at])
+  @@index([user_id, category, trending_score])
+  @@map("hashtag_trends")
+}
+
+model Like {
+  post_id    Int
+  user_id    Int
+  created_at DateTime @default(now())
+  post       Post     @relation(fields: [post_id], references: [id])
+  user       User     @relation(fields: [user_id], references: [id])
+
+  @@id([post_id, user_id])
+  @@index([user_id])
+  @@index([post_id])
+}
+
+model Mention {
+  id         Int      @id @default(autoincrement())
+  post_id    Int
+  user_id    Int
+  created_at DateTime @default(now())
+
+  post Post @relation(fields: [post_id], references: [id])
+  user User @relation(fields: [user_id], references: [id])
+
+  @@index([post_id])
+  @@index([user_id])
+}
+
+model Conversation {
+  id               Int            @id @default(autoincrement())
+  user1Id          Int
+  user2Id          Int
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime?      @updatedAt
+  nextMessageIndex Int            @default(1)
+  User1            User           @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
+  User2            User           @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
+  Messages         Message[]
+  Notifications    Notification[]
+
+  @@unique([user1Id, user2Id])
+  @@map("conversations")
+}
+
+model Message {
+  id             Int       @id @default(autoincrement())
+  conversationId Int
+  messageIndex   Int?
+  senderId       Int
+  text           String    @db.VarChar(1000)
+  isDeletedU1    Boolean   @default(false)
+  isDeletedU2    Boolean   @default(false)
+  isSeen         Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime? @updatedAt
+
+  Conversation Conversation @relation(fields: [conversationId], references: [id])
+  Sender       User         @relation(fields: [senderId], references: [id])
+
+  @@map("messages")
+}
+
+model Media {
+  id         Int       @id @default(autoincrement())
+  post_id    Int
+  media_url  String
+  created_at DateTime  @default(now())
+  type       MediaType
+  user_id    Int
+
+  post Post @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  User User @relation(fields: [user_id], references: [id])
+
+  @@index([post_id])
+}
+
+enum MediaType {
+  VIDEO
+  IMAGE
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  type        NotificationType
+  recipientId Int              @map("recipient_id")
+  actorId     Int              @map("actor_id")
+
+  // Actor snapshot to avoid N+1 queries
+  actorUsername    String  @map("actor_username") @db.VarChar(50)
+  actorDisplayName String? @map("actor_display_name") @db.VarChar(100)
+  actorAvatarUrl   String? @map("actor_avatar_url") @db.VarChar(255)
+
+  // Post-related (for LIKE, REPOST, QUOTE, REPLY, MENTION)
+  postId       Int? @map("post_id")
+  quotePostId  Int? @map("quote_post_id") // for QUOTE type
+  replyId      Int? @map("reply_id") // for REPLY/MENTION in replies
+  threadPostId Int? @map("thread_post_id") // root post of thread
+
+  // DM-related
+  conversationId Int?    @map("conversation_id")
+  messagePreview String? @map("message_preview") @db.VarChar(200)
+
+  postPreviewText String? @map("post_preview_text") @db.VarChar(200)
+
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  recipient User @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User @relation("SentNotifications", fields: [actorId], references: [id], onDelete: Cascade)
+
+  // Optional relations
+  post         Post?         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, createdAt(sort: Desc)])
+  @@index([recipientId, isRead])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  LIKE
+  REPOST
+  QUOTE
+  REPLY
+  MENTION
+  FOLLOW
+  DM
+}
+
+model DeviceToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  token     String   @unique @db.VarChar(255)
+  platform  Platform
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+enum Platform {
+  WEB
+  IOS
+  ANDROID
 }
